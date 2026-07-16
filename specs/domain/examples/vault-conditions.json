@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "title": "La chambre forte",
+  "initialNodeId": "vault",
+  "nodes": [
+    {
+      "id": "vault",
+      "text": "Une porte attend le bon niveau de courage.",
+      "onEnterEffects": [
+        { "$type": "assign", "name": "courage", "value": 2 }
+      ],
+      "choices": [
+        {
+          "id": "open",
+          "text": "Ouvrir la porte",
+          "targetNodeId": "treasure",
+          "condition": { "$type": "variableAtLeast", "name": "courage", "value": 2 },
+          "effects": [
+            { "$type": "increment", "name": "courage", "amount": 1 },
+            {
+              "$type": "schedule",
+              "turns": 1,
+              "effect": { "$type": "collect", "item": "delayed-medal" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "treasure",
+      "text": "Le trésor est à vous.",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true
+    }
+  ]
+}
