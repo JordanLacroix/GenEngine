@@ -29,3 +29,5 @@ Observabilité complète, audit renforcé, résilience, sauvegarde/restauration 
 **Statut : en cours.** Les trois API exportent désormais logs, traces et métriques en OTLP. Une stack locale optionnelle fournit Collector, Prometheus, Tempo, Loki et Grafana. Les prochains lots portent sur les SLO/alertes, l’audit métier, la résilience puis la sauvegarde/restauration.
 
 Le suivi détaillé se trouve dans [`modules/hardening/tasks.md`](modules/hardening/tasks.md).
+
+**Prochaine tâche : `HRD-003`.** Le passage de relais et les critères de reprise sont détaillés dans [`handoff.md`](handoff.md).

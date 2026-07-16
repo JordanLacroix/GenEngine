@@ -98,8 +98,8 @@ La surcouche ajoute le Collector OpenTelemetry et les trois signaux corrélés :
 |---|---|
 | Grafana | <http://localhost:3000> |
 | Prometheus | <http://localhost:9090> |
-| Tempo | <http://localhost:3200> |
-| Loki | <http://localhost:3100> |
+| Tempo | <http://localhost:3200> — API uniquement |
+| Loki | <http://localhost:3100> — API uniquement |
 
 L’accès anonyme en lecture à Grafana est strictement réservé au développement local. La stack de base et le smoke test CI restent indépendants de cette surcouche.
 
@@ -238,6 +238,7 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 |---|---|
 | [`specs/README.md`](specs/README.md) | Index documentaire et sources de vérité |
 | [`specs/roadmap.md`](specs/roadmap.md) | Jalons et progression |
+| [`specs/handoff.md`](specs/handoff.md) | État vérifié et prochaine unité de travail |
 | [`specs/architecture.md`](specs/architecture.md) | Modules et règles de dépendance |
 | [`specs/invariants.md`](specs/invariants.md) | Invariants non négociables |
 | [`specs/glossary.md`](specs/glossary.md) | Vocabulaire métier |
