@@ -13,6 +13,7 @@ Dernière mise à jour : 16 juillet 2026.
 - Le dashboard Grafana `GenEngine — Vue d’ensemble` est provisionné.
 - `HRD-003` livre des SLI/SLO provisoires : voir `specs/process/slo.md`, les règles Prometheus sous `deploy/observability/rules/` et le dashboard `GenEngine — SLO et budget d’erreur`.
 - `HRD-004` livre l’audit métier : primitive `IAuditLog` dans `GenEngine.Observability`, événements émis à la frontière Api des trois services, politique de non-fuite dans `specs/process/audit.md`.
+- `HRD-005` équipe l’appel `Play → Authoring` de résilience (timeouts, retry borné, circuit breaker) via `Microsoft.Extensions.Http.Resilience` : voir `specs/process/resilience.md`.
 - La dernière PR fonctionnelle fusionnée avant ce handoff est la PR GitHub `#12`.
 - Au moment du handoff, le dépôt était propre, synchronisé avec `origin/main`, la stack complète était active et tous ses conteneurs étaient sains.
 
@@ -79,7 +80,7 @@ Ne choisis pas silencieusement une bibliothèque de résilience ni des seuils ; 
 ## Zones à surveiller
 
 - Bug hors périmètre repéré pendant `HRD-003` : `POST /auth/login` (Identity) renvoie `500 internal_error` sur identifiants invalides ou corps vide, au lieu de `401`. Ces 5xx polluent le budget d’erreur ; à corriger dans un lot dédié Identity.
-- `Play` appelle actuellement l’API interne d’`Authoring` : `HRD-005` devra traiter précisément cet appel.
+- `Play` appelle l’API interne d’`Authoring` ; cet appel est désormais protégé par une politique de résilience (`HRD-005`, `specs/process/resilience.md`).
 - Les logs EF des health checks sont nombreux dans Loki ; ne réduis leur niveau qu’après avoir préservé la capacité de diagnostic.
 - Les ports PostgreSQL et observabilité sont exposés pour le développement local, pas comme modèle de production.
 - `GenEngine.Services.Tests` est actuellement un projet de test sans test découvert ; ne le présente pas comme une couverture effective.

@@ -10,6 +10,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Http.Resilience;
+
+using Polly;
 
 namespace GenEngine.Play.Infrastructure;
 
@@ -134,10 +137,32 @@ public static class PlayInfrastructureExtensions
         services.AddHttpClient<IAuthoringSnapshotClient, AuthoringSnapshotClient>(client =>
         {
             client.BaseAddress = new Uri(configuration["Services:Authoring"] ?? "http://localhost:5201");
-            client.Timeout = TimeSpan.FromSeconds(5);
-        });
+        })
+        .AddStandardResilienceHandler(ConfigureAuthoringResilience);
         services.AddHealthChecks().AddCheck<PlayDatabaseHealthCheck>("play-database");
         return services;
+    }
+
+    /// <summary>
+    /// Resilience policy for the outbound call to Authoring's internal snapshot
+    /// endpoint. That call is an idempotent GET, so a bounded retry with jittered
+    /// exponential backoff is safe. A per-attempt timeout bounds each try, the
+    /// total timeout bounds the whole operation, and the circuit breaker sheds
+    /// load when Authoring is unhealthy. Values are development defaults, to be
+    /// revised against real SLOs.
+    /// </summary>
+    public static void ConfigureAuthoringResilience(HttpStandardResilienceOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        options.AttemptTimeout.Timeout = TimeSpan.FromSeconds(3);
+        options.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(12);
+        options.Retry.MaxRetryAttempts = 3;
+        options.Retry.BackoffType = DelayBackoffType.Exponential;
+        options.Retry.UseJitter = true;
+        options.CircuitBreaker.SamplingDuration = TimeSpan.FromSeconds(30);
+        options.CircuitBreaker.MinimumThroughput = 10;
+        options.CircuitBreaker.FailureRatio = 0.5;
+        options.CircuitBreaker.BreakDuration = TimeSpan.FromSeconds(15);
     }
 
     public static async Task MigratePlayDatabaseAsync(
