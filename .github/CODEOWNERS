@@ -1,0 +1,6 @@
+# Default ownership. Add module-specific owners when the team grows.
+* @JordanLacroix
+
+/.github/ @JordanLacroix
+/specs/ @JordanLacroix
+/src/Modules/GenEngine.Narrative/ @JordanLacroix

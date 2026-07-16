@@ -1,0 +1,29 @@
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+categories:
+  - title: "💥 Changements incompatibles"
+    labels: ["breaking-change"]
+  - title: "✨ Fonctionnalités"
+    labels: ["type: feature"]
+  - title: "🐛 Corrections"
+    labels: ["type: bug"]
+  - title: "📚 Documentation"
+    labels: ["type: documentation"]
+  - title: "🔧 Maintenance et dépendances"
+    labels: ["type: maintenance", "dependencies"]
+change-template: "- $TITLE (#$NUMBER) @$AUTHOR"
+exclude-labels: ["skip-changelog"]
+version-resolver:
+  major:
+    labels: ["release: major", "breaking-change"]
+  minor:
+    labels: ["release: minor", "type: feature"]
+  patch:
+    labels: ["release: patch", "type: bug", "dependencies"]
+  default: patch
+template: |
+  ## Changements
+
+  $CHANGES
+
+  **Comparaison complète** : $PREVIOUS_TAG...v$RESOLVED_VERSION

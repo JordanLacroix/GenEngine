@@ -14,4 +14,5 @@ Ce dossier décrit les intentions, invariants et décisions du projet.
 - [Invariants](invariants.md)
 - [Glossaire](glossary.md)
 - [ADR](adr/README.md)
+- [Gouvernance GitHub et CI/CD](process/github-governance.md)
 - [Tâches du module Narrative](modules/narrative/tasks.md)
