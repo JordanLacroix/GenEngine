@@ -12,13 +12,4 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\GenEngine.SharedKernel\GenEngine.SharedKernel.csproj" />
-    <ProjectReference Include="..\..\src\Modules\GenEngine.Narrative\GenEngine.Narrative.csproj" />
-    <ProjectReference Include="..\..\src\Modules\GenEngine.Authoring\GenEngine.Authoring.csproj" />
-    <ProjectReference Include="..\..\src\Modules\GenEngine.Play\GenEngine.Play.csproj" />
-    <ProjectReference Include="..\..\src\Modules\GenEngine.Identity\GenEngine.Identity.csproj" />
-    <ProjectReference Include="..\..\src\GenEngine.Infrastructure\GenEngine.Infrastructure.csproj" />
-    <ProjectReference Include="..\..\src\GenEngine.Api\GenEngine.Api.csproj" />
-  </ItemGroup>
 </Project>

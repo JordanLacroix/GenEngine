@@ -104,7 +104,6 @@
         "dependencies": {
           "GenEngine.Authoring": "[1.0.0, )",
           "GenEngine.Identity": "[1.0.0, )",
-          "GenEngine.Infrastructure": "[1.0.0, )",
           "GenEngine.Play": "[1.0.0, )",
           "Microsoft.AspNetCore.OpenApi": "[10.0.9, )"
         }
@@ -112,40 +111,20 @@
       "genengine.authoring": {
         "type": "Project",
         "dependencies": {
-          "GenEngine.Narrative": "[1.0.0, )",
-          "GenEngine.SharedKernel": "[1.0.0, )"
+          "GenEngine.Narrative": "[1.0.0, )"
         }
       },
       "genengine.identity": {
-        "type": "Project",
-        "dependencies": {
-          "GenEngine.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "genengine.infrastructure": {
-        "type": "Project",
-        "dependencies": {
-          "GenEngine.Authoring": "[1.0.0, )",
-          "GenEngine.Identity": "[1.0.0, )",
-          "GenEngine.Play": "[1.0.0, )",
-          "GenEngine.SharedKernel": "[1.0.0, )"
-        }
+        "type": "Project"
       },
       "genengine.narrative": {
-        "type": "Project",
-        "dependencies": {
-          "GenEngine.SharedKernel": "[1.0.0, )"
-        }
+        "type": "Project"
       },
       "genengine.play": {
         "type": "Project",
         "dependencies": {
-          "GenEngine.Narrative": "[1.0.0, )",
-          "GenEngine.SharedKernel": "[1.0.0, )"
+          "GenEngine.Narrative": "[1.0.0, )"
         }
-      },
-      "genengine.sharedkernel": {
-        "type": "Project"
       },
       "Microsoft.AspNetCore.OpenApi": {
         "type": "CentralTransitive",

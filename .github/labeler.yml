@@ -22,7 +22,9 @@
   - changed-files:
       - any-glob-to-any-file:
           - ".github/**"
-          - "src/GenEngine.Infrastructure/**"
+          - "tests/GenEngine.Architecture.Tests/**"
+          - "specs/architecture.md"
+          - "specs/adr/**"
           - "Directory.*.props"
           - "global.json"
 "area: documentation":

@@ -39,8 +39,9 @@ Le projet vise un moteur :
 
 | Élément | État |
 |---|---|
-| Solution .NET 10 et projets modulaires | ✅ Initialisé |
+| Solution .NET 10 et bounded contexts | ✅ Initialisé |
 | Build sans warning | ✅ Vérifié |
+| Frontières de dépendance automatisées | ✅ Vérifiées en CI |
 | Health checks API | ✅ Disponibles |
 | Spécifications et invariants initiaux | 🚧 En cours |
 | Scénarios JSON de référence | ⏳ À faire |
@@ -70,7 +71,7 @@ dotnet build --no-restore -warnaserror
 dotnet test --no-build
 ```
 
-Les projets de tests sont créés, mais les premiers cas de test arriveront avec l’implémentation du Domain au jalon 1.
+Les tests d’architecture protègent déjà le graphe de dépendances. Les premiers tests métier arriveront avec l’implémentation du Domain au jalon 1.
 
 ### Lancer l’API
 
@@ -92,66 +93,52 @@ curl http://localhost:5201/health/ready
 
 ## Architecture
 
-GenEngine est un **monolithe modulaire** : un seul déployable, des frontières internes explicites et un Domain narratif indépendant de l’infrastructure.
+GenEngine est un **monolithe modulaire DDD/Clean pragmatique** : un seul déployable, un assembly par bounded context et un Domain narratif indépendant de tout framework.
 
 ```mermaid
 flowchart TD
     API["GenEngine.Api<br/>HTTP · DI · OpenAPI"]
-    INFRA["GenEngine.Infrastructure<br/>Persistance · adaptateurs"]
     AUTHORING["GenEngine.Authoring<br/>Brouillons · validation · publication"]
     PLAY["GenEngine.Play<br/>Sessions · commandes · reprise"]
     IDENTITY["GenEngine.Identity<br/>Authentification · policies"]
     NARRATIVE["GenEngine.Narrative<br/>Moteur pur · runtime · hash"]
-    SHARED["GenEngine.SharedKernel<br/>Primitives minimales"]
 
-    API --> INFRA
     API --> AUTHORING
     API --> PLAY
     API --> IDENTITY
-    INFRA --> AUTHORING
-    INFRA --> PLAY
-    INFRA --> IDENTITY
     AUTHORING --> NARRATIVE
     PLAY --> NARRATIVE
-    AUTHORING --> SHARED
-    PLAY --> SHARED
-    IDENTITY --> SHARED
-    NARRATIVE --> SHARED
 ```
 
 ### Modules
 
 | Projet | Responsabilité |
 |---|---|
-| `GenEngine.SharedKernel` | Identifiants typés, résultats et primitives réellement partagées |
 | `GenEngine.Narrative` | Modèle, conditions, effets locaux, runtime, PRNG, snapshots et migrations |
-| `GenEngine.Authoring` | Import, validation, brouillons, versioning et publication |
-| `GenEngine.Play` | Sessions, commandes, idempotence, pause et reprise |
-| `GenEngine.Identity` | Authentification locale et autorisation minimale |
-| `GenEngine.Infrastructure` | EF Core, PostgreSQL, repositories et adaptateurs techniques |
+| `GenEngine.Authoring` | Import, validation, brouillons, versioning, publication et ses propres adaptateurs |
+| `GenEngine.Play` | Sessions, commandes, idempotence, pause, reprise et ses propres adaptateurs |
+| `GenEngine.Identity` | Authentification locale, autorisation minimale et ses propres adaptateurs |
 | `GenEngine.Api` | Minimal API, composition, OpenAPI et préoccupations HTTP |
 
 ### Règles de dépendance
 
 1. `Narrative` ne référence ni ASP.NET Core, ni EF Core, ni un autre module métier.
-2. `Authoring` et `Play` peuvent référencer `Narrative`.
-3. `SharedKernel` reste volontairement minuscule.
-4. Aucun module ne lit directement les tables d’un autre module.
-5. `Api` compose l’application sans contenir de logique métier.
-6. Les frontières seront protégées par des tests d’architecture.
+2. `Authoring` et `Play` sont les seuls modules autorisés à référencer `Narrative`.
+3. Chaque module possède ses cas d’usage, son infrastructure, son schéma et ses migrations.
+4. Aucun module ne lit directement les tables ou les types internes d’un autre module.
+5. `Api` compose l’application sans contenir de logique métier ni de persistance.
+6. Une liste blanche exhaustive protège ces références dans les tests d’architecture.
 
 ## Structure du dépôt
 
 ```text
 GenEngine/
 ├── src/
-│   ├── GenEngine.SharedKernel/
 │   ├── Modules/
 │   │   ├── GenEngine.Narrative/
 │   │   ├── GenEngine.Authoring/
 │   │   ├── GenEngine.Play/
 │   │   └── GenEngine.Identity/
-│   ├── GenEngine.Infrastructure/
 │   └── GenEngine.Api/
 ├── tests/
 │   ├── GenEngine.Narrative.Tests/
