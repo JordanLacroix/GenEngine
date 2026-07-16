@@ -9,7 +9,7 @@
 [![OpenSSF Scorecard](https://github.com/JordanLacroix/GenEngine/actions/workflows/scorecard.yml/badge.svg)](https://github.com/JordanLacroix/GenEngine/actions/workflows/scorecard.yml)
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![C# 14](https://img.shields.io/badge/C%23-14-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
-[![Status](https://img.shields.io/badge/status-jalon%200-0A7BBB)](#état-du-projet)
+[![Status](https://img.shields.io/badge/status-backend%20jouable-2EA44F)](#état-du-projet)
 [![Last commit](https://img.shields.io/github/last-commit/JordanLacroix/GenEngine)](https://github.com/JordanLacroix/GenEngine/commits/main)
 [![License](https://img.shields.io/badge/licence-non%20définie-lightgrey)](#licence)
 
@@ -33,7 +33,7 @@ Le projet vise un moteur :
 - **sobre en dépendances** — licences permissives et compatibles avec un usage commercial.
 
 > [!IMPORTANT]
-> GenEngine est actuellement au **jalon 0**. Le dépôt contient le squelette technique, les règles d’architecture et les premières spécifications. Le moteur narratif n’est pas encore implémenté.
+> GenEngine a atteint le **jalon 2** : moteur déterministe, services distribués persistants et environnement Docker Compose jouable.
 
 ## État du projet
 
@@ -43,11 +43,11 @@ Le projet vise un moteur :
 | Build sans warning | ✅ Vérifié |
 | Frontières de dépendance automatisées | ✅ Vérifiées en CI |
 | Health checks API | ✅ Disponibles |
-| Spécifications et invariants initiaux | 🚧 En cours |
-| Scénarios JSON de référence | ⏳ À faire |
-| Moteur narratif en mémoire | ⏳ Jalon 1 |
-| PostgreSQL et sessions persistées | ⏳ Jalon 2 |
-| Docker Compose | ⏳ Jalon 2 |
+| Spécifications et invariants initiaux | ✅ Documentés |
+| Scénarios JSON de référence | ✅ Trois scénarios |
+| Moteur narratif en mémoire | ✅ Déterministe et testé |
+| PostgreSQL et sessions persistées | ✅ Une base par service |
+| Docker Compose | ✅ Parcours jouable automatisé |
 | IA, économie et multi-tenant | ⏸️ Hors V1 |
 
 La progression détaillée est suivie dans [`specs/roadmap.md`](specs/roadmap.md) et dans les fichiers `tasks.md` de chaque module.
@@ -58,7 +58,8 @@ La progression détaillée est suivie dans [`specs/roadmap.md`](specs/roadmap.md
 
 - [.NET SDK 10](https://dotnet.microsoft.com/download/dotnet/10.0) — version attendue définie dans [`global.json`](global.json) ;
 - Git ;
-- Docker avec Docker Compose à partir du jalon 2.
+- Docker avec Docker Compose pour lancer la stack complète ;
+- `curl`, `jq` et `uuidgen` pour le smoke test.
 
 ### Cloner et vérifier
 
@@ -71,7 +72,17 @@ dotnet build --no-restore -warnaserror
 dotnet test --no-build
 ```
 
-Les tests d’architecture protègent déjà le graphe de dépendances. Les premiers tests métier arriveront avec l’implémentation du Domain au jalon 1.
+Les tests d’architecture protègent le graphe de dépendances et les tests Narrative couvrent les comportements déterministes du moteur.
+
+### Lancer la stack Docker
+
+```bash
+docker compose up --build --detach --wait
+./scripts/smoke-test.sh
+docker compose down
+```
+
+Compose démarre trois API et trois PostgreSQL isolés. Les valeurs par défaut sont réservées au développement local ; copiez `.env.example` vers `.env` et remplacez-les dès que l’environnement est partagé.
 
 ### Lancer les services
 
@@ -115,7 +126,7 @@ flowchart LR
 
 | Projet | Responsabilité |
 |---|---|
-| `GenEngine.Narrative` | Package pur : modèle, conditions, runtime, PRNG, hash et migrations de format |
+| `GenEngine.Narrative` | Package pur : modèle, conditions, runtime, PRNG, hash et compatibilité de format |
 | `GenEngine.Authoring.*` | Service autonome d’import, validation, brouillons, versioning et publication |
 | `GenEngine.Play.*` | Service autonome de sessions, commandes, idempotence, pause et reprise |
 | `GenEngine.Identity.*` | Service autonome d’authentification locale et d’autorisation |
@@ -156,7 +167,7 @@ GenEngine/
 - Une version publiée est immuable et possède un hash canonique.
 - Une session reste attachée à sa version publiée initiale.
 - Le moteur ne réalise aucun accès réseau, disque ou base de données.
-- Les commandes joueur seront idempotentes et protégées par une révision optimiste.
+- Les commandes joueur sont idempotentes et protégées par une révision optimiste.
 - L’IA est différée, facultative et exclue du chemin déterministe.
 - Les fonctionnalités de plateforme ne sont pas anticipées sans cas d’usage concret.
 
@@ -212,6 +223,9 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 | [`specs/adr/`](specs/adr/) | Architecture Decision Records |
 | [`specs/modules/narrative/tasks.md`](specs/modules/narrative/tasks.md) | Tâches du premier module |
 | [`specs/process/github-governance.md`](specs/process/github-governance.md) | Gouvernance GitHub, CI/CD et sécurité |
+| [`specs/process/threat-model.md`](specs/process/threat-model.md) | Menaces, frontières de confiance et mitigations initiales |
+| [`specs/api/http.md`](specs/api/http.md) | Contrats HTTP publics et interservices |
+| [`specs/domain/`](specs/domain/) | Scénarios, runtime, déterminisme et exemples exécutables |
 
 ### Maintenir ce README
 
@@ -231,9 +245,9 @@ Ne jamais annoncer une fonctionnalité comme disponible avant qu’elle soit imp
 
 | Jalon | Objectif | Statut |
 |---|---|---|
-| **0 — Cadrage** | Scénarios de référence, invariants, JSON polymorphe, PRNG, hash et ADR | 🚧 En cours |
-| **1 — Moteur en mémoire** | Domain, evaluator, reducer, runtime, migrations et tests déterministes | ⏳ Planifié |
-| **2 — Backend jouable** | Services autonomes, PostgreSQL séparés, publication, sessions, auth et Docker | ⏳ Planifié |
+| **0 — Cadrage** | Scénarios de référence, invariants, JSON polymorphe, PRNG, hash et ADR | ✅ Terminé |
+| **1 — Moteur en mémoire** | Domain, evaluator, reducer, runtime, validation et tests déterministes | ✅ Terminé |
+| **2 — Backend jouable** | Services autonomes, PostgreSQL séparés, publication, sessions, auth et Docker | ✅ Terminé |
 | **3 — Durcissement** | Observabilité complète, sécurité, résilience et sauvegarde/restauration | ⏳ Planifié |
 | **4 — Première extension** | Une extension choisie selon les retours utilisateurs | ⏳ À décider |
 

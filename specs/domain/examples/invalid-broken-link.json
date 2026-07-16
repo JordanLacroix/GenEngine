@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "title": "Scénario invalide de référence",
+  "initialNodeId": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "text": "Cette destination n’existe pas.",
+      "onEnterEffects": [],
+      "choices": [
+        {
+          "id": "break",
+          "text": "Continuer",
+          "targetNodeId": "missing",
+          "effects": []
+        }
+      ]
+    }
+  ]
+}

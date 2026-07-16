@@ -1,0 +1,122 @@
+name: genengine
+
+x-api-environment: &api-environment
+  ASPNETCORE_ENVIRONMENT: Development
+  ASPNETCORE_HTTP_PORTS: 8080
+  Database__AutoMigrate: "true"
+  Jwt__Issuer: GenEngine.Identity
+  Jwt__Audience: GenEngine.Api
+  Jwt__Secret: ${GENENGINE_JWT_SECRET:-local-development-jwt-secret-change-me-2026}
+
+services:
+  authoring-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: genengine_authoring
+      POSTGRES_USER: authoring
+      POSTGRES_PASSWORD: ${AUTHORING_DB_PASSWORD:-authoring-local-password}
+    ports:
+      - "5432:5432"
+    volumes:
+      - authoring-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authoring -d genengine_authoring"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  play-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: genengine_play
+      POSTGRES_USER: play
+      POSTGRES_PASSWORD: ${PLAY_DB_PASSWORD:-play-local-password}
+    ports:
+      - "5433:5432"
+    volumes:
+      - play-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U play -d genengine_play"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  identity-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: genengine_identity
+      POSTGRES_USER: identity
+      POSTGRES_PASSWORD: ${IDENTITY_DB_PASSWORD:-identity-local-password}
+    ports:
+      - "5434:5432"
+    volumes:
+      - identity-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U identity -d genengine_identity"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  authoring:
+    build:
+      context: .
+      dockerfile: src/Services/Authoring/GenEngine.Authoring.Api/Dockerfile
+    environment:
+      <<: *api-environment
+      ConnectionStrings__Authoring: Host=authoring-db;Database=genengine_authoring;Username=authoring;Password=${AUTHORING_DB_PASSWORD:-authoring-local-password}
+      InternalApi__Key: ${GENENGINE_INTERNAL_KEY:-local-internal-key-change-me}
+    ports:
+      - "5201:8080"
+    depends_on:
+      authoring-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/ready >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  play:
+    build:
+      context: .
+      dockerfile: src/Services/Play/GenEngine.Play.Api/Dockerfile
+    environment:
+      <<: *api-environment
+      ConnectionStrings__Play: Host=play-db;Database=genengine_play;Username=play;Password=${PLAY_DB_PASSWORD:-play-local-password}
+      Services__Authoring: http://authoring:8080
+      InternalApi__Key: ${GENENGINE_INTERNAL_KEY:-local-internal-key-change-me}
+    ports:
+      - "5202:8080"
+    depends_on:
+      play-db:
+        condition: service_healthy
+      authoring:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/ready >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  identity:
+    build:
+      context: .
+      dockerfile: src/Services/Identity/GenEngine.Identity.Api/Dockerfile
+    environment:
+      <<: *api-environment
+      ConnectionStrings__Identity: Host=identity-db;Database=genengine_identity;Username=identity;Password=${IDENTITY_DB_PASSWORD:-identity-local-password}
+    ports:
+      - "5203:8080"
+    depends_on:
+      identity-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/ready >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  authoring-data:
+  play-data:
+  identity-data:

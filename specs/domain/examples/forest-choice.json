@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "title": "Le sentier de la forêt",
+  "initialNodeId": "crossroads",
+  "nodes": [
+    {
+      "id": "crossroads",
+      "text": "Deux sentiers s’ouvrent devant vous.",
+      "onEnterEffects": [],
+      "choices": [
+        {
+          "id": "left",
+          "text": "Prendre le sentier éclairé",
+          "targetNodeId": "safe-end",
+          "effects": []
+        },
+        {
+          "id": "right",
+          "text": "Explorer les ruines",
+          "targetNodeId": "ruins-end",
+          "effects": [
+            { "$type": "collect", "item": "ancient-key" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "safe-end",
+      "text": "Vous rejoignez le village.",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true
+    },
+    {
+      "id": "ruins-end",
+      "text": "La clé révèle un passage secret.",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true
+    }
+  ]
+}

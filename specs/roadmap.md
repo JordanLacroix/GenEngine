@@ -2,21 +2,25 @@
 
 ## Jalon 0 — cadrage
 
-- [ ] Écrire trois scénarios JSON représentatifs.
-- [ ] Prototyper la sérialisation polymorphe.
-- [ ] Formaliser les invariants du runtime.
-- [ ] Choisir et versionner le PRNG.
-- [ ] Définir la canonicalisation et le hash.
-- [ ] Décider la politique de versioning et de replay.
-- [ ] Écrire le threat model initial.
+- [x] Écrire trois scénarios JSON représentatifs.
+- [x] Prototyper la sérialisation polymorphe.
+- [x] Formaliser les invariants du runtime.
+- [x] Choisir et versionner le PRNG.
+- [x] Définir la canonicalisation et le hash.
+- [x] Décider la politique de versioning et de replay.
+- [x] Écrire le threat model initial.
 
 ## Jalon 1 — moteur en mémoire
 
-Modèle Domain, evaluator, reducer, runtime, machine à états, migrations, validation, simulateur et tests déterministes.
+Modèle Domain, evaluator, reducer, runtime, machine à états, validation, simulateur et tests déterministes. Les migrations de format commenceront avec le premier schéma v2 ; le runtime v1 refuse explicitement toute version inconnue.
+
+**Statut : terminé.** Le moteur pur couvre les conditions, effets, transitions, pause/reprise, validation, simulation, hash canonique et tests déterministes.
 
 ## Jalon 2 — backend jouable
 
 Services Authoring, Play et Identity indépendants, bases PostgreSQL séparées, publication, sessions persistées, idempotence, contrats API et Docker Compose.
+
+**Statut : terminé.** Les trois services disposent chacun de leur Domain, Application, Infrastructure, API, migration EF et base PostgreSQL. Le parcours jouable est couvert par un smoke test Compose.
 
 ## Jalon 3 — durcissement
 
