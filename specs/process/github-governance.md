@@ -49,7 +49,7 @@ StepSecurity Harden Runner observe les sorties réseau de chaque job. Toutes les
 
 | Outil | État | Décision |
 |---|---|---|
-| Codecov | Actif dès qu’un rapport existe | Couverture via OIDC, aucun token permanent |
+| Codecov | Préconfiguré, onboarding en attente | Couverture via OIDC, aucun token permanent ; l’upload reste non bloquant avant l’activation du dépôt |
 | SonarCloud | Différé | Compte externe et recouvrement partiel avec CodeQL ; à activer si les quality gates deviennent utiles |
 | Snyk | Différé | Compte externe et recouvrement avec Dependabot, Dependency Review et Trivy |
 | FOSSA | Différé | À évaluer si un inventaire juridique avancé des licences devient nécessaire |

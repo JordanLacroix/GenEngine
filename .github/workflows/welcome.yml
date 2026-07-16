@@ -3,18 +3,22 @@ name: Welcome contributors
 on:
   issues:
     types: [opened]
-  pull_request_target:
+  pull_request_target: # zizmor: ignore[dangerous-triggers] No checkout or execution of PR-controlled code.
     types: [opened]
 
 permissions:
   contents: read
 
+concurrency:
+  group: welcome-${{ github.event.issue.number || github.event.pull_request.number }}
+  cancel-in-progress: false
+
 jobs:
   welcome:
     name: First interaction
     permissions:
-      issues: write
-      pull-requests: write
+      issues: write # Required to post the first-issue welcome message.
+      pull-requests: write # Required to post the first-PR welcome message.
     runs-on: ubuntu-latest
     steps:
       - name: Harden runner

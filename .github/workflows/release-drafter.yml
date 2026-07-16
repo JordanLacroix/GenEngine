@@ -3,18 +3,19 @@ name: Release notes draft
 on:
   push:
     branches: [main]
-  pull_request_target:
-    types: [closed]
 
 permissions:
   contents: read
 
+concurrency:
+  group: release-drafter-main
+  cancel-in-progress: true
+
 jobs:
   update:
     name: Update release draft
-    if: github.event_name == 'push' || github.event.pull_request.merged == true
     permissions:
-      contents: write
+      contents: write # Required to create and update the draft release.
       pull-requests: read
     runs-on: ubuntu-latest
     steps:
