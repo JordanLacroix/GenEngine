@@ -8,7 +8,7 @@ RUN dotnet publish src/Services/Identity/GenEngine.Identity.Api/GenEngine.Identi
     --output /app \
     /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine@sha256:27b6b84beeede74fd16886177d360799c8e4299ceadfbd64eef57bafead7878a AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.3-alpine3.22@sha256:e0fd89188698106364ea47cd6bbedc1fdea99363766932a1f4c256c87631ec53 AS final
 WORKDIR /app
 COPY --from=build --chown=app:app /app .
 USER app

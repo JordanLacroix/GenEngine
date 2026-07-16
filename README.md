@@ -49,6 +49,7 @@ Le projet vise un moteur :
 | PostgreSQL et sessions persistées | ✅ Une base par service |
 | Docker Compose | ✅ Parcours jouable automatisé |
 | Observabilité OpenTelemetry | 🚧 Logs, traces et métriques disponibles localement |
+| SLI/SLO et alertes | 🚧 Objectifs provisoires, règles Prometheus validées et budget d’erreur dans Grafana |
 | IA, économie et multi-tenant | ⏸️ Hors V1 |
 
 La progression détaillée est suivie dans [`specs/roadmap.md`](specs/roadmap.md) et dans les fichiers `tasks.md` de chaque module.
@@ -92,7 +93,7 @@ docker compose -f compose.yaml -f compose.observability.yaml up --build --detach
 ./scripts/smoke-test.sh
 ```
 
-La surcouche ajoute le Collector OpenTelemetry et les trois signaux corrélés : métriques dans Prometheus, traces dans Tempo et logs structurés dans Loki. Grafana est préconfiguré avec les sources de données et un tableau de bord GenEngine.
+La surcouche ajoute le Collector OpenTelemetry et les trois signaux corrélés : métriques dans Prometheus, traces dans Tempo et logs structurés dans Loki. Grafana est préconfiguré avec les sources de données et deux tableaux de bord : `GenEngine — Vue d’ensemble` et `GenEngine — SLO et budget d’erreur`.
 
 | Interface | URL |
 |---|---|
@@ -100,6 +101,8 @@ La surcouche ajoute le Collector OpenTelemetry et les trois signaux corrélés :
 | Prometheus | <http://localhost:9090> |
 | Tempo | <http://localhost:3200> — API uniquement |
 | Loki | <http://localhost:3100> — API uniquement |
+
+Prometheus charge des règles versionnées sous [`deploy/observability/rules/`](deploy/observability/rules/) : indicateurs de service (disponibilité, taux d’erreurs, latence p95) et alertes de budget d’erreur. Les objectifs sont **provisoires** et documentés dans [`specs/process/slo.md`](specs/process/slo.md) ; les routes `/health/*` sont exclues du trafic utilisateur.
 
 L’accès anonyme en lecture à Grafana est strictement réservé au développement local. La stack de base et le smoke test CI restent indépendants de cette surcouche.
 
@@ -224,6 +227,7 @@ Les versions NuGet sont centralisées dans [`Directory.Packages.props`](Director
 - dépendances directes et transitives auditées ;
 - GitHub Actions avec permissions minimales ;
 - actions tierces épinglées par SHA et auditées par zizmor ;
+- images Docker de base épinglées par digest et suivies par Dependabot ;
 - CodeQL, Trivy, Dependency Review et OpenSSF Scorecard ;
 - SBOM SPDX générée automatiquement sur `main` ;
 - Dependabot, secret scanning et push protection ;
@@ -246,6 +250,7 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 | [`specs/modules/narrative/tasks.md`](specs/modules/narrative/tasks.md) | Tâches du premier module |
 | [`specs/modules/hardening/tasks.md`](specs/modules/hardening/tasks.md) | Tâches du jalon de durcissement |
 | [`specs/process/github-governance.md`](specs/process/github-governance.md) | Gouvernance GitHub, CI/CD et sécurité |
+| [`specs/process/slo.md`](specs/process/slo.md) | SLI, SLO provisoires, alertes et budget d’erreur |
 | [`specs/process/threat-model.md`](specs/process/threat-model.md) | Menaces, frontières de confiance et mitigations initiales |
 | [`specs/api/http.md`](specs/api/http.md) | Contrats HTTP publics et interservices |
 | [`specs/domain/`](specs/domain/) | Scénarios, runtime, déterminisme et exemples exécutables |
