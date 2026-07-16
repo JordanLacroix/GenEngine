@@ -10,6 +10,7 @@ Ce dossier décrit les intentions, invariants et décisions du projet.
 ## Index
 
 - [Roadmap](roadmap.md)
+- [Passage de relais](handoff.md)
 - [Architecture](architecture.md)
 - [Invariants](invariants.md)
 - [Glossaire](glossary.md)
@@ -24,3 +25,4 @@ Ce dossier décrit les intentions, invariants et décisions du projet.
 - [Tâches Authoring](modules/authoring/tasks.md)
 - [Tâches Play](modules/play/tasks.md)
 - [Tâches Identity](modules/identity/tasks.md)
+- [Tâches Durcissement](modules/hardening/tasks.md)
