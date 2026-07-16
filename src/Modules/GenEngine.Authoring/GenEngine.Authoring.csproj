@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\GenEngine.SharedKernel\GenEngine.SharedKernel.csproj" />
     <ProjectReference Include="..\GenEngine.Narrative\GenEngine.Narrative.csproj" />
   </ItemGroup>
 

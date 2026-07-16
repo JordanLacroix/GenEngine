@@ -100,12 +100,6 @@
         }
       },
       "genengine.narrative": {
-        "type": "Project",
-        "dependencies": {
-          "GenEngine.SharedKernel": "[1.0.0, )"
-        }
-      },
-      "genengine.sharedkernel": {
         "type": "Project"
       }
     }
