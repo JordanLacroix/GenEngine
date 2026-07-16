@@ -25,3 +25,7 @@ Services Authoring, Play et Identity indépendants, bases PostgreSQL séparées,
 ## Jalon 3 — durcissement
 
 Observabilité complète, audit renforcé, résilience, sauvegarde/restauration et outbox uniquement si un consommateur asynchrone existe.
+
+**Statut : en cours.** Les trois API exportent désormais logs, traces et métriques en OTLP. Une stack locale optionnelle fournit Collector, Prometheus, Tempo, Loki et Grafana. Les prochains lots portent sur les SLO/alertes, l’audit métier, la résilience puis la sauvegarde/restauration.
+
+Le suivi détaillé se trouve dans [`modules/hardening/tasks.md`](modules/hardening/tasks.md).

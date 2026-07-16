@@ -3,9 +3,11 @@ using System.Threading.RateLimiting;
 using GenEngine.Identity.Api;
 using GenEngine.Identity.Application;
 using GenEngine.Identity.Infrastructure;
+using GenEngine.Observability;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddGenEngineObservability(builder.Configuration, "genengine-identity");
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();

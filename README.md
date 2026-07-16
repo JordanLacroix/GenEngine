@@ -33,7 +33,7 @@ Le projet vise un moteur :
 - **sobre en dépendances** — licences permissives et compatibles avec un usage commercial.
 
 > [!IMPORTANT]
-> GenEngine a atteint le **jalon 2** : moteur déterministe, services distribués persistants et environnement Docker Compose jouable.
+> GenEngine a atteint le **jalon 2** et poursuit le **jalon 3** : le backend jouable dispose maintenant d’un premier socle OpenTelemetry et d’une stack d’observabilité locale.
 
 ## État du projet
 
@@ -48,6 +48,7 @@ Le projet vise un moteur :
 | Moteur narratif en mémoire | ✅ Déterministe et testé |
 | PostgreSQL et sessions persistées | ✅ Une base par service |
 | Docker Compose | ✅ Parcours jouable automatisé |
+| Observabilité OpenTelemetry | 🚧 Logs, traces et métriques disponibles localement |
 | IA, économie et multi-tenant | ⏸️ Hors V1 |
 
 La progression détaillée est suivie dans [`specs/roadmap.md`](specs/roadmap.md) et dans les fichiers `tasks.md` de chaque module.
@@ -83,6 +84,24 @@ docker compose down
 ```
 
 Compose démarre trois API et trois PostgreSQL isolés. Les valeurs par défaut sont réservées au développement local ; copiez `.env.example` vers `.env` et remplacez-les dès que l’environnement est partagé.
+
+### Lancer l’observabilité locale
+
+```bash
+docker compose -f compose.yaml -f compose.observability.yaml up --build --detach --wait
+./scripts/smoke-test.sh
+```
+
+La surcouche ajoute le Collector OpenTelemetry et les trois signaux corrélés : métriques dans Prometheus, traces dans Tempo et logs structurés dans Loki. Grafana est préconfiguré avec les sources de données et un tableau de bord GenEngine.
+
+| Interface | URL |
+|---|---|
+| Grafana | <http://localhost:3000> |
+| Prometheus | <http://localhost:9090> |
+| Tempo | <http://localhost:3200> |
+| Loki | <http://localhost:3100> |
+
+L’accès anonyme en lecture à Grafana est strictement réservé au développement local. La stack de base et le smoke test CI restent indépendants de cette surcouche.
 
 ### Lancer les services
 
@@ -147,6 +166,8 @@ GenEngine/
 ├── src/
 │   ├── Engine/
 │   │   └── GenEngine.Narrative/
+│   ├── BuildingBlocks/
+│   │   └── GenEngine.Observability/
 │   └── Services/
 │       ├── Authoring/         # Domain · Application · Infrastructure · Api
 │       ├── Play/              # Domain · Application · Infrastructure · Api
@@ -222,6 +243,7 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 | [`specs/glossary.md`](specs/glossary.md) | Vocabulaire métier |
 | [`specs/adr/`](specs/adr/) | Architecture Decision Records |
 | [`specs/modules/narrative/tasks.md`](specs/modules/narrative/tasks.md) | Tâches du premier module |
+| [`specs/modules/hardening/tasks.md`](specs/modules/hardening/tasks.md) | Tâches du jalon de durcissement |
 | [`specs/process/github-governance.md`](specs/process/github-governance.md) | Gouvernance GitHub, CI/CD et sécurité |
 | [`specs/process/threat-model.md`](specs/process/threat-model.md) | Menaces, frontières de confiance et mitigations initiales |
 | [`specs/api/http.md`](specs/api/http.md) | Contrats HTTP publics et interservices |
@@ -248,7 +270,7 @@ Ne jamais annoncer une fonctionnalité comme disponible avant qu’elle soit imp
 | **0 — Cadrage** | Scénarios de référence, invariants, JSON polymorphe, PRNG, hash et ADR | ✅ Terminé |
 | **1 — Moteur en mémoire** | Domain, evaluator, reducer, runtime, validation et tests déterministes | ✅ Terminé |
 | **2 — Backend jouable** | Services autonomes, PostgreSQL séparés, publication, sessions, auth et Docker | ✅ Terminé |
-| **3 — Durcissement** | Observabilité complète, sécurité, résilience et sauvegarde/restauration | ⏳ Planifié |
+| **3 — Durcissement** | Observabilité complète, sécurité, résilience et sauvegarde/restauration | 🚧 En cours |
 | **4 — Première extension** | Une extension choisie selon les retours utilisateurs | ⏳ À décider |
 
 ## Contribuer

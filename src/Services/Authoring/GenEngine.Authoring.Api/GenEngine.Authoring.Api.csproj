@@ -10,6 +10,7 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\GenEngine.Observability\GenEngine.Observability.csproj" />
     <ProjectReference Include="..\GenEngine.Authoring.Application\GenEngine.Authoring.Application.csproj" />
     <ProjectReference Include="..\GenEngine.Authoring.Infrastructure\GenEngine.Authoring.Infrastructure.csproj" />
   </ItemGroup>
