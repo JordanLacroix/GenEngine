@@ -12,7 +12,7 @@ updates:
       default-days: 7
     labels: ["dependencies", "area: infrastructure"]
     commit-message:
-      prefix: "deps"
+      prefix: "build(deps)"
     groups:
       microsoft-dotnet:
         patterns: ["Microsoft.*"]
