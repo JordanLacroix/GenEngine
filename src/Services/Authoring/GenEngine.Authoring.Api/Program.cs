@@ -9,6 +9,7 @@ using GenEngine.Authoring.Application;
 using GenEngine.Authoring.Domain;
 using GenEngine.Authoring.Infrastructure;
 using GenEngine.Narrative;
+using GenEngine.Observability;
 
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Diagnostics;
@@ -17,6 +18,7 @@ using Microsoft.IdentityModel.Tokens;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddGenEngineObservability(builder.Configuration, "genengine-authoring");
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();

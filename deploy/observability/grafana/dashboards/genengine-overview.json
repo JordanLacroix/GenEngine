@@ -1,0 +1,60 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "targets": [
+        { "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"genengine-.*\"}[5m]))", "legendFormat": "{{service_name}}", "refId": "A" }
+      ],
+      "title": "Débit HTTP",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "targets": [
+        { "expr": "histogram_quantile(0.95, sum by (le, service_name) (rate(http_server_request_duration_seconds_bucket{service_name=~\"genengine-.*\"}[5m])))", "legendFormat": "{{service_name}}", "refId": "A" }
+      ],
+      "title": "Latence HTTP p95",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 3,
+      "targets": [
+        { "expr": "sum by (service_name) (rate(http_server_request_duration_seconds_count{service_name=~\"genengine-.*\", http_response_status_code=~\"5..\"}[5m]))", "legendFormat": "{{service_name}}", "refId": "A" }
+      ],
+      "title": "Erreurs HTTP 5xx",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 4,
+      "targets": [
+        { "expr": "sum by (service_name) (dotnet_gc_last_collection_heap_size_bytes{service_name=~\"genengine-.*\"})", "legendFormat": "{{service_name}}", "refId": "A" }
+      ],
+      "title": "Taille du heap après le dernier GC",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "15s",
+  "schemaVersion": 41,
+  "tags": ["genengine", "opentelemetry"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timezone": "browser",
+  "title": "GenEngine — Vue d’ensemble",
+  "uid": "genengine-overview",
+  "version": 1
+}

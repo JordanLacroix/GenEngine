@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 
+using GenEngine.Observability;
 using GenEngine.Play.Api;
 using GenEngine.Play.Application;
 using GenEngine.Play.Infrastructure;
@@ -11,6 +12,7 @@ using Microsoft.IdentityModel.Tokens;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
+builder.Services.AddGenEngineObservability(builder.Configuration, "genengine-play");
 builder.Services.AddOpenApi();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();

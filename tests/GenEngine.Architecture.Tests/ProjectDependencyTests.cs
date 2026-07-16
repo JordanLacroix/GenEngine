@@ -7,23 +7,27 @@ public sealed class ProjectDependencyTests
     private static readonly IReadOnlyDictionary<string, IReadOnlySet<string>> AllowedDependencies =
         new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal)
         {
+            ["GenEngine.Observability"] = new HashSet<string>(StringComparer.Ordinal),
             ["GenEngine.Narrative"] = new HashSet<string>(StringComparer.Ordinal),
             ["GenEngine.Authoring.Domain"] = None(),
             ["GenEngine.Authoring.Application"] = Only(
                 "GenEngine.Authoring.Domain", "GenEngine.Narrative"),
             ["GenEngine.Authoring.Infrastructure"] = Only("GenEngine.Authoring.Application"),
             ["GenEngine.Authoring.Api"] = Only(
-                "GenEngine.Authoring.Application", "GenEngine.Authoring.Infrastructure"),
+                "GenEngine.Authoring.Application", "GenEngine.Authoring.Infrastructure",
+                "GenEngine.Observability"),
             ["GenEngine.Play.Domain"] = None(),
             ["GenEngine.Play.Application"] = Only("GenEngine.Play.Domain", "GenEngine.Narrative"),
             ["GenEngine.Play.Infrastructure"] = Only("GenEngine.Play.Application"),
             ["GenEngine.Play.Api"] = Only(
-                "GenEngine.Play.Application", "GenEngine.Play.Infrastructure"),
+                "GenEngine.Play.Application", "GenEngine.Play.Infrastructure",
+                "GenEngine.Observability"),
             ["GenEngine.Identity.Domain"] = None(),
             ["GenEngine.Identity.Application"] = Only("GenEngine.Identity.Domain"),
             ["GenEngine.Identity.Infrastructure"] = Only("GenEngine.Identity.Application"),
             ["GenEngine.Identity.Api"] = Only(
-                "GenEngine.Identity.Application", "GenEngine.Identity.Infrastructure"),
+                "GenEngine.Identity.Application", "GenEngine.Identity.Infrastructure",
+                "GenEngine.Observability"),
         };
 
     [Fact]

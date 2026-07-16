@@ -9,6 +9,7 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\..\BuildingBlocks\GenEngine.Observability\GenEngine.Observability.csproj" />
     <ProjectReference Include="..\GenEngine.Identity.Application\GenEngine.Identity.Application.csproj" />
     <ProjectReference Include="..\GenEngine.Identity.Infrastructure\GenEngine.Identity.Infrastructure.csproj" />
   </ItemGroup>
