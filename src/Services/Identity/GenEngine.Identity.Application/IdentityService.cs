@@ -40,6 +40,7 @@ public sealed class IdentityService(
         string password,
         CancellationToken cancellationToken)
     {
+        EnsureUserName(userName);
         EnsurePassword(password);
         UserAccount account = UserAccount.Create(userName, timeProvider.GetUtcNow());
         UserAccount? existing = await repository.FindByNormalizedUserNameAsync(
@@ -61,6 +62,12 @@ public sealed class IdentityService(
         string password,
         CancellationToken cancellationToken)
     {
+        EnsureUserName(userName);
+        if (string.IsNullOrEmpty(password))
+        {
+            throw new IdentityException("invalid_request", "Username and password are required.");
+        }
+
         string normalized = userName.Trim().ToUpperInvariant();
         UserAccount? account = await repository.FindByNormalizedUserNameAsync(normalized, cancellationToken)
             .ConfigureAwait(false);
@@ -72,8 +79,21 @@ public sealed class IdentityService(
         return tokenIssuer.Issue(account);
     }
 
+    private static void EnsureUserName(string userName)
+    {
+        if (string.IsNullOrWhiteSpace(userName))
+        {
+            throw new IdentityException("invalid_request", "Username and password are required.");
+        }
+    }
+
     private static void EnsurePassword(string password)
     {
+        if (string.IsNullOrEmpty(password))
+        {
+            throw new IdentityException("invalid_password", "Password length must be between 12 and 128 characters.");
+        }
+
         if (password.Length is < 12 or > 128)
         {
             throw new IdentityException("invalid_password", "Password length must be between 12 and 128 characters.");
