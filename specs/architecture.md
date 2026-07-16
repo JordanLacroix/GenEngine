@@ -2,106 +2,118 @@
 
 ## Décision
 
-GenEngine est un **monolithe modulaire DDD/Clean pragmatique** : un seul déployable et une frontière de compilation par bounded context. Chaque module possède son modèle métier, ses cas d’usage et ses adaptateurs techniques.
+GenEngine adopte une **architecture distribuée orientée services**, structurée avec DDD et Clean Architecture. Il n’existe aucun déployable backend global : `Authoring`, `Play` et `Identity` sont trois services autonomes, versionnés et déployables indépendamment.
 
-Cette organisation privilégie des frontières métier fortes sans créer prématurément un projet .NET par couche. Un module ne sera éclaté en plusieurs assemblies que lorsque sa taille, son équipe ou ses contraintes de déploiement le justifieront.
+Le moteur `Narrative` est une bibliothèque métier pure et versionnée. Il est embarqué dans les services qui doivent valider ou exécuter une narration afin de préserver le déterminisme et d’éviter un appel réseau dans la boucle d’exécution.
 
-La décision et ses alternatives sont détaillées dans [`adr/0001-pragmatic-ddd-clean-modular-monolith.md`](adr/0001-pragmatic-ddd-clean-modular-monolith.md).
+La décision et ses compromis sont détaillés dans [`adr/0002-distributed-clean-services.md`](adr/0002-distributed-clean-services.md). L’ADR 0001 est remplacé par cette décision.
 
-## Contextes délimités
-
-| Module | Type DDD | Responsabilité et données possédées |
-|---|---|---|
-| `Narrative` | Core Domain | Modèle narratif, invariants, évaluation, reducer, runtime déterministe, PRNG, hash et migrations de format |
-| `Authoring` | Supporting | Brouillons, import, validation, versioning et publication |
-| `Play` | Core/Supporting | Sessions, commandes, idempotence, sauvegarde, pause et reprise |
-| `Identity` | Generic | Authentification locale, acteurs et politiques d’autorisation |
-| `Api` | Hôte | Composition, transport HTTP, OpenAPI, middleware et démarrage du processus |
-
-Le vocabulaire métier est défini dans [`glossary.md`](glossary.md). Une frontière de module ne doit pas être contournée sous prétexte de réutilisation technique.
-
-## Graphe de dépendances autorisé
+## Topologie
 
 ```mermaid
-flowchart TD
-    API["GenEngine.Api<br/>Composition root"]
-    AUTHORING["GenEngine.Authoring<br/>Bounded context"]
-    PLAY["GenEngine.Play<br/>Bounded context"]
-    IDENTITY["GenEngine.Identity<br/>Bounded context"]
-    NARRATIVE["GenEngine.Narrative<br/>Core Domain pur"]
+flowchart LR
+    CLIENT["Clients"]
+    EDGE["Ingress / API Gateway<br/>infrastructure de déploiement"]
+    AUTHORING["Authoring API<br/>déployable autonome"]
+    PLAY["Play API<br/>déployable autonome"]
+    IDENTITY["Identity API<br/>déployable autonome"]
+    AUTHDB[("Identity DB")]
+    AUTHORDB[("Authoring DB")]
+    PLAYDB[("Play DB")]
+    NARRATIVE["Narrative Engine<br/>package pur versionné"]
 
-    API --> AUTHORING
-    API --> PLAY
-    API --> IDENTITY
-    AUTHORING --> NARRATIVE
-    PLAY --> NARRATIVE
+    CLIENT --> EDGE
+    EDGE --> AUTHORING
+    EDGE --> PLAY
+    EDGE --> IDENTITY
+    AUTHORING --> AUTHORDB
+    PLAY --> PLAYDB
+    IDENTITY --> AUTHDB
+    AUTHORING -. "embarque" .-> NARRATIVE
+    PLAY -. "embarque" .-> NARRATIVE
 ```
 
-Toute flèche absente est interdite. Ce graphe est vérifié par `GenEngine.Architecture.Tests` à chaque CI.
+L’ingress n’est pas une application métier et ne compose pas les services en processus. Il assure uniquement TLS, routage, limitation de débit et éventuellement agrégation de documentation. Chaque API reste directement testable et déployable sans lui.
 
-## Clean Architecture à l’intérieur d’un module
+## Services et ownership
 
-Les fonctionnalités sont ajoutées en **tranches verticales**. Les dossiers ne sont créés que lorsqu’ils contiennent du code :
+| Service | Sous-domaine DDD | Responsabilité | Données possédées |
+|---|---|---|---|
+| `Authoring` | Supporting | Import, brouillons, validation, versioning et publication | Auteurs, brouillons, versions publiées et métadonnées éditoriales |
+| `Play` | Core/Supporting | Sessions, commandes, idempotence, sauvegarde, pause et reprise | Sessions, états, historique de commandes et projections de jeu |
+| `Identity` | Generic | Authentification locale, acteurs et politiques d’autorisation | Comptes, credentials, rôles et clés de sécurité |
+| `Narrative` | Core Domain partagé sous forme de package | Modèle narratif, invariants, evaluator, reducer, runtime, PRNG et hash | Aucune donnée persistée |
+
+Un service ne lit ni la base, ni le `DbContext`, ni les assemblies internes d’un autre service.
+
+## Clean Architecture par service
+
+Chaque service possède quatre projets et produit son propre exécutable :
 
 ```text
-GenEngine.<Module>/
-├── Domain/                    # Entités, value objects, règles et événements métier
-├── Application/               # Cas d’usage et ports, organisés par fonctionnalité
-│   └── <Feature>/
-├── Infrastructure/            # EF Core, repositories et adaptateurs du module
-└── Api/                       # Endpoints et contrats HTTP propres au module
+GenEngine.<Service>.Api
+        │
+        ├──────────────> GenEngine.<Service>.Infrastructure
+        │                            │
+        └──────────────> GenEngine.<Service>.Application
+                                     │
+                                     v
+                         GenEngine.<Service>.Domain
 ```
 
-Les dépendances pointent vers l’intérieur :
+- `Domain` contient entités, value objects, agrégats, invariants et événements métier. Il ne dépend de rien.
+- `Application` contient les cas d’usage et les ports. Il dépend du Domain et, uniquement pour `Authoring` et `Play`, du package pur `Narrative`.
+- `Infrastructure` implémente les ports du service : persistance, bus, horloge, stockage et clients distants.
+- `Api` est le composition root HTTP du service. Elle assemble Application et Infrastructure sans logique métier.
 
-```text
-Api ───────────────┐
-Infrastructure ────┼──> Application ───> Domain
-                   └────────────────────> Domain
-```
+Les dépendances inverses ou transversales sont interdites et vérifiées par `GenEngine.Architecture.Tests`.
 
-- `Domain` ne dépend d’aucun framework, stockage, transport ou horloge système.
-- `Application` orchestre les cas d’usage et définit les ports dont elle a besoin.
-- `Infrastructure` implémente les ports du **même module** ; il n’existe pas de projet infrastructure global.
-- `Api` traduit HTTP vers les cas d’usage et ne contient pas de décision métier.
-- Les types concrets restent `internal` par défaut. La surface publique d’un module est volontaire et minimale.
+## Communication interservices
 
-`Narrative` est plus strict : il reste une bibliothèque pure et déterministe, sans couches HTTP ou persistance.
+1. Aucun `ProjectReference` n’est autorisé entre deux services.
+2. Les commandes synchrones utilisent HTTP avec contrats OpenAPI versionnés, timeouts courts et propagation d’un identifiant de corrélation.
+3. Les changements d’état diffusables utilisent des événements d’intégration versionnés et idempotents lorsqu’un consommateur réel existe.
+4. Les modèles de domaine et contrats de persistance ne traversent jamais une frontière de service.
+5. Chaque consommateur traduit un contrat externe vers son propre modèle via une anti-corruption layer.
+6. Les workflows multi-services n’utilisent pas de transaction distribuée ; ils sont explicitement orchestrés ou chorégraphiés avec compensation.
 
-## Communication entre modules
+Au démarrage, `Play` ne dépend pas d’un appel synchrone à `Identity` pour chaque commande : il valide localement les jetons signés. Les données narratives publiées nécessaires au jeu sont répliquées ou récupérées hors de la boucle critique, puis identifiées par version et hash.
 
-1. `Authoring` et `Play` utilisent directement l’API publique stable du moteur `Narrative`.
-2. Les autres collaborations passent par des contrats explicites ou des événements d’intégration ; jamais par les entités internes d’un autre module.
-3. Une transaction locale ne modifie que les données du module propriétaire.
-4. Aucun module ne partage son `DbContext`, ses repositories ou ses tables.
-5. La cohérence entre modules est orchestrée explicitement et, lorsqu’elle peut être différée, devient éventuelle et idempotente.
-6. Une extraction en service séparé doit rester possible sans réécrire le modèle métier.
+## Données et cohérence
 
-## Persistance
+Chaque service possède une base PostgreSQL logique et ses migrations. Une même instance physique peut être utilisée en développement, mais avec credentials, bases et cycles de migration séparés. Les foreign keys et requêtes SQL interservices sont interdites.
 
-Le déploiement peut utiliser une seule instance PostgreSQL, mais chaque module possède son schéma, ses migrations et son unité de travail. Les contraintes entre schémas et les lectures SQL transversales sont interdites. Les projections nécessaires à un autre module sont alimentées par des contrats dédiés.
+La cohérence forte s’arrête à la frontière du service. Les échanges interservices sont rejouables et idempotents. Le pattern outbox ne sera ajouté qu’au premier événement d’intégration réellement nécessaire.
 
-## Pas de Shared Kernel par défaut
+## Moteur Narrative partagé
 
-Un `SharedKernel` vide a été supprimé : en DDD, ce pattern implique un modèle partagé et une gouvernance forte, pas un dossier d’utilitaires. Une duplication locale modeste est préférable à un couplage accidentel.
+`GenEngine.Narrative` n’est pas un service réseau. Le rendre distant introduirait latence, panne partagée et nondéterminisme opérationnel dans chaque commande de jeu.
 
-Un Shared Kernel ne pourra être introduit que par ADR lorsqu’un concept métier réellement identique, stable et co-détenu par plusieurs contextes aura été identifié. Les helpers techniques génériques ne justifient pas ce pattern.
+Le moteur est donc :
+
+- sans ASP.NET Core, EF Core, I/O, réseau ou horloge implicite ;
+- versionné comme un package interne ;
+- embarqué par `Authoring.Application` pour validation et par `Play.Application` pour exécution ;
+- couvert par des scénarios de compatibilité afin qu’une version publiée produise le même résultat dans les deux services.
+
+## Déploiement
+
+Les trois API disposent chacune de leur image, configuration, health checks, migrations et pipeline de livraison. Un changement dans un service ne doit pas imposer le redéploiement des autres, sauf montée explicite de la version du moteur `Narrative`.
+
+Le développement local utilisera Docker Compose à partir du jalon 2. La production pourra choisir un orchestrateur sans modifier les couches métier.
 
 ## Règles automatisées
 
-`GenEngine.Architecture.Tests` lit les `ProjectReference` des projets sous `src/` et compare le graphe réel à une liste blanche exhaustive. Ajouter un projet ou une dépendance nécessite donc une décision d’architecture explicite et une mise à jour du test.
+`GenEngine.Architecture.Tests` compare chaque `ProjectReference` sous `src/` à une liste blanche exhaustive. L’ajout d’un projet ou d’une dépendance non prévue fait échouer la CI.
 
-Les futures règles au niveau des namespaces devront notamment garantir :
+Des tests supplémentaires seront ajoutés avec le code pour garantir :
 
-- aucune dépendance de `Domain` vers `Application`, `Infrastructure` ou `Api` ;
-- aucune dépendance de `Application` vers `Infrastructure` ou `Api` ;
-- aucun accès aux namespaces internes d’un autre bounded context ;
-- aucun type EF Core ou ASP.NET Core dans le Domain.
-
-## Critères d’éclatement d’un module
-
-Un module peut être séparé en projets `Domain`, `Application`, `Infrastructure` et `Api` si au moins un signal concret apparaît : cycles difficiles à empêcher, compilation ou tests trop lents, plusieurs équipes propriétaires, réutilisation autonome du Domain, ou besoin de déploiement distinct. L’éclatement n’est pas utilisé comme décoration architecturale.
+- aucune référence de `Domain` vers un framework ou une couche externe ;
+- aucune référence d’`Application` vers `Infrastructure` ou `Api` ;
+- aucune référence de code entre services ;
+- aucune API publique accidentelle dans les couches internes ;
+- compatibilité déterministe des versions du moteur Narrative.
 
 ## Dépendances externes
 
-Toute dépendance doit répondre à un besoin identifié, être maintenue, compatible avec .NET 10, permissive et compatible avec un usage commercial. Le Domain narratif privilégie la bibliothèque standard.
+Toute dépendance doit répondre à un besoin identifié, être maintenue, compatible avec .NET 10, permissive et compatible avec un usage commercial. Le moteur Narrative privilégie la bibliothèque standard.

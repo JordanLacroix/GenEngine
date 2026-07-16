@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "dependencies": {
+    "net10.0": {
+      "genengine.authoring.application": {
+        "type": "Project",
+        "dependencies": {
+          "GenEngine.Authoring.Domain": "[1.0.0, )",
+          "GenEngine.Narrative": "[1.0.0, )"
+        }
+      },
+      "genengine.authoring.domain": {
+        "type": "Project"
+      },
+      "genengine.narrative": {
+        "type": "Project"
+      }
+    }
+  }
+}

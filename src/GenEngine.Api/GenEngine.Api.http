@@ -1,9 +1,0 @@
-@GenEngine_Api_HostAddress = http://localhost:5080
-
-GET {{GenEngine_Api_HostAddress}}/health/live
-Accept: application/json
-
-###
-
-GET {{GenEngine_Api_HostAddress}}/health/ready
-Accept: application/json
