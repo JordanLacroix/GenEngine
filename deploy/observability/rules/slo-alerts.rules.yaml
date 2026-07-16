@@ -49,6 +49,45 @@ groups:
           summary: "Latence p95 élevée ({{ $labels.service_name }})"
           description: "p95 des requêtes utilisateur > 500 ms sur 10 min (seuil provisoire de développement)."
 
+      # --- Service muet ---
+      # Un service totalement arrêté ne produit plus d'erreurs ni de trafic : son
+      # ratio d'erreurs devient NaN et les alertes de burn restent silencieuses.
+      # C'est pourtant le pire cas de disponibilité. Les sondes de santé tournent
+      # en continu tant que le service vit ; l'absence de toute série sur 10 min
+      # signale donc un service muet ou disparu. Une entrée par service (pas de
+      # templating de liste dans les règles Prometheus) ; le label service_name
+      # est posé explicitement pour le routage et l'affichage.
+      - alert: GenEngineServiceNoTraffic
+        expr: absent_over_time(http_server_request_duration_seconds_count{service_name="genengine-authoring"}[10m])
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+          service_name: genengine-authoring
+        annotations:
+          summary: "Service muet (genengine-authoring)"
+          description: "Aucune requête (santé comprise) observée pour genengine-authoring depuis 10 min : service arrêté, planté ou export de métriques interrompu."
+      - alert: GenEngineServiceNoTraffic
+        expr: absent_over_time(http_server_request_duration_seconds_count{service_name="genengine-play"}[10m])
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+          service_name: genengine-play
+        annotations:
+          summary: "Service muet (genengine-play)"
+          description: "Aucune requête (santé comprise) observée pour genengine-play depuis 10 min : service arrêté, planté ou export de métriques interrompu."
+      - alert: GenEngineServiceNoTraffic
+        expr: absent_over_time(http_server_request_duration_seconds_count{service_name="genengine-identity"}[10m])
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+          service_name: genengine-identity
+        annotations:
+          summary: "Service muet (genengine-identity)"
+          description: "Aucune requête (santé comprise) observée pour genengine-identity depuis 10 min : service arrêté, planté ou export de métriques interrompu."
+
       # --- Collecte des métriques ---
       # Si la cible de scrape est absente, tous les SLI ci-dessus sont aveugles.
       - alert: GenEngineMetricsTargetDown

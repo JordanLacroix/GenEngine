@@ -65,7 +65,13 @@ du *SRE Workbook*), calées sur le SLO provisoire de 99 % :
 | `GenEngineErrorBudgetBurnFast` | ratio 5xx > 14,4 % sur 5 min **et** 1 h | critical | épuise ~2 % du budget mensuel en 1 h |
 | `GenEngineErrorBudgetBurnSlow` | ratio 5xx > 6 % sur 30 min **et** 6 h | warning | dérive soutenue |
 | `GenEngineHighLatencyP95` | p95 > 500 ms sur 10 min | warning | dégradation de latence |
+| `GenEngineServiceNoTraffic` | aucune série (santé comprise) pour un service sur 10 min | critical | service muet : pire cas de disponibilité, invisible pour le burn |
 | `GenEngineMetricsTargetDown` | `up{job="otel-collector"} == 0` 5 min | critical | SLI aveugles |
+
+`GenEngineServiceNoTraffic` couvre le trou du burn : un service arrêté ne produit
+plus d'erreurs, donc son ratio d'erreurs est `NaN` et n'alerte pas. Les sondes de
+santé servent de battement de cœur ; leur disparition révèle le service muet. Une
+règle par service (pas de templating de liste dans Prometheus).
 
 Seuils de burn : `14,4 = 2 % de budget en 1 h` et `6 = 5 % de budget en 6 h`
 pour un budget de 1 %. Ces multiplicateurs sont provisoires et suivront toute
