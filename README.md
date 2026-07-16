@@ -214,6 +214,12 @@ dotnet list GenEngine.sln package --vulnerable --include-transitive
 
 # Lancement local d’un service
 dotnet run --project src/Services/Play/GenEngine.Play.Api --launch-profile http
+
+# Sauvegarde chiffrée des trois bases (voir specs/process/backup-restore.md)
+BACKUP_AGE_PASSPHRASE='…' scripts/backup-databases.sh
+
+# Restauration : dry-run par défaut, base temporaire avec --target-db
+BACKUP_AGE_PASSPHRASE='…' scripts/restore-database.sh authoring-db backups/authoring-db-<UTC>.dump.age
 ```
 
 Les versions NuGet sont centralisées dans [`Directory.Packages.props`](Directory.Packages.props) et verrouillées par projet avec `packages.lock.json`.
@@ -233,6 +239,7 @@ Les versions NuGet sont centralisées dans [`Directory.Packages.props`](Director
 - Dependabot, secret scanning et push protection ;
 - aucune donnée personnelle ou texte libre dans les logs par défaut ;
 - audit métier des opérations sensibles sans secret ni donnée personnelle (voir [`specs/process/audit.md`](specs/process/audit.md)) ;
+- sauvegarde et restauration chiffrées (age) des trois bases, testées et documentées (voir [`specs/process/backup-restore.md`](specs/process/backup-restore.md)) ;
 - threat model requis avant toute exposition publique de l’API.
 
 Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le build strict et les tests à chaque pull request et push sur `main`. La matrice complète des protections, outils actifs et intégrations différées est tenue dans [`specs/process/github-governance.md`](specs/process/github-governance.md).
@@ -255,6 +262,7 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 | [`specs/process/audit.md`](specs/process/audit.md) | Audit métier : événements, politique de non-fuite et consultation |
 | [`specs/process/resilience.md`](specs/process/resilience.md) | Résilience interservices : timeouts, retry et circuit breaker |
 | [`specs/process/threat-model.md`](specs/process/threat-model.md) | Menaces, frontières de confiance et mitigations initiales |
+| [`specs/process/backup-restore.md`](specs/process/backup-restore.md) | Sauvegarde/restauration chiffrées des bases, clés dev/prod et procédure de test |
 | [`specs/api/http.md`](specs/api/http.md) | Contrats HTTP publics et interservices |
 | [`specs/domain/`](specs/domain/) | Scénarios, runtime, déterminisme et exemples exécutables |
 
