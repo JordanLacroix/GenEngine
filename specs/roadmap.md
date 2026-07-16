@@ -16,7 +16,7 @@ Modèle Domain, evaluator, reducer, runtime, machine à états, migrations, vali
 
 ## Jalon 2 — backend jouable
 
-PostgreSQL, authoring minimal, publication, sessions persistées, idempotence, API, authentification locale et Docker Compose.
+Services Authoring, Play et Identity indépendants, bases PostgreSQL séparées, publication, sessions persistées, idempotence, contrats API et Docker Compose.
 
 ## Jalon 3 — durcissement
 

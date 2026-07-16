@@ -1,6 +1,7 @@
-# Default ownership. Add module-specific owners when the team grows.
+# Default ownership. Add service-specific owners when the team grows.
 * @JordanLacroix
 
 /.github/ @JordanLacroix
 /specs/ @JordanLacroix
-/src/Modules/GenEngine.Narrative/ @JordanLacroix
+/src/Engine/GenEngine.Narrative/ @JordanLacroix
+/src/Services/ @JordanLacroix

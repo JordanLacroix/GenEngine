@@ -2,7 +2,7 @@
 
 # GenEngine
 
-**Moteur narratif backend déterministe, autoritatif et extensible en .NET 10 LTS.**
+**Backend narratif distribué, déterministe et extensible en .NET 10 LTS.**
 
 [![CI](https://github.com/JordanLacroix/GenEngine/actions/workflows/ci.yml/badge.svg)](https://github.com/JordanLacroix/GenEngine/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/JordanLacroix/GenEngine/actions/workflows/codeql.yml/badge.svg)](https://github.com/JordanLacroix/GenEngine/actions/workflows/codeql.yml)
@@ -29,7 +29,7 @@ Le projet vise un moteur :
 - **autoritatif** — le serveur contrôle les transitions et l’état des sessions ;
 - **testable** — le cœur narratif reste une logique métier pure ;
 - **portable** — aucun cloud ou fournisseur d’IA obligatoire ;
-- **évolutif** — monolithe modulaire, extensions ajoutées selon des besoins validés ;
+- **évolutif** — services indépendamment déployables, extensions ajoutées selon des besoins validés ;
 - **sobre en dépendances** — licences permissives et compatibles avec un usage commercial.
 
 > [!IMPORTANT]
@@ -39,7 +39,7 @@ Le projet vise un moteur :
 
 | Élément | État |
 |---|---|
-| Solution .NET 10 et bounded contexts | ✅ Initialisé |
+| Solution .NET 10 et services autonomes | ✅ Initialisé |
 | Build sans warning | ✅ Vérifié |
 | Frontières de dépendance automatisées | ✅ Vérifiées en CI |
 | Health checks API | ✅ Disponibles |
@@ -73,17 +73,20 @@ dotnet test --no-build
 
 Les tests d’architecture protègent déjà le graphe de dépendances. Les premiers tests métier arriveront avec l’implémentation du Domain au jalon 1.
 
-### Lancer l’API
+### Lancer les services
 
 ```bash
-dotnet run --project src/GenEngine.Api --launch-profile http
+dotnet run --project src/Services/Authoring/GenEngine.Authoring.Api --launch-profile http
+dotnet run --project src/Services/Play/GenEngine.Play.Api --launch-profile http
+dotnet run --project src/Services/Identity/GenEngine.Identity.Api --launch-profile http
 ```
 
-Vérifier ensuite les health checks :
+Chaque commande utilise un terminal distinct. Vérifier ensuite les health checks :
 
 ```bash
 curl http://localhost:5201/health/live
-curl http://localhost:5201/health/ready
+curl http://localhost:5202/health/live
+curl http://localhost:5203/health/live
 ```
 
 | Endpoint | Rôle |
@@ -93,58 +96,55 @@ curl http://localhost:5201/health/ready
 
 ## Architecture
 
-GenEngine est un **monolithe modulaire DDD/Clean pragmatique** : un seul déployable, un assembly par bounded context et un Domain narratif indépendant de tout framework.
+GenEngine est un **backend distribué DDD/Clean** : trois services indépendamment déployables et un moteur narratif pur, embarqué sous forme de package versionné.
 
 ```mermaid
-flowchart TD
-    API["GenEngine.Api<br/>HTTP · DI · OpenAPI"]
-    AUTHORING["GenEngine.Authoring<br/>Brouillons · validation · publication"]
-    PLAY["GenEngine.Play<br/>Sessions · commandes · reprise"]
-    IDENTITY["GenEngine.Identity<br/>Authentification · policies"]
-    NARRATIVE["GenEngine.Narrative<br/>Moteur pur · runtime · hash"]
-
-    API --> AUTHORING
-    API --> PLAY
-    API --> IDENTITY
-    AUTHORING --> NARRATIVE
-    PLAY --> NARRATIVE
+flowchart LR
+    CLIENT["Clients"] --> EDGE["Ingress / API Gateway"]
+    EDGE --> AUTHORING["Authoring API<br/>déployable autonome"]
+    EDGE --> PLAY["Play API<br/>déployable autonome"]
+    EDGE --> IDENTITY["Identity API<br/>déployable autonome"]
+    AUTHORING --> AUTHORDB[("Authoring DB")]
+    PLAY --> PLAYDB[("Play DB")]
+    IDENTITY --> IDENTITYDB[("Identity DB")]
+    AUTHORING -. embarque .-> NARRATIVE["Narrative Engine<br/>package pur"]
+    PLAY -. embarque .-> NARRATIVE
 ```
 
 ### Modules
 
 | Projet | Responsabilité |
 |---|---|
-| `GenEngine.Narrative` | Modèle, conditions, effets locaux, runtime, PRNG, snapshots et migrations |
-| `GenEngine.Authoring` | Import, validation, brouillons, versioning, publication et ses propres adaptateurs |
-| `GenEngine.Play` | Sessions, commandes, idempotence, pause, reprise et ses propres adaptateurs |
-| `GenEngine.Identity` | Authentification locale, autorisation minimale et ses propres adaptateurs |
-| `GenEngine.Api` | Minimal API, composition, OpenAPI et préoccupations HTTP |
+| `GenEngine.Narrative` | Package pur : modèle, conditions, runtime, PRNG, hash et migrations de format |
+| `GenEngine.Authoring.*` | Service autonome d’import, validation, brouillons, versioning et publication |
+| `GenEngine.Play.*` | Service autonome de sessions, commandes, idempotence, pause et reprise |
+| `GenEngine.Identity.*` | Service autonome d’authentification locale et d’autorisation |
 
 ### Règles de dépendance
 
-1. `Narrative` ne référence ni ASP.NET Core, ni EF Core, ni un autre module métier.
-2. `Authoring` et `Play` sont les seuls modules autorisés à référencer `Narrative`.
-3. Chaque module possède ses cas d’usage, son infrastructure, son schéma et ses migrations.
-4. Aucun module ne lit directement les tables ou les types internes d’un autre module.
-5. `Api` compose l’application sans contenir de logique métier ni de persistance.
-6. Une liste blanche exhaustive protège ces références dans les tests d’architecture.
+1. `Narrative` ne référence ni ASP.NET Core, ni EF Core, ni un service.
+2. Aucun service ne possède de référence de projet vers un autre service.
+3. Chaque service possède son Domain, ses cas d’usage, son infrastructure, son API et sa base.
+4. `Domain` ne dépend de rien ; les dépendances pointent vers lui.
+5. Les échanges interservices utilisent des contrats versionnés, jamais des entités ou tables partagées.
+6. Une liste blanche exhaustive protège le graphe de projets dans les tests d’architecture.
 
 ## Structure du dépôt
 
 ```text
 GenEngine/
 ├── src/
-│   ├── Modules/
-│   │   ├── GenEngine.Narrative/
-│   │   ├── GenEngine.Authoring/
-│   │   ├── GenEngine.Play/
-│   │   └── GenEngine.Identity/
-│   └── GenEngine.Api/
+│   ├── Engine/
+│   │   └── GenEngine.Narrative/
+│   └── Services/
+│       ├── Authoring/         # Domain · Application · Infrastructure · Api
+│       ├── Play/              # Domain · Application · Infrastructure · Api
+│       └── Identity/          # Domain · Application · Infrastructure · Api
 ├── tests/
 │   ├── GenEngine.Narrative.Tests/
-│   ├── GenEngine.Modules.Tests/
+│   ├── GenEngine.Services.Tests/
 │   ├── GenEngine.Architecture.Tests/
-│   └── GenEngine.Api.IntegrationTests/
+│   └── GenEngine.*.IntegrationTests/
 ├── specs/
 ├── .github/workflows/
 └── GenEngine.sln
@@ -177,8 +177,8 @@ dotnet test --no-build
 # Audit des vulnérabilités directes et transitives
 dotnet list GenEngine.sln package --vulnerable --include-transitive
 
-# Lancement local de l’API
-dotnet run --project src/GenEngine.Api --launch-profile http
+# Lancement local d’un service
+dotnet run --project src/Services/Play/GenEngine.Play.Api --launch-profile http
 ```
 
 Les versions NuGet sont centralisées dans [`Directory.Packages.props`](Directory.Packages.props) et verrouillées par projet avec `packages.lock.json`.
@@ -233,7 +233,7 @@ Ne jamais annoncer une fonctionnalité comme disponible avant qu’elle soit imp
 |---|---|---|
 | **0 — Cadrage** | Scénarios de référence, invariants, JSON polymorphe, PRNG, hash et ADR | 🚧 En cours |
 | **1 — Moteur en mémoire** | Domain, evaluator, reducer, runtime, migrations et tests déterministes | ⏳ Planifié |
-| **2 — Backend jouable** | PostgreSQL, authoring, publication, sessions, API, auth locale et Docker | ⏳ Planifié |
+| **2 — Backend jouable** | Services autonomes, PostgreSQL séparés, publication, sessions, auth et Docker | ⏳ Planifié |
 | **3 — Durcissement** | Observabilité complète, sécurité, résilience et sauvegarde/restauration | ⏳ Planifié |
 | **4 — Première extension** | Une extension choisie selon les retours utilisateurs | ⏳ À décider |
 

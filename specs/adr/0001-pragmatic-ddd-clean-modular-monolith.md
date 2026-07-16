@@ -1,9 +1,11 @@
 # ADR 0001 — Monolithe modulaire DDD/Clean pragmatique
 
-- Statut : accepté
+- Statut : remplacé par [ADR 0002](0002-distributed-clean-services.md)
 - Date : 2026-07-16
 
 ## Contexte
+
+> Cette décision a été remplacée dès le cadrage : la contrainte produit exige des services indépendamment déployables et exclut un monolithe.
 
 Le squelette initial séparait les bounded contexts, un `SharedKernel` et une infrastructure globale. Bien qu’aucune logique métier ne soit encore implémentée, cette direction rendait probable un couplage transversal : l’infrastructure connaissait tous les modules et le Shared Kernel pouvait devenir un fourre-tout.
 

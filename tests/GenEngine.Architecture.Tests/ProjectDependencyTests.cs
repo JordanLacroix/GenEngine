@@ -8,12 +8,22 @@ public sealed class ProjectDependencyTests
         new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal)
         {
             ["GenEngine.Narrative"] = new HashSet<string>(StringComparer.Ordinal),
-            ["GenEngine.Authoring"] = new HashSet<string>(["GenEngine.Narrative"], StringComparer.Ordinal),
-            ["GenEngine.Play"] = new HashSet<string>(["GenEngine.Narrative"], StringComparer.Ordinal),
-            ["GenEngine.Identity"] = new HashSet<string>(StringComparer.Ordinal),
-            ["GenEngine.Api"] = new HashSet<string>(
-                ["GenEngine.Authoring", "GenEngine.Play", "GenEngine.Identity"],
-                StringComparer.Ordinal),
+            ["GenEngine.Authoring.Domain"] = None(),
+            ["GenEngine.Authoring.Application"] = Only(
+                "GenEngine.Authoring.Domain", "GenEngine.Narrative"),
+            ["GenEngine.Authoring.Infrastructure"] = Only("GenEngine.Authoring.Application"),
+            ["GenEngine.Authoring.Api"] = Only(
+                "GenEngine.Authoring.Application", "GenEngine.Authoring.Infrastructure"),
+            ["GenEngine.Play.Domain"] = None(),
+            ["GenEngine.Play.Application"] = Only("GenEngine.Play.Domain", "GenEngine.Narrative"),
+            ["GenEngine.Play.Infrastructure"] = Only("GenEngine.Play.Application"),
+            ["GenEngine.Play.Api"] = Only(
+                "GenEngine.Play.Application", "GenEngine.Play.Infrastructure"),
+            ["GenEngine.Identity.Domain"] = None(),
+            ["GenEngine.Identity.Application"] = Only("GenEngine.Identity.Domain"),
+            ["GenEngine.Identity.Infrastructure"] = Only("GenEngine.Identity.Application"),
+            ["GenEngine.Identity.Api"] = Only(
+                "GenEngine.Identity.Application", "GenEngine.Identity.Infrastructure"),
         };
 
     [Fact]
@@ -55,6 +65,11 @@ public sealed class ProjectDependencyTests
             .Select(path => Path.GetFileNameWithoutExtension(path!.Replace('\\', '/')))
             .ToHashSet(StringComparer.Ordinal);
     }
+
+    private static HashSet<string> None() => new(StringComparer.Ordinal);
+
+    private static HashSet<string> Only(params string[] projectNames) =>
+        projectNames.ToHashSet(StringComparer.Ordinal);
 
     private static string FindRepositoryRoot()
     {
