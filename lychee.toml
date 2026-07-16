@@ -7,6 +7,6 @@ accept = [200, 204, 206, 429]
 exclude = [
   '^http://localhost',
   '^http://127\\.0\\.0\\.1',
-  '^https://github\\.com/JordanLacroix/GenEngine/actions/workflows/.*/badge\\.svg$',
+  'https://github.com/JordanLacroix/GenEngine/actions/workflows/scorecard.yml/badge.svg',
   'https://github.com/JordanLacroix/GenEngine/security/advisories/new'
 ]
