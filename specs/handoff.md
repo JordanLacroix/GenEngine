@@ -12,6 +12,7 @@ Dernière mise à jour : 16 juillet 2026.
 - La surcouche locale fournit Collector, Prometheus, Tempo, Loki et Grafana.
 - Le dashboard Grafana `GenEngine — Vue d’ensemble` est provisionné.
 - `HRD-003` livre des SLI/SLO provisoires : voir `specs/process/slo.md`, les règles Prometheus sous `deploy/observability/rules/` et le dashboard `GenEngine — SLO et budget d’erreur`.
+- `HRD-004` livre l’audit métier : primitive `IAuditLog` dans `GenEngine.Observability`, événements émis à la frontière Api des trois services, politique de non-fuite dans `specs/process/audit.md`.
 - La dernière PR fonctionnelle fusionnée avant ce handoff est la PR GitHub `#12`.
 - Au moment du handoff, le dépôt était propre, synchronisé avec `origin/main`, la stack complète était active et tous ses conteneurs étaient sains.
 
@@ -47,24 +48,23 @@ docker compose -f compose.yaml -f compose.observability.yaml down
 
 N’utilise `--volumes` que si la perte des données locales est explicitement souhaitée.
 
-## Prochaine unité de travail — HRD-004
+## Prochaine unité de travail — HRD-005
 
-Objectif : renforcer l’audit métier — événements sensibles traçables sans secret ni donnée personnelle dans les journaux.
+Objectif : ajouter les politiques de résilience interservices — timeouts, retry borné et circuit breaker pour les appels idempotents.
 
-Contexte laissé par `HRD-003` :
+Contexte laissé par `HRD-004` :
 
-- Les SLI/SLO provisoires sont documentés dans `specs/process/slo.md` (procédure de test incluse).
-- Les règles vivent sous `deploy/observability/rules/` ; ne pas y ajouter de logique métier.
-- Les seuils sont provisoires : toute cible de production nécessite un ADR et du trafic réel.
+- L’audit vit à la frontière Api (`IAuditLog` dans `GenEngine.Observability`) ; la liste blanche des tests d’architecture interdit `Application`/`Infrastructure` de référencer `GenEngine.Observability`.
+- La politique de non-fuite et le catalogue d’événements sont dans `specs/process/audit.md`.
+- Cible principale de `HRD-005` : l’appel de `Play` vers l’API interne d’`Authoring` (`/internal/scenario-versions/{id}`), déjà audité côté refus (`internal_snapshot_access_denied`).
 
-Ne choisis pas silencieusement des engagements de production ni un format d’audit ; annonce toute hypothèse de périmètre.
+Ne choisis pas silencieusement une bibliothèque de résilience ni des seuils ; annonce toute hypothèse de périmètre.
 
 ## Ordre restant du jalon 3
 
-1. `HRD-004` — audit métier sans secrets ni données personnelles ;
-2. `HRD-005` — timeouts, retry borné et circuit breaker pour les appels interservices idempotents ;
-3. `HRD-006` — sauvegarde et restauration testées des trois PostgreSQL ;
-4. `HRD-007` — outbox uniquement si un consommateur asynchrone réel apparaît.
+1. `HRD-005` — timeouts, retry borné et circuit breaker pour les appels interservices idempotents ;
+2. `HRD-006` — sauvegarde et restauration testées des trois PostgreSQL ;
+3. `HRD-007` — outbox uniquement si un consommateur asynchrone réel apparaît.
 
 ## Décisions à préserver
 

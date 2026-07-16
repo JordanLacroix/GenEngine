@@ -64,4 +64,4 @@ docker compose -f compose.yaml -f compose.observability.yaml up --build --detach
 
 ## Prochaine tâche
 
-Commence par `HRD-004`, décrite dans [`specs/modules/hardening/tasks.md`](specs/modules/hardening/tasks.md). Ne poursuis pas automatiquement vers `HRD-005` tant que `HRD-004` n’est pas fusionnée et documentée.
+Commence par `HRD-005`, décrite dans [`specs/modules/hardening/tasks.md`](specs/modules/hardening/tasks.md). Ne poursuis pas automatiquement vers `HRD-006` tant que `HRD-005` n’est pas fusionnée et documentée.

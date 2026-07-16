@@ -13,6 +13,7 @@
     <Using Include="Xunit" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\src\BuildingBlocks\GenEngine.Observability\GenEngine.Observability.csproj" />
     <ProjectReference Include="..\..\src\Services\Authoring\GenEngine.Authoring.Application\GenEngine.Authoring.Application.csproj" />
     <ProjectReference Include="..\..\src\Services\Play\GenEngine.Play.Application\GenEngine.Play.Application.csproj" />
     <ProjectReference Include="..\..\src\Services\Identity\GenEngine.Identity.Application\GenEngine.Identity.Application.csproj" />
