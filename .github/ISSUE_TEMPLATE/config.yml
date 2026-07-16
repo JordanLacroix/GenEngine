@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "🔐 Signaler une vulnérabilité"
+    url: https://github.com/JordanLacroix/GenEngine/security/advisories/new
+    about: Ne publiez jamais une vulnérabilité exploitable dans une issue publique.
+  - name: "💬 Question ou idée exploratoire"
+    url: https://github.com/JordanLacroix/GenEngine/discussions
+    about: Utilisez Discussions lorsqu’il n’existe pas encore de problème ou de périmètre actionnable.

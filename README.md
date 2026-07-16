@@ -5,13 +5,15 @@
 **Moteur narratif backend déterministe, autoritatif et extensible en .NET 10 LTS.**
 
 [![CI](https://github.com/JordanLacroix/GenEngine/actions/workflows/ci.yml/badge.svg)](https://github.com/JordanLacroix/GenEngine/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/JordanLacroix/GenEngine/actions/workflows/codeql.yml/badge.svg)](https://github.com/JordanLacroix/GenEngine/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://github.com/JordanLacroix/GenEngine/actions/workflows/scorecard.yml/badge.svg)](https://github.com/JordanLacroix/GenEngine/actions/workflows/scorecard.yml)
 [![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet&logoColor=white)](https://dotnet.microsoft.com/)
 [![C# 14](https://img.shields.io/badge/C%23-14-239120?logo=csharp&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
 [![Status](https://img.shields.io/badge/status-jalon%200-0A7BBB)](#état-du-projet)
 [![Last commit](https://img.shields.io/github/last-commit/JordanLacroix/GenEngine)](https://github.com/JordanLacroix/GenEngine/commits/main)
 [![License](https://img.shields.io/badge/licence-non%20définie-lightgrey)](#licence)
 
-[Vision](#vision) · [Démarrage rapide](#démarrage-rapide) · [Architecture](#architecture) · [Roadmap](#roadmap) · [Documentation](#documentation)
+[Vision](#vision) · [Démarrage rapide](#démarrage-rapide) · [Architecture](#architecture) · [Roadmap](#roadmap) · [Documentation](#documentation) · [Contribuer](#contribuer)
 
 </div>
 
@@ -202,10 +204,14 @@ Les versions NuGet sont centralisées dans [`Directory.Packages.props`](Director
 - restore NuGet verrouillé en CI ;
 - dépendances directes et transitives auditées ;
 - GitHub Actions avec permissions minimales ;
+- actions tierces épinglées par SHA et auditées par zizmor ;
+- CodeQL, Trivy, Dependency Review et OpenSSF Scorecard ;
+- SBOM SPDX générée automatiquement sur `main` ;
+- Dependabot, secret scanning et push protection ;
 - aucune donnée personnelle ou texte libre dans les logs par défaut ;
 - threat model requis avant toute exposition publique de l’API.
 
-Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le build strict et les tests à chaque pull request et push sur `main`.
+Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le build strict et les tests à chaque pull request et push sur `main`. La matrice complète des protections, outils actifs et intégrations différées est tenue dans [`specs/process/github-governance.md`](specs/process/github-governance.md).
 
 ## Documentation
 
@@ -218,6 +224,7 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 | [`specs/glossary.md`](specs/glossary.md) | Vocabulaire métier |
 | [`specs/adr/`](specs/adr/) | Architecture Decision Records |
 | [`specs/modules/narrative/tasks.md`](specs/modules/narrative/tasks.md) | Tâches du premier module |
+| [`specs/process/github-governance.md`](specs/process/github-governance.md) | Gouvernance GitHub, CI/CD et sécurité |
 
 ### Maintenir ce README
 
@@ -245,15 +252,12 @@ Ne jamais annoncer une fonctionnalité comme disponible avant qu’elle soit imp
 
 ## Contribuer
 
-1. Partir de `main` à jour.
-2. Créer une branche courte par tâche ou vertical slice.
-3. Utiliser des commits conventionnels : `type(scope): sujet`.
-4. Ajouter ou adapter les tests utiles.
-5. Mettre à jour les specs, ADR, tâches et ce README lorsque le changement le nécessite.
-6. Vérifier localement restore, build et tests.
-7. Ouvrir une pull request avec une description précise du pourquoi.
+Consultez [`CONTRIBUTING.md`](CONTRIBUTING.md), puis utilisez le formulaire de bug ou de fonctionnalité adapté. Chaque changement passe par une pull request structurée, des commits conventionnels et les contrôles automatisés requis.
 
-Le workflow détaillé est documenté progressivement dans `specs/process/`.
+- [Ouvrir un bug](https://github.com/JordanLacroix/GenEngine/issues/new?template=bug.yml)
+- [Proposer une fonctionnalité](https://github.com/JordanLacroix/GenEngine/issues/new?template=feature.yml)
+- [Poser une question](https://github.com/JordanLacroix/GenEngine/discussions)
+- [Consulter la politique de sécurité](SECURITY.md)
 
 ## Licence
 

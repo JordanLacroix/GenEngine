@@ -1,0 +1,133 @@
+name: "🐛 Bug"
+description: Signaler un comportement reproductible avec un contexte exploitable par un humain ou un agent IA.
+title: "bug: "
+labels: ["type: bug", "status: triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de fournir des faits reproductibles. Supprimez les secrets, tokens et données personnelles des traces.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Résumé du problème
+      description: Décrivez le défaut observable en une ou deux phrases.
+      placeholder: Lorsque…, GenEngine…, alors que…
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Zone concernée
+      options:
+        - Narrative
+        - Authoring
+        - Play
+        - Identity
+        - Infrastructure
+        - API
+        - CI/CD ou outillage
+        - Documentation
+        - Inconnue
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version ou commit
+      description: Tag, SHA de commit ou branche où le problème est observé.
+      placeholder: main@abcdef1
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environnement
+      description: OS, architecture, SDK .NET, base de données, conteneur et configuration pertinente.
+      placeholder: macOS 15 arm64, .NET SDK 10.0.x, exécution locale…
+    validations:
+      required: true
+  - type: textarea
+    id: preconditions
+    attributes:
+      label: Préconditions et données minimales
+      description: État initial, scénario minimal et configuration nécessaires.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Étapes exactes pour reproduire
+      description: Liste numérotée, commandes et payloads minimaux compris.
+      placeholder: |
+        1. Lancer…
+        2. Envoyer…
+        3. Observer…
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Résultat attendu
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Résultat observé
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Preuves et traces nettoyées
+      description: Logs, stack trace, réponse HTTP, capture ou lien vers un exemple minimal. Retirez toute donnée sensible.
+      render: shell
+  - type: dropdown
+    id: regression
+    attributes:
+      label: Régression connue ?
+      options:
+        - Inconnu
+        - Non, jamais fonctionné
+        - Oui, fonctionnait auparavant
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Impact estimé
+      options:
+        - Bloquant — perte de données, sécurité ou service inutilisable
+        - Élevé — fonction majeure inutilisable sans contournement
+        - Moyen — contournement disponible
+        - Faible — gêne limitée ou cosmétique
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critères de résolution
+      description: Conditions vérifiables permettant de considérer le bug corrigé.
+      placeholder: |
+        - [ ] Le cas minimal ne reproduit plus l’erreur.
+        - [ ] Un test de non-régression couvre le comportement.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Contexte complémentaire
+      description: Hypothèses, pistes, fichiers probablement concernés ou liens utiles.
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Vérifications
+      options:
+        - label: J’ai recherché les issues existantes et je n’ai pas trouvé de doublon.
+          required: true
+        - label: Les traces et exemples ne contiennent ni secret ni donnée personnelle.
+          required: true
+        - label: Si le problème est une vulnérabilité, je n’ai pas publié ses détails ici et j’utilise le signalement privé.
+          required: true

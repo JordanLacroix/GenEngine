@@ -1,0 +1,31 @@
+name: Welcome contributors
+
+on:
+  issues:
+    types: [opened]
+  pull_request_target:
+    types: [opened]
+
+permissions:
+  contents: read
+
+jobs:
+  welcome:
+    name: First interaction
+    permissions:
+      issues: write
+      pull-requests: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@bf7454d06d71f1098171f2acdf0cd4708d7b5920 # v2.20.0
+        with:
+          egress-policy: audit
+      - name: Welcome first-time contributors
+        uses: actions/first-interaction@1c4688942c71f71d4f5502a26ea67c331730fa4d # v3.1.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          issue-message: >-
+            Merci pour ce premier signalement. La structure du formulaire nous permettra de le qualifier rapidement.
+          pr-message: >-
+            Merci pour cette première contribution. Les contrôles automatisés vont maintenant vérifier le changement.

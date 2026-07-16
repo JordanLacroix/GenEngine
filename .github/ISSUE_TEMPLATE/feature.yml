@@ -1,0 +1,113 @@
+name: "✨ Demande de fonctionnalité"
+description: Décrire un besoin, son résultat attendu et des critères vérifiables pour une implémentation humaine ou IA.
+title: "feat: "
+labels: ["type: feature", "status: triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problème utilisateur
+      description: Qui rencontre quel problème, dans quel contexte ? Évitez de commencer directement par une solution.
+      placeholder: En tant que…, lorsque…, je ne peux pas…, ce qui entraîne…
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Résultat attendu
+      description: Décrivez le résultat métier mesurable, indépendamment de l’implémentation.
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Zone principalement concernée
+      options:
+        - Narrative
+        - Authoring
+        - Play
+        - Identity
+        - Infrastructure
+        - API
+        - CI/CD ou outillage
+        - Documentation
+        - Plusieurs modules
+        - Inconnue
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Solution proposée
+      description: Parcours, contrat ou comportement envisagé. Incluez un exemple concret si possible.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives étudiées
+      description: Autres solutions, contournements actuels et raisons de leur rejet.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Périmètre et non-objectifs
+      placeholder: |
+        Inclus :
+        - …
+
+        Non inclus :
+        - …
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critères d’acceptation
+      description: Liste de comportements observables, indépendants et testables.
+      placeholder: |
+        - [ ] Étant donné…, quand…, alors…
+        - [ ] …
+    validations:
+      required: true
+  - type: textarea
+    id: technical
+    attributes:
+      label: Contraintes et impacts techniques
+      description: API, données, compatibilité, performance, déterminisme, sécurité, observabilité et migration.
+      placeholder: Aucun impact identifié / préciser…
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dépendances et prérequis
+      description: Issues, ADR, services, données ou décisions nécessaires.
+  - type: dropdown
+    id: value
+    attributes:
+      label: Valeur estimée
+      options:
+        - Critique — bloque un objectif ou réduit un risque majeur
+        - Élevée — forte valeur utilisateur ou technique
+        - Moyenne — amélioration utile
+        - Faible — confort ou opportunité future
+    validations:
+      required: true
+  - type: textarea
+    id: ai_context
+    attributes:
+      label: Contexte utile à un agent IA
+      description: Fichiers à consulter, invariants à préserver, exemples de référence et pièges connus.
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Vérifications
+      options:
+        - label: J’ai recherché les issues et discussions existantes.
+          required: true
+        - label: Le besoin, le périmètre et les critères d’acceptation sont suffisamment précis pour être vérifiés.
+          required: true
+        - label: Cette issue ne contient ni secret ni donnée personnelle.
+          required: true

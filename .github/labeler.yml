@@ -1,0 +1,32 @@
+"area: narrative":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/Modules/GenEngine.Narrative/**"
+          - "tests/GenEngine.Narrative.Tests/**"
+          - "specs/modules/narrative/**"
+"area: authoring":
+  - changed-files:
+      - any-glob-to-any-file: "src/Modules/GenEngine.Authoring/**"
+"area: play":
+  - changed-files:
+      - any-glob-to-any-file: "src/Modules/GenEngine.Play/**"
+"area: identity":
+  - changed-files:
+      - any-glob-to-any-file: "src/Modules/GenEngine.Identity/**"
+"area: api":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/GenEngine.Api/**"
+          - "tests/GenEngine.Api.IntegrationTests/**"
+"area: infrastructure":
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - "src/GenEngine.Infrastructure/**"
+          - "Directory.*.props"
+          - "global.json"
+"area: documentation":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - "specs/**"
