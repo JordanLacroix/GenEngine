@@ -1,0 +1,101 @@
+groups:
+  - name: genengine_slo_alerts
+    rules:
+      # --- Budget d'erreur de disponibilité (SLO provisoire : 99 %) ---
+      #
+      # Alertes multi-fenêtres sur le taux de consommation du budget d'erreur,
+      # d'après le SRE Workbook de Google. Les seuils sont PROVISOIRES et calés
+      # sur un SLO de développement de 99 % ; ils seront revus avec du trafic
+      # réel et des attentes produit validées (voir specs/process/slo.md).
+      #
+      # Consommation rapide : brûle ~2 % du budget mensuel en 1 h.
+      # Seuil = 14,4 × (1 - 0,99) = 0,144.
+      - alert: GenEngineErrorBudgetBurnFast
+        expr: |
+          service:http_error_ratio:rate5m > 0.144
+          and
+          service:http_error_ratio:rate1h > 0.144
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+        annotations:
+          summary: "Consommation rapide du budget d'erreur ({{ $labels.service_name }})"
+          description: "Taux d'erreurs 5xx ≥ 14,4 % sur 5 min et 1 h. À ce rythme le budget d'erreur mensuel (SLO provisoire 99 %) est épuisé en quelques heures."
+
+      # Consommation lente : brûle ~5 % du budget mensuel en 6 h.
+      # Seuil = 6 × (1 - 0,99) = 0,06.
+      - alert: GenEngineErrorBudgetBurnSlow
+        expr: |
+          service:http_error_ratio:rate30m > 0.06
+          and
+          service:http_error_ratio:rate6h > 0.06
+        for: 15m
+        labels:
+          severity: warning
+          slo: availability
+        annotations:
+          summary: "Consommation lente du budget d'erreur ({{ $labels.service_name }})"
+          description: "Taux d'erreurs 5xx ≥ 6 % sur 30 min et 6 h. Dérive soutenue à surveiller (SLO provisoire 99 %)."
+
+      # --- Latence (SLO provisoire : p95 < 500 ms) ---
+      - alert: GenEngineHighLatencyP95
+        expr: service:http_request_duration_seconds:p95_5m > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          slo: latency
+        annotations:
+          summary: "Latence p95 élevée ({{ $labels.service_name }})"
+          description: "p95 des requêtes utilisateur > 500 ms sur 10 min (seuil provisoire de développement)."
+
+      # --- Service muet ---
+      # Un service totalement arrêté ne produit plus d'erreurs ni de trafic : son
+      # ratio d'erreurs devient NaN et les alertes de burn restent silencieuses.
+      # C'est pourtant le pire cas de disponibilité. Les sondes de santé tournent
+      # en continu tant que le service vit ; l'absence de toute série sur 10 min
+      # signale donc un service muet ou disparu. Une entrée par service (pas de
+      # templating de liste dans les règles Prometheus) ; le label service_name
+      # est posé explicitement pour le routage et l'affichage.
+      - alert: GenEngineServiceNoTraffic
+        expr: absent_over_time(http_server_request_duration_seconds_count{service_name="genengine-authoring"}[10m])
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+          service_name: genengine-authoring
+        annotations:
+          summary: "Service muet (genengine-authoring)"
+          description: "Aucune requête (santé comprise) observée pour genengine-authoring depuis 10 min : service arrêté, planté ou export de métriques interrompu."
+      - alert: GenEngineServiceNoTraffic
+        expr: absent_over_time(http_server_request_duration_seconds_count{service_name="genengine-play"}[10m])
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+          service_name: genengine-play
+        annotations:
+          summary: "Service muet (genengine-play)"
+          description: "Aucune requête (santé comprise) observée pour genengine-play depuis 10 min : service arrêté, planté ou export de métriques interrompu."
+      - alert: GenEngineServiceNoTraffic
+        expr: absent_over_time(http_server_request_duration_seconds_count{service_name="genengine-identity"}[10m])
+        for: 2m
+        labels:
+          severity: critical
+          slo: availability
+          service_name: genengine-identity
+        annotations:
+          summary: "Service muet (genengine-identity)"
+          description: "Aucune requête (santé comprise) observée pour genengine-identity depuis 10 min : service arrêté, planté ou export de métriques interrompu."
+
+      # --- Collecte des métriques ---
+      # Si la cible de scrape est absente, tous les SLI ci-dessus sont aveugles.
+      - alert: GenEngineMetricsTargetDown
+        expr: up{job="otel-collector"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          slo: observability
+        annotations:
+          summary: "Cible de métriques injoignable"
+          description: "Prometheus ne scrape plus l'OpenTelemetry Collector depuis 5 min. Les SLI de disponibilité et de latence ne sont plus calculables."

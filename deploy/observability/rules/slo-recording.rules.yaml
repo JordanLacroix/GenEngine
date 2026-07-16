@@ -1,0 +1,76 @@
+groups:
+  - name: genengine_sli_recording
+    interval: 15s
+    rules:
+      # Débit des requêtes utilisateur, par service. Les routes /health/* sont
+      # exclues : ce sont des sondes internes, pas du trafic utilisateur.
+      - record: service:http_requests:rate5m
+        expr: |
+          sum by (service_name) (
+            rate(http_server_request_duration_seconds_count{service_name=~"genengine-.*", http_route!~"/health/.*"}[5m])
+          )
+
+      # Débit des erreurs serveur (5xx), par service.
+      - record: service:http_errors:rate5m
+        expr: |
+          sum by (service_name) (
+            rate(http_server_request_duration_seconds_count{service_name=~"genengine-.*", http_route!~"/health/.*", http_response_status_code=~"5.."}[5m])
+          )
+
+      # Ratio d'erreurs (part indisponible) sur plusieurs fenêtres. Sert au
+      # calcul de consommation du budget d'erreur (burn rate). Une division par
+      # zéro produit NaN quand il n'y a aucun trafic : aucune alerte ne se
+      # déclenche alors, ce qui est le comportement voulu.
+      - record: service:http_error_ratio:rate5m
+        expr: |
+          sum by (service_name) (
+            rate(http_server_request_duration_seconds_count{service_name=~"genengine-.*", http_route!~"/health/.*", http_response_status_code=~"5.."}[5m])
+          )
+          /
+          sum by (service_name) (
+            rate(http_server_request_duration_seconds_count{service_name=~"genengine-.*", http_route!~"/health/.*"}[5m])
+          )
+
+      - record: service:http_error_ratio:rate30m
+        expr: |
+          sum by (service_name) (
+            rate(http_server_request_duration_seconds_count{service_name=~"genengine-.*", http_route!~"/health/.*", http_response_status_code=~"5.."}[30m])
+          )
+          /
+          sum by (service_name) (
+            rate(http_server_request_duration_seconds_count{service_name=~"genengine-.*", http_route!~"/health/.*"}[30m])
+          )
+
+      - record: service:http_error_ratio:rate1h
+        expr: |
+          sum by (service_name) (
+            rate(http_server_request_duration_seconds_count{service_name=~"genengine-.*", http_route!~"/health/.*", http_response_status_code=~"5.."}[1h])
+          )
+          /
+          sum by (service_name) (
+            rate(http_server_request_duration_seconds_count{service_name=~"genengine-.*", http_route!~"/health/.*"}[1h])
+          )
+
+      - record: service:http_error_ratio:rate6h
+        expr: |
+          sum by (service_name) (
+            rate(http_server_request_duration_seconds_count{service_name=~"genengine-.*", http_route!~"/health/.*", http_response_status_code=~"5.."}[6h])
+          )
+          /
+          sum by (service_name) (
+            rate(http_server_request_duration_seconds_count{service_name=~"genengine-.*", http_route!~"/health/.*"}[6h])
+          )
+
+      # Disponibilité observée sur 5 min (1 - ratio d'erreurs). Pratique pour les
+      # panneaux ; les alertes s'appuient sur le ratio d'erreurs directement.
+      - record: service:http_availability:ratio5m
+        expr: 1 - service:http_error_ratio:rate5m
+
+      # Latence p95 des requêtes utilisateur, par service, en secondes.
+      - record: service:http_request_duration_seconds:p95_5m
+        expr: |
+          histogram_quantile(0.95,
+            sum by (service_name, le) (
+              rate(http_server_request_duration_seconds_bucket{service_name=~"genengine-.*", http_route!~"/health/.*"}[5m])
+            )
+          )

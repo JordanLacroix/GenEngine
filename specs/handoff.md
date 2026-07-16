@@ -11,6 +11,7 @@ Dernière mise à jour : 16 juillet 2026.
 - Les trois API exportent logs structurés, traces HTTP et métriques via OpenTelemetry.
 - La surcouche locale fournit Collector, Prometheus, Tempo, Loki et Grafana.
 - Le dashboard Grafana `GenEngine — Vue d’ensemble` est provisionné.
+- `HRD-003` livre des SLI/SLO provisoires : voir `specs/process/slo.md`, les règles Prometheus sous `deploy/observability/rules/` et le dashboard `GenEngine — SLO et budget d’erreur`.
 - La dernière PR fonctionnelle fusionnée avant ce handoff est la PR GitHub `#12`.
 - Au moment du handoff, le dépôt était propre, synchronisé avec `origin/main`, la stack complète était active et tous ses conteneurs étaient sains.
 
@@ -46,31 +47,24 @@ docker compose -f compose.yaml -f compose.observability.yaml down
 
 N’utilise `--volumes` que si la perte des données locales est explicitement souhaitée.
 
-## Prochaine unité de travail — HRD-003
+## Prochaine unité de travail — HRD-004
 
-Objectif : définir des SLI/SLO initiaux et des alertes vérifiables pour les trois API.
+Objectif : renforcer l’audit métier — événements sensibles traçables sans secret ni donnée personnelle dans les journaux.
 
-Découpage recommandé :
+Contexte laissé par `HRD-003` :
 
-1. documenter les SLI de disponibilité, taux d’erreurs et latence dans `specs/process/slo.md` ;
-2. distinguer clairement les objectifs provisoires de développement des engagements de production ;
-3. ajouter des recording rules et alerting rules Prometheus versionnées sous `deploy/observability/` ;
-4. monter les règles dans `compose.observability.yaml` et les charger depuis `prometheus.yaml` ;
-5. exclure les routes `/health/*` des calculs de trafic utilisateur ;
-6. valider la syntaxe avec `promtool check rules` dans le conteneur Prometheus ;
-7. démontrer chaque expression sur les métriques réelles `http_server_request_duration_seconds_*` ;
-8. ajouter un dashboard ou des panneaux montrant SLI et budget d’erreur ;
-9. documenter la procédure de test et seulement ensuite passer `HRD-003` à `done`.
+- Les SLI/SLO provisoires sont documentés dans `specs/process/slo.md` (procédure de test incluse).
+- Les règles vivent sous `deploy/observability/rules/` ; ne pas y ajouter de logique métier.
+- Les seuils sont provisoires : toute cible de production nécessite un ADR et du trafic réel.
 
-Ne choisis pas silencieusement des engagements de production. En l’absence de trafic réel et d’attentes produit validées, présente les seuils comme provisoires et explique leur révision future.
+Ne choisis pas silencieusement des engagements de production ni un format d’audit ; annonce toute hypothèse de périmètre.
 
 ## Ordre restant du jalon 3
 
-1. `HRD-003` — SLI, SLO et alertes ;
-2. `HRD-004` — audit métier sans secrets ni données personnelles ;
-3. `HRD-005` — timeouts, retry borné et circuit breaker pour les appels interservices idempotents ;
-4. `HRD-006` — sauvegarde et restauration testées des trois PostgreSQL ;
-5. `HRD-007` — outbox uniquement si un consommateur asynchrone réel apparaît.
+1. `HRD-004` — audit métier sans secrets ni données personnelles ;
+2. `HRD-005` — timeouts, retry borné et circuit breaker pour les appels interservices idempotents ;
+3. `HRD-006` — sauvegarde et restauration testées des trois PostgreSQL ;
+4. `HRD-007` — outbox uniquement si un consommateur asynchrone réel apparaît.
 
 ## Décisions à préserver
 
@@ -84,6 +78,7 @@ Ne choisis pas silencieusement des engagements de production. En l’absence de 
 
 ## Zones à surveiller
 
+- Bug hors périmètre repéré pendant `HRD-003` : `POST /auth/login` (Identity) renvoie `500 internal_error` sur identifiants invalides ou corps vide, au lieu de `401`. Ces 5xx polluent le budget d’erreur ; à corriger dans un lot dédié Identity.
 - `Play` appelle actuellement l’API interne d’`Authoring` : `HRD-005` devra traiter précisément cet appel.
 - Les logs EF des health checks sont nombreux dans Loki ; ne réduis leur niveau qu’après avoir préservé la capacité de diagnostic.
 - Les ports PostgreSQL et observabilité sont exposés pour le développement local, pas comme modèle de production.
