@@ -14,6 +14,8 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 - `GET /scenarios/{id}`
 - `PUT /scenarios/{id}/draft`
 - `POST /scenarios/{id}/validate`
+- `POST /scenarios/{id}/analyze` — boucles, sorties garanties, risques d'impasse conditionnelle et fins inatteignables
+- `POST /scenarios/{id}/preview` — prévisualisation depuis un nœud et un tour choisis avec état joueur injecté
 - `POST /scenarios/{id}/publish`
 - `GET /scenarios/{id}/versions`
 - `GET /internal/scenario-versions/{versionId}` — clé interservice

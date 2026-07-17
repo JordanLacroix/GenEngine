@@ -33,7 +33,7 @@ Le projet vise un moteur :
 - **sobre en dépendances** — licences permissives et compatibles avec un usage commercial.
 
 > [!IMPORTANT]
-> GenEngine a terminé le **jalon 3** (durcissement) : observabilité et SLO, audit métier, résilience interservices et sauvegarde/restauration chiffrée. Le **jalon 4** connecte désormais les clients au catalogue des versions publiées ; la reprise de session constitue la prochaine tranche verticale.
+> GenEngine a terminé le **jalon 3** (durcissement) et approfondit le **jalon 4** côté fonctionnel : état joueur riche, interactions typées, sauvegardes versionnées, arbre de session, gates de caractéristiques, texte libre confirmé, analyse structurelle et prévisualisation auteur. Les clients seront alignés sur ces contrats stabilisés.
 
 ## État du projet
 
@@ -47,6 +47,8 @@ Le projet vise un moteur :
 | Scénarios JSON de référence | ✅ Trois scénarios |
 | Moteur narratif en mémoire | ✅ Déterministe et testé |
 | État joueur riche, choix explicables et simulation de branches | ✅ Fonctionnel et testé |
+| Interactions typées, gates et texte libre confirmé | ✅ Fonctionnel et testé |
+| Analyse de boucles/impasses et prévisualisation auteur | ✅ Exposée par Authoring |
 | PostgreSQL et sessions persistées | ✅ Une base par service |
 | Docker Compose | ✅ Parcours jouable automatisé |
 | Catalogue public des versions publiées | ✅ Consommable par les clients Web et iOS |

@@ -44,6 +44,8 @@ public sealed record PublishedSnapshot(
     string SnapshotJson,
     string SnapshotHash);
 
+public sealed record ScenarioPreview(GameState State, CurrentStep CurrentStep);
+
 public sealed class AuthoringService(IAuthoringRepository repository, TimeProvider timeProvider)
 {
     public async Task<ScenarioView> ImportAsync(
@@ -85,6 +87,29 @@ public sealed class AuthoringService(IAuthoringRepository repository, TimeProvid
     {
         Scenario scenario = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
         return ScenarioValidator.Validate(Deserialize(scenario.DraftJson));
+    }
+
+    public async Task<NarrativeStructureReport> AnalyzeStructureAsync(
+        Guid id,
+        string ownerId,
+        CancellationToken cancellationToken)
+    {
+        Scenario scenario = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
+        return NarrativeStructureAnalyzer.Analyze(Deserialize(scenario.DraftJson));
+    }
+
+    public async Task<ScenarioPreview> PreviewAsync(
+        Guid id,
+        string ownerId,
+        string nodeId,
+        WorldState injectedWorld,
+        int turn,
+        CancellationToken cancellationToken)
+    {
+        Scenario scenario = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
+        ScenarioDocument document = Deserialize(scenario.DraftJson);
+        GameState state = NarrativeRuntime.PreviewAt(document, nodeId, injectedWorld, turn);
+        return new ScenarioPreview(state, NarrativeRuntime.GetCurrentStep(document, state));
     }
 
     public async Task<ScenarioVersionView> PublishAsync(

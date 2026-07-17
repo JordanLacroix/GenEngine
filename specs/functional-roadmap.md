@@ -30,8 +30,8 @@ Cette roadmap rapproche progressivement le noyau actuel de la cible produit d'or
 ## F4 — Exploration et authoring avancé
 
 - [x] arbre complet/parcouru/inexploré/verrouillé d'une session ;
-- [ ] analyse des boucles, impasses conditionnelles et fins inatteignables ;
-- [ ] aperçu depuis n'importe quel nœud avec état injecté ;
+- [x] analyse des boucles, impasses conditionnelles et fins inatteignables ;
+- [x] aperçu depuis n'importe quel nœud avec état injecté ;
 - [ ] diff et restauration fonctionnelle de versions.
 
 ## F5 — Capacités transverses branchées au moteur

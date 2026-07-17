@@ -13,6 +13,23 @@ public sealed record UpdateDraftRequest(int ExpectedRevision, JsonElement Docume
 
 public sealed record PublishRequest(int ExpectedRevision);
 
+public sealed record ScenarioPreviewRequest(string NodeId, int Turn = 0)
+{
+    public Dictionary<string, int>? Variables { get; init; }
+
+    public Dictionary<string, int>? Characteristics { get; init; }
+
+    public IReadOnlyList<string>? Inventory { get; init; }
+
+    public IReadOnlyList<string>? Evidence { get; init; }
+
+    public Dictionary<string, int>? Relations { get; init; }
+
+    public IReadOnlyList<string>? Rewards { get; init; }
+
+    public IReadOnlyList<string>? VisitedNodes { get; init; }
+}
+
 public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(

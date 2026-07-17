@@ -30,7 +30,7 @@ Observabilité complète, audit renforcé, résilience, sauvegarde/restauration 
 
 Le suivi détaillé se trouve dans [`modules/hardening/tasks.md`](modules/hardening/tasks.md).
 
-**Prochaine étape : jalon 4 (« première extension »), à cadrer selon les retours produit.** Le passage de relais et les critères de reprise sont détaillés dans [`handoff.md`](handoff.md).
+**Étape active : jalon 4 (« première expérience produit »), désormais cadré par la roadmap fonctionnelle du moteur.** Le passage de relais et les critères de reprise sont détaillés dans [`handoff.md`](handoff.md).
 
 ## Jalon 4 — première expérience produit
 
