@@ -9,6 +9,8 @@ public interface IAuthoringRepository
 
     Task<Scenario?> GetAsync(Guid id, string ownerId, CancellationToken cancellationToken);
 
+    Task<IReadOnlyList<Scenario>> ListPublishedAsync(int limit, CancellationToken cancellationToken);
+
     Task<ScenarioVersion?> GetVersionAsync(Guid versionId, CancellationToken cancellationToken);
 
     Task AddVersionAsync(ScenarioVersion version, CancellationToken cancellationToken);
@@ -24,6 +26,16 @@ public sealed record ScenarioVersionView(
     int Number,
     string SnapshotHash,
     DateTimeOffset PublishedAt);
+
+public sealed record PublishedScenarioView(
+    Guid ScenarioId,
+    Guid VersionId,
+    int VersionNumber,
+    string Title,
+    string Description,
+    int EstimatedMinutes,
+    DateTimeOffset PublishedAt,
+    string SnapshotHash);
 
 public sealed record PublishedSnapshot(
     Guid Id,
@@ -106,6 +118,15 @@ public sealed class AuthoringService(IAuthoringRepository repository, TimeProvid
         return scenario.Versions.OrderBy(static version => version.Number).Select(Map).ToArray();
     }
 
+    public async Task<IReadOnlyList<PublishedScenarioView>> ListPublishedAsync(
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<Scenario> scenarios = await repository.ListPublishedAsync(limit, cancellationToken)
+            .ConfigureAwait(false);
+        return scenarios.Select(MapPublished).ToArray();
+    }
+
     public async Task<PublishedSnapshot> GetPublishedSnapshotAsync(
         Guid versionId,
         CancellationToken cancellationToken)
@@ -143,6 +164,31 @@ public sealed class AuthoringService(IAuthoringRepository repository, TimeProvid
 
     private static ScenarioVersionView Map(ScenarioVersion version) =>
         new(version.Id, version.ScenarioId, version.Number, version.SnapshotHash, version.PublishedAt);
+
+    private static PublishedScenarioView MapPublished(Scenario scenario)
+    {
+        ScenarioVersion version = scenario.Versions.MaxBy(static candidate => candidate.Number)
+            ?? throw new AuthoringException("version_not_found", "The published scenario version was not found.");
+        ScenarioDocument document = Deserialize(version.SnapshotJson);
+        NarrativeNode? openingNode = document.Nodes.FirstOrDefault(
+            node => string.Equals(node.Id, document.InitialNodeId, StringComparison.Ordinal));
+        string description = openingNode?.Text ?? string.Empty;
+        if (description.Length > 240)
+        {
+            description = string.Concat(description.AsSpan(0, 237), "...");
+        }
+
+        int estimatedMinutes = Math.Max(3, (int)Math.Ceiling(document.Nodes.Count * 1.5));
+        return new PublishedScenarioView(
+            scenario.Id,
+            version.Id,
+            version.Number,
+            document.Title,
+            description,
+            estimatedMinutes,
+            version.PublishedAt,
+            version.SnapshotHash);
+    }
 }
 
 public sealed class AuthoringException : InvalidOperationException

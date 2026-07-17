@@ -1,6 +1,6 @@
 # Contrats HTTP
 
-Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs utilisent Problem Details. Les routes métier exigent un JWT Bearer sauf inscription, connexion et contrat interne explicitement protégé.
+Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs utilisent Problem Details. Les routes métier exigent un JWT Bearer sauf inscription, connexion, catalogue public et contrat interne explicitement protégé.
 
 ## Identity — port 5203
 
@@ -9,6 +9,7 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 
 ## Authoring — port 5201
 
+- `GET /catalog?limit=20` — dernières versions publiées, accès public, limite bornée entre 1 et 100
 - `POST /scenarios/import`
 - `GET /scenarios/{id}`
 - `PUT /scenarios/{id}/draft`

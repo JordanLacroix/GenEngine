@@ -31,3 +31,9 @@ Observabilité complète, audit renforcé, résilience, sauvegarde/restauration 
 Le suivi détaillé se trouve dans [`modules/hardening/tasks.md`](modules/hardening/tasks.md).
 
 **Prochaine étape : jalon 4 (« première extension »), à cadrer selon les retours produit.** Le passage de relais et les critères de reprise sont détaillés dans [`handoff.md`](handoff.md).
+
+## Jalon 4 — première expérience produit
+
+Rendre les capacités du moteur accessibles aux clients Web et iOS par tranches verticales, sans dupliquer les règles narratives dans les interfaces.
+
+**Statut : en cours.** La première tranche expose le catalogue public des dernières versions publiées (`AUT-006`) afin que les clients puissent découvrir et démarrer de vrais récits. La reprise des sessions persistées constituera la tranche suivante.

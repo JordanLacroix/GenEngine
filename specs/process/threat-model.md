@@ -11,6 +11,7 @@ Les clients sont non fiables. Identity émet les JWT ; Authoring et Play les val
 | Vol ou falsification d'identité | JWT signé, issuer/audience validés, secret injecté par configuration |
 | Brute force | Rate limiting sur les endpoints d'authentification, hash de mot de passe ASP.NET |
 | Modification d'un scénario publié | Snapshot immuable, hash canonique vérifié par Play |
+| Exposition d'un brouillon via le catalogue public | Le catalogue sélectionne uniquement la dernière version publiée et ne retourne ni propriétaire, ni JSON narratif complet |
 | Double application d'une commande | Identifiant d'idempotence, réponse persistée, révision optimiste |
 | Exécution de contenu auteur | Unions JSON fermées ; aucun script arbitraire |
 | Accès croisé aux données | `ownerId` issu du token et contrôlé par les cas d'usage |

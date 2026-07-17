@@ -57,6 +57,18 @@ internal sealed class AuthoringRepository(AuthoringDbContext dbContext) : IAutho
                 scenario => scenario.Id == id && scenario.OwnerId == ownerId,
                 cancellationToken);
 
+    public async Task<IReadOnlyList<Scenario>> ListPublishedAsync(
+        int limit,
+        CancellationToken cancellationToken) =>
+        await dbContext.Scenarios
+            .AsNoTracking()
+            .Where(static scenario => scenario.Versions.Count != 0)
+            .OrderByDescending(static scenario => scenario.Versions.Max(version => version.PublishedAt))
+            .Include(static scenario => scenario.Versions)
+            .Take(limit)
+            .ToArrayAsync(cancellationToken)
+            .ConfigureAwait(false);
+
     public Task<ScenarioVersion?> GetVersionAsync(Guid versionId, CancellationToken cancellationToken) =>
         dbContext.ScenarioVersions.SingleOrDefaultAsync(version => version.Id == versionId, cancellationToken);
 

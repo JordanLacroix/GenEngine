@@ -48,6 +48,14 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapAuthoringHealthChecks();
 
+app.MapGet("/catalog", async (
+    int? limit,
+    AuthoringService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListPublishedAsync(
+        Math.Clamp(limit ?? 20, 1, 100),
+        cancellationToken).ConfigureAwait(false)));
+
 RouteGroupBuilder scenarios = app.MapGroup("/scenarios").RequireAuthorization();
 
 scenarios.MapPost("/import", async (
