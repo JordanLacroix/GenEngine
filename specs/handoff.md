@@ -7,7 +7,9 @@ Dernière mise à jour : 17 juillet 2026.
 - `main` contient le backend jouable distribué et le premier lot du jalon 3.
 - Les services `Authoring`, `Play` et `Identity` sont autonomes et disposent chacun de leur PostgreSQL.
 - Le moteur `GenEngine.Narrative` est pur, déterministe et partagé comme bibliothèque embarquée.
-- Le parcours inscription → connexion → import → validation → publication → session → choix → replay passe avec `scripts/smoke-test.sh`.
+- Le parcours inscription → connexion → import → validation → analyse → prévisualisation → publication → session → choix → replay passe avec `scripts/smoke-test.sh`.
+- Le moteur couvre l'état joueur riche, les interactions typées, les gates de caractéristiques, le texte libre confirmé, les sauvegardes versionnées et l'arbre de session.
+- Authoring expose l'analyse des boucles, sorties garanties, impasses conditionnelles et fins inatteignables, ainsi que la prévisualisation depuis un état injecté.
 - Les trois API exportent logs structurés, traces HTTP et métriques via OpenTelemetry.
 - La surcouche locale fournit Collector, Prometheus, Tempo, Loki et Grafana.
 - Le dashboard Grafana `GenEngine — Vue d’ensemble` est provisionné.
@@ -15,7 +17,7 @@ Dernière mise à jour : 17 juillet 2026.
 - `HRD-004` livre l’audit métier : primitive `IAuditLog` dans `GenEngine.Observability`, événements émis à la frontière Api des trois services, politique de non-fuite dans `specs/process/audit.md`.
 - `HRD-005` équipe l’appel `Play → Authoring` de résilience (timeouts, retry borné, circuit breaker) via `Microsoft.Extensions.Http.Resilience` : voir `specs/process/resilience.md`.
 - `HRD-006` livre la sauvegarde et la restauration chiffrées des trois PostgreSQL : scripts `scripts/backup-databases.sh`, `scripts/restore-database.sh` et `scripts/lib/age-crypto.sh` (chiffrement `age`, dumps `pg_dump -Fc`), procédure et test dans `specs/process/backup-restore.md`. Aucun code applicatif modifié.
-- La dernière PR fonctionnelle fusionnée avant ce handoff est la PR GitHub `#12`.
+- La dernière PR fonctionnelle fusionnée avant ce lot est la PR GitHub `#29`.
 - Au moment du handoff, le dépôt était propre, synchronisé avec `origin/main`, la stack complète était active et tous ses conteneurs étaient sains.
 
 ## Démarrage rapide de reprise
@@ -50,13 +52,13 @@ docker compose -f compose.yaml -f compose.observability.yaml down
 
 N’utilise `--volumes` que si la perte des données locales est explicitement souhaitée.
 
-## Prochaine unité de travail — jalon 4 (à cadrer)
+## Prochaine unité de travail — jalon 4
 
 Le jalon 3 (durcissement) est **clos** : `HRD-001` à `HRD-007` sont traitées.
 
 `HRD-007` (outbox) est résolue par une **décision documentée de ne rien ajouter** : aucun consommateur asynchrone n’existe (ni bus, ni file, ni worker), voir l’ADR [`specs/adr/0004-no-outbox-without-async-consumer.md`](adr/0004-no-outbox-without-async-consumer.md). Réévaluer uniquement quand un consommateur asynchrone réel apparaîtra.
 
-La suite (jalon 4, « première extension ») dépend de retours produit et n’est pas encore cadrée : ne rien implémenter sans besoin utilisateur validé. Voir `specs/roadmap.md`.
+Le besoin produit validé consiste à rapprocher progressivement le moteur de la cible fonctionnelle historique avant d'enrichir les clients. Le prochain lot cohérent porte sur les migrations chaînées et les tests golden de sauvegarde/replay, puis sur les effets différés conditionnels et les projections joueur. Voir `specs/functional-roadmap.md`.
 
 Contexte livré au jalon 3 :
 

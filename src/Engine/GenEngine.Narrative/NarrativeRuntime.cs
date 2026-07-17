@@ -30,6 +30,38 @@ public sealed class NarrativeRuntime
         return ResolveAutomaticInteractions(scenario, state);
     }
 
+    public static GameState PreviewAt(
+        ScenarioDocument scenario,
+        string nodeId,
+        WorldState injectedWorld,
+        int turn = 0)
+    {
+        if (turn < 0)
+        {
+            throw new NarrativeException("preview_turn_invalid", "The preview turn cannot be negative.");
+        }
+        ValidationReport report = ScenarioValidator.Validate(scenario);
+        if (!report.IsValid)
+        {
+            throw new NarrativeException("invalid_scenario", "The scenario cannot be previewed because it is invalid.");
+        }
+
+        NarrativeNode node = FindNode(scenario, nodeId);
+        WorldState world = Clone(injectedWorld);
+        if (!ConditionEvaluator.Evaluate(node.EnterCondition, world))
+        {
+            throw new NarrativeException("preview_node_locked", "The injected state does not allow entry into this node.");
+        }
+
+        world.VisitedNodes.Add(node.Id);
+        ApplyEffects(world, node.OnEnterEffects, turn);
+        GameState state = new(node.Id, turn, GetInitialStatus(node), world)
+        {
+            InteractionIndex = 0,
+        };
+        return ResolveAutomaticInteractions(scenario, state);
+    }
+
     public static GameState SubmitChoice(ScenarioDocument scenario, GameState state, string choiceId)
     {
         if (state.Status is not SessionStatus.AwaitingInput)
@@ -220,6 +252,14 @@ public sealed class NarrativeRuntime
     public static CurrentStep GetCurrentStep(ScenarioDocument scenario, GameState state)
     {
         NarrativeNode node = FindNode(scenario, state.CurrentNodeId);
+        if (state.Status is SessionStatus.Completed)
+        {
+            return new CurrentStep(node.Id, node.Text, state.Status, [], state.Turn)
+            {
+                Kind = InteractionKind.Completed,
+            };
+        }
+
         if (HasTypedInteractions(node))
         {
             if (state.InteractionIndex >= node.Interactions!.Count)

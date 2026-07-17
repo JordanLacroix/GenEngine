@@ -17,19 +17,19 @@ for endpoint in "$IDENTITY_URL/health/ready" "$AUTHORING_URL/health/ready" "$PLA
 done
 
 credentials=$(jq -n --arg userName "$USER_NAME" --arg password "$PASSWORD" '{userName:$userName,password:$password}')
-echo "[1/9] Register"
+echo "[1/11] Register"
 curl --fail --silent --show-error \
   -H 'Content-Type: application/json' \
   -d "$credentials" \
   "$IDENTITY_URL/auth/register" >/dev/null
 
-echo "[2/9] Login"
+echo "[2/11] Login"
 token=$(curl --fail --silent --show-error \
   -H 'Content-Type: application/json' \
   -d "$credentials" \
   "$IDENTITY_URL/auth/login" | jq -er '.token')
 
-echo "[3/9] Import scenario"
+echo "[3/11] Import scenario"
 scenario=$(curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $token" \
   -H 'Content-Type: application/json' \
@@ -38,7 +38,7 @@ scenario=$(curl --fail-with-body --silent --show-error \
 scenario_id=$(jq -er '.id' <<<"$scenario")
 revision=$(jq -er '.revision' <<<"$scenario")
 
-echo "[4/9] Validate draft"
+echo "[4/11] Validate draft"
 if ! validation=$(curl --fail-with-body --silent --show-error \
   -X POST \
   -H "Authorization: Bearer $token" \
@@ -48,7 +48,22 @@ if ! validation=$(curl --fail-with-body --silent --show-error \
 fi
 jq -e '.isValid == true' <<<"$validation" >/dev/null
 
-echo "[5/9] Publish snapshot"
+echo "[5/11] Analyze structure"
+analysis=$(curl --fail-with-body --silent --show-error \
+  -X POST \
+  -H "Authorization: Bearer $token" \
+  "$AUTHORING_URL/scenarios/$scenario_id/analyze")
+jq -e '.loops == [] and .conditionalDeadEnds == [] and .unreachableEndingNodeIds == [] and .nodesWithoutEndingPath == []' <<<"$analysis" >/dev/null
+
+echo "[6/11] Preview injected state"
+preview=$(curl --fail-with-body --silent --show-error \
+  -H "Authorization: Bearer $token" \
+  -H 'Content-Type: application/json' \
+  -d '{"nodeId":"safe-end","turn":4,"inventory":["author-map"],"characteristics":{"insight":2}}' \
+  "$AUTHORING_URL/scenarios/$scenario_id/preview")
+jq -e '.state.currentNodeId == "safe-end" and .state.turn == 4 and .state.status == "Completed" and (.state.world.inventory | index("author-map")) != null and .currentStep.kind == "Completed"' <<<"$preview" >/dev/null
+
+echo "[7/11] Publish snapshot"
 if ! published=$(curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $token" \
   -H 'Content-Type: application/json' \
@@ -59,7 +74,7 @@ if ! published=$(curl --fail-with-body --silent --show-error \
 fi
 version_id=$(jq -er '.id' <<<"$published")
 
-echo "[6/9] Start session"
+echo "[8/11] Start session"
 session=$(curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $token" \
   -H 'Content-Type: application/json' \
@@ -67,7 +82,7 @@ session=$(curl --fail-with-body --silent --show-error \
   "$PLAY_URL/sessions")
 session_id=$(jq -er '.id' <<<"$session")
 
-echo "[7/9] Pause and resume"
+echo "[9/11] Pause and resume"
 paused=$(curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $token" \
   -H 'Content-Type: application/json' \
@@ -92,7 +107,7 @@ input=$(jq -n \
   --arg choiceId "$choice_id" \
   '{commandId:$commandId,expectedRevision:3,choiceId:$choiceId}')
 
-echo "[8/9] Submit choice"
+echo "[10/11] Submit choice"
 result=$(curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $token" \
   -H 'Content-Type: application/json' \
@@ -100,7 +115,7 @@ result=$(curl --fail-with-body --silent --show-error \
   "$PLAY_URL/sessions/$session_id/inputs")
 jq -e '.session.status == "Completed" and .replayed == false' <<<"$result" >/dev/null
 
-echo "[9/9] Replay command"
+echo "[11/11] Replay command"
 replayed=$(curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $token" \
   -H 'Content-Type: application/json' \
@@ -108,4 +123,4 @@ replayed=$(curl --fail-with-body --silent --show-error \
   "$PLAY_URL/sessions/$session_id/inputs")
 jq -e '.replayed == true' <<<"$replayed" >/dev/null
 
-echo "Smoke test passed: register → login → import → validate → publish → start → pause → resume → complete → replay"
+echo "Smoke test passed: register → login → import → validate → analyze → preview → publish → start → pause → resume → complete → replay"

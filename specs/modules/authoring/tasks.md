@@ -8,3 +8,4 @@
 | AUT-004 | done | Persister dans une base PostgreSQL dédiée avec migration EF |
 | AUT-005 | done | Exposer le snapshot publié à Play via un contrat interne |
 | AUT-006 | done | Exposer un catalogue public borné des dernières versions publiées |
+| AUT-007 | done | Exposer l'analyse structurelle et la prévisualisation d'un brouillon |

@@ -121,6 +121,30 @@ scenarios.MapPost("/{id:guid}/validate", async (
     return Results.Ok(report);
 });
 
+scenarios.MapPost("/{id:guid}/analyze", async (
+    Guid id,
+    ClaimsPrincipal user,
+    AuthoringService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.AnalyzeStructureAsync(
+        id,
+        GetUserId(user),
+        cancellationToken).ConfigureAwait(false)));
+
+scenarios.MapPost("/{id:guid}/preview", async (
+    Guid id,
+    ScenarioPreviewRequest request,
+    ClaimsPrincipal user,
+    AuthoringService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.PreviewAsync(
+        id,
+        GetUserId(user),
+        request.NodeId,
+        BuildPreviewWorld(request),
+        request.Turn,
+        cancellationToken).ConfigureAwait(false)));
+
 scenarios.MapPost("/{id:guid}/publish", async (
     Guid id,
     PublishRequest request,
@@ -191,6 +215,32 @@ static string GetUserId(ClaimsPrincipal user) =>
     user.FindFirstValue(JwtRegisteredClaimNames.Sub)
     ?? user.FindFirstValue(ClaimTypes.NameIdentifier)
     ?? throw new AuthoringException("unauthorized", "The authenticated user identifier is missing.");
+
+static WorldState BuildPreviewWorld(ScenarioPreviewRequest request) => new(
+    request.Variables is null
+        ? new Dictionary<string, int>(StringComparer.Ordinal)
+        : new Dictionary<string, int>(request.Variables, StringComparer.Ordinal),
+    request.Inventory is null
+        ? new HashSet<string>(StringComparer.Ordinal)
+        : new HashSet<string>(request.Inventory, StringComparer.Ordinal),
+    request.VisitedNodes is null
+        ? new HashSet<string>(StringComparer.Ordinal)
+        : new HashSet<string>(request.VisitedNodes, StringComparer.Ordinal),
+    [])
+{
+    Characteristics = request.Characteristics is null
+        ? new Dictionary<string, int>(StringComparer.Ordinal)
+        : new Dictionary<string, int>(request.Characteristics, StringComparer.Ordinal),
+    Evidence = request.Evidence is null
+        ? new HashSet<string>(StringComparer.Ordinal)
+        : new HashSet<string>(request.Evidence, StringComparer.Ordinal),
+    Relations = request.Relations is null
+        ? new Dictionary<string, int>(StringComparer.Ordinal)
+        : new Dictionary<string, int>(request.Relations, StringComparer.Ordinal),
+    Rewards = request.Rewards is null
+        ? new HashSet<string>(StringComparer.Ordinal)
+        : new HashSet<string>(request.Rewards, StringComparer.Ordinal),
+};
 
 static void AddJwtAuthentication(IServiceCollection services, IConfiguration configuration)
 {
