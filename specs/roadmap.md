@@ -30,10 +30,10 @@ Observabilité complète, audit renforcé, résilience, sauvegarde/restauration 
 
 Le suivi détaillé se trouve dans [`modules/hardening/tasks.md`](modules/hardening/tasks.md).
 
-**Étape active : jalon 4 (« première expérience produit »), désormais cadré par la roadmap fonctionnelle du moteur.** Le passage de relais et les critères de reprise sont détaillés dans [`handoff.md`](handoff.md).
+**Étape active : jalon 4 (« première expérience produit »), désormais centrée sur la configuration, le RBAC, le contexte d'établissement et l'assistant.** Le passage de relais et les critères de reprise sont détaillés dans [`handoff.md`](handoff.md).
 
 ## Jalon 4 — première expérience produit
 
 Rendre les capacités du moteur accessibles aux clients Web et iOS par tranches verticales, sans dupliquer les règles narratives dans les interfaces.
 
-**Statut : en cours.** La première tranche expose le catalogue public des dernières versions publiées (`AUT-006`). La priorité revient désormais à la profondeur fonctionnelle du moteur : état joueur riche, conditions/effets explicables, interactions typées, migrations et exploration. Le détail est suivi dans [`functional-roadmap.md`](functional-roadmap.md). Les clients évolueront après stabilisation de ces contrats.
+**Statut : en cours.** Le socle narratif profond est livré. La priorité est maintenant un registre de configuration typé, le RBAC systématique, le modèle front/établissement/classe/parcours/catégorie, puis l'assistant/familier configurable et l'IA optionnelle avec fallback hors ligne, métrage et quotas. Le détail est suivi dans [`functional-roadmap.md`](functional-roadmap.md) et [`platform-configuration.md`](platform-configuration.md).

@@ -10,6 +10,8 @@ Ce dossier décrit les intentions, invariants et décisions du projet.
 ## Index
 
 - [Roadmap](roadmap.md)
+- [Roadmap fonctionnelle priorisée](functional-roadmap.md)
+- [Configuration, école, RBAC, assistant et IA](platform-configuration.md)
 - [Passage de relais](handoff.md)
 - [Architecture](architecture.md)
 - [Invariants](invariants.md)
@@ -25,4 +27,6 @@ Ce dossier décrit les intentions, invariants et décisions du projet.
 - [Tâches Authoring](modules/authoring/tasks.md)
 - [Tâches Play](modules/play/tasks.md)
 - [Tâches Identity](modules/identity/tasks.md)
+- [Tâches Configuration et Organization](modules/configuration/tasks.md)
+- [Tâches Assistant et IA](modules/assistant/tasks.md)
 - [Tâches Durcissement](modules/hardening/tasks.md)

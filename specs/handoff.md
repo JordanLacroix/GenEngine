@@ -1,6 +1,6 @@
 # Passage de relais
 
-Dernière mise à jour : 17 juillet 2026.
+Dernière mise à jour : 18 juillet 2026.
 
 ## État vérifié
 
@@ -19,7 +19,7 @@ Dernière mise à jour : 17 juillet 2026.
 - `HRD-004` livre l’audit métier : primitive `IAuditLog` dans `GenEngine.Observability`, événements émis à la frontière Api des trois services, politique de non-fuite dans `specs/process/audit.md`.
 - `HRD-005` équipe l’appel `Play → Authoring` de résilience (timeouts, retry borné, circuit breaker) via `Microsoft.Extensions.Http.Resilience` : voir `specs/process/resilience.md`.
 - `HRD-006` livre la sauvegarde et la restauration chiffrées des trois PostgreSQL : scripts `scripts/backup-databases.sh`, `scripts/restore-database.sh` et `scripts/lib/age-crypto.sh` (chiffrement `age`, dumps `pg_dump -Fc`), procédure et test dans `specs/process/backup-restore.md`. Aucun code applicatif modifié.
-- La dernière PR fonctionnelle fusionnée est la PR GitHub `#32` ; le lot courant ajoute l'analyse d'entrée substituable et les contrats d'effets externes.
+- La dernière PR fonctionnelle fusionnée est la PR GitHub `#33`, qui livre l'analyse d'entrée substituable et les contrats d'effets externes.
 - Au moment du handoff, le dépôt était propre, synchronisé avec `origin/main`, la stack complète était active et tous ses conteneurs étaient sains.
 
 ## Démarrage rapide de reprise
@@ -60,7 +60,7 @@ Le jalon 3 (durcissement) est **clos** : `HRD-001` à `HRD-007` sont traitées.
 
 `HRD-007` (outbox) est résolue par une **décision documentée de ne rien ajouter** : aucun consommateur asynchrone n’existe (ni bus, ni file, ni worker), voir l’ADR [`specs/adr/0004-no-outbox-without-async-consumer.md`](adr/0004-no-outbox-without-async-consumer.md). Réévaluer uniquement quand un consommateur asynchrone réel apparaîtra.
 
-Le besoin produit validé consiste à rapprocher progressivement le moteur de la cible fonctionnelle historique avant d'enrichir les clients. Les migrations, effets différés, projections joueur, analyses substituables et contrats d'effets externes sont désormais livrés. Le prochain lot cohérent porte sur les contextes déterministes de météo, présence et cycle jour/nuit, puis sur les interactions document, photo et dialogue avec fallback. Voir `specs/functional-roadmap.md`.
+Le besoin produit a été repriorisé à partir de la cible historique. Les migrations, effets différés, projections joueur, analyses substituables et contrats d'effets externes sont livrés. Le prochain lot cohérent est désormais **P0 Configuration + RBAC + contexte d'établissement** : ADR de frontières, registre typé et résolution hiérarchique, catalogue de permissions, puis squelette front/période/classe/catégorie. L'assistant/familier hors ligne vient en P1 et l'IA provider-agnostic avec metering/quotas en P2. Voir `specs/functional-roadmap.md` et `specs/platform-configuration.md`.
 
 Contexte livré au jalon 3 :
 
@@ -75,6 +75,9 @@ Contexte livré au jalon 3 :
 - Pas de service réseau pour le moteur Narrative.
 - Pas de transaction distribuée.
 - Pas d’IA dans le chemin déterministe.
+- Pas de fonctionnalité sans paramètres/défauts, permissions et comportement désactivé explicités.
+- Pas de contrôle RBAC uniquement côté client ; allow/deny et isolation de front sont testés côté serveur.
+- Pas de dépendance cloud ou IA pour jouer, développer ou exécuter la CI.
 - Pas d’outbox anticipée.
 - Pas de dépendance ajoutée sans besoin, maintenance et licence acceptables.
 - Toute évolution structurante nécessite un ADR.
@@ -90,4 +93,4 @@ Contexte livré au jalon 3 :
 
 ## Critère de passage de relais réussi
 
-Un nouvel agent doit pouvoir cloner le dépôt, lire `CLAUDE.md`, lancer les commandes ci-dessus et reprendre le travail restant du jalon 3 sans dépendre de l’historique de conversation qui a créé le projet.
+Un nouvel agent doit pouvoir cloner le dépôt, lire `CLAUDE.md`, lancer les commandes ci-dessus et reprendre P0 du jalon 4 sans dépendre de l’historique de conversation qui a créé le projet.

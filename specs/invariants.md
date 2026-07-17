@@ -10,3 +10,9 @@
 8. Aucun script ou expression arbitraire fourni par un auteur n'est exécuté.
 9. Les anciennes sessions ne sont jamais rebasées silencieusement sur un nouveau snapshot.
 10. Le temps narratif est une donnée logique explicite de la session ; le moteur ne consulte jamais l'horloge système.
+11. Une permission est appliquée côté service propriétaire de la ressource ; la masquer dans un client ne constitue pas un contrôle d'accès.
+12. Une session utilise un snapshot versionné de sa configuration effective ; elle n'est jamais modifiée silencieusement par un changement administratif.
+13. Aucun secret de fournisseur, credential ou paramètre sensible n'est stocké dans le registre de configuration publiable.
+14. L'IA est optionnelle : une indisponibilité, une sortie invalide ou un quota atteint ne peut empêcher le parcours hors ligne prévu.
+15. Une sortie IA ne modifie jamais directement l'état narratif ; elle devient une entrée explicite, validée et figée avant tout effet.
+16. Les frontières de front ou d'établissement sont appliquées côté serveur et testées sur toute ressource concernée.
