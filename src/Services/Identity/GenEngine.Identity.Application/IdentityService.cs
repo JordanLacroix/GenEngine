@@ -2,32 +2,56 @@ using GenEngine.Identity.Domain;
 
 namespace GenEngine.Identity.Application;
 
+public static class PermissionCatalog
+{
+    public static readonly IReadOnlyDictionary<string, string> All =
+        new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["session.play"] = "Jouer aux scénarios publiés",
+            ["scenario.author"] = "Créer et modifier des scénarios",
+            ["scenario.publish"] = "Publier des scénarios",
+            ["config.read"] = "Consulter l'administration",
+            ["config.write"] = "Modifier la configuration",
+            ["config.publish"] = "Publier la configuration",
+            ["rbac.manage"] = "Gérer les rôles et affectations",
+            ["shop.read"] = "Consulter le magasin",
+            ["shop.manage"] = "Gérer les offres du magasin",
+            ["economy.credit"] = "Créditer une monnaie",
+            ["ai.configure"] = "Configurer les providers IA",
+        };
+}
+
 public interface IIdentityRepository
 {
-    Task<UserAccount?> FindByNormalizedUserNameAsync(
-        string normalizedUserName,
-        CancellationToken cancellationToken);
-
+    Task<UserAccount?> FindByNormalizedUserNameAsync(string normalizedUserName, CancellationToken cancellationToken);
+    Task<UserAccount?> FindByExternalSubjectAsync(string provider, string subject, CancellationToken cancellationToken);
+    Task<UserAccount?> GetUserAsync(Guid id, CancellationToken cancellationToken);
+    Task<CustomRole?> FindRoleByNormalizedNameAsync(string normalizedName, CancellationToken cancellationToken);
+    Task<CustomRole?> GetRoleAsync(Guid id, CancellationToken cancellationToken);
+    Task<bool> HasAssignmentsAsync(Guid roleId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<CustomRole>> ListRolesAsync(CancellationToken cancellationToken);
     Task AddAsync(UserAccount account, CancellationToken cancellationToken);
-
+    Task AddRoleAsync(CustomRole role, CancellationToken cancellationToken);
+    Task AssignRoleAsync(UserRoleAssignment assignment, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 
 public interface IPasswordService
 {
     string Hash(UserAccount account, string password);
-
     bool Verify(UserAccount account, string password);
 }
 
 public interface ITokenIssuer
 {
-    AccessToken Issue(UserAccount account);
+    AccessToken Issue(UserAccount account, IReadOnlyCollection<string> permissions);
 }
 
 public sealed record AccessToken(string Token, DateTimeOffset ExpiresAt, string TokenType = "Bearer");
-
 public sealed record UserView(Guid Id, string UserName, DateTimeOffset CreatedAt);
+public sealed record PermissionView(string Code, string Description);
+public sealed record RoleView(Guid Id, string Name, string Description, bool IsSystem, IReadOnlyList<string> Permissions);
+public sealed record UserAccessView(Guid Id, string UserName, IReadOnlyList<RoleView> Roles, IReadOnlyList<string> Permissions);
 
 public sealed class IdentityService(
     IIdentityRepository repository,
@@ -35,17 +59,13 @@ public sealed class IdentityService(
     ITokenIssuer tokenIssuer,
     TimeProvider timeProvider)
 {
-    public async Task<UserView> RegisterAsync(
-        string userName,
-        string password,
-        CancellationToken cancellationToken)
+    public async Task<UserView> RegisterAsync(string userName, string password, CancellationToken cancellationToken)
     {
         EnsureUserName(userName);
         EnsurePassword(password);
         UserAccount account = UserAccount.Create(userName, timeProvider.GetUtcNow());
-        UserAccount? existing = await repository.FindByNormalizedUserNameAsync(
-            account.NormalizedUserName,
-            cancellationToken).ConfigureAwait(false);
+        UserAccount? existing = await repository.FindByNormalizedUserNameAsync(account.NormalizedUserName, cancellationToken)
+            .ConfigureAwait(false);
         if (existing is not null)
         {
             throw new IdentityException("registration_failed", "Registration could not be completed.");
@@ -53,14 +73,12 @@ public sealed class IdentityService(
 
         account.SetPasswordHash(passwordService.Hash(account, password));
         await repository.AddAsync(account, cancellationToken).ConfigureAwait(false);
+        await AssignDefaultRoleAsync(account.Id, cancellationToken).ConfigureAwait(false);
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return new UserView(account.Id, account.UserName, account.CreatedAt);
     }
 
-    public async Task<AccessToken> LoginAsync(
-        string userName,
-        string password,
-        CancellationToken cancellationToken)
+    public async Task<AccessToken> LoginAsync(string userName, string password, CancellationToken cancellationToken)
     {
         EnsureUserName(userName);
         if (string.IsNullOrEmpty(password))
@@ -68,15 +86,155 @@ public sealed class IdentityService(
             throw new IdentityException("invalid_request", "Username and password are required.");
         }
 
-        string normalized = userName.Trim().ToUpperInvariant();
-        UserAccount? account = await repository.FindByNormalizedUserNameAsync(normalized, cancellationToken)
-            .ConfigureAwait(false);
-        if (account is null || !passwordService.Verify(account, password))
+        UserAccount? account = await repository.FindByNormalizedUserNameAsync(
+            userName.Trim().ToUpperInvariant(),
+            cancellationToken).ConfigureAwait(false);
+        if (account is null || string.IsNullOrEmpty(account.PasswordHash) || !passwordService.Verify(account, password))
         {
             throw new IdentityException("invalid_credentials", "Invalid username or password.");
         }
 
-        return tokenIssuer.Issue(account);
+        return Issue(account);
+    }
+
+    public async Task<AccessToken> ExchangeExternalAsync(
+        string provider,
+        string subject,
+        string userName,
+        CancellationToken cancellationToken)
+    {
+        UserAccount? account = await repository.FindByExternalSubjectAsync(provider, subject, cancellationToken)
+            .ConfigureAwait(false);
+        if (account is null)
+        {
+            EnsureUserName(userName);
+            account = UserAccount.CreateExternal(userName, provider, subject, timeProvider.GetUtcNow());
+            await repository.AddAsync(account, cancellationToken).ConfigureAwait(false);
+            await AssignDefaultRoleAsync(account.Id, cancellationToken).ConfigureAwait(false);
+            await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            account = await repository.GetUserAsync(account.Id, cancellationToken).ConfigureAwait(false) ?? account;
+        }
+
+        return Issue(account);
+    }
+
+    public async Task<UserAccessView> GetAccessAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        UserAccount account = await repository.GetUserAsync(userId, cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityException("user_not_found", "The user was not found.");
+        RoleView[] roles = ActiveRoles(account).Select(Map).ToArray();
+        string[] permissions = roles.SelectMany(static role => role.Permissions).Distinct(StringComparer.Ordinal).Order().ToArray();
+        return new UserAccessView(account.Id, account.UserName, roles, permissions);
+    }
+
+    public static IReadOnlyList<PermissionView> ListPermissions() =>
+        PermissionCatalog.All.Select(static pair => new PermissionView(pair.Key, pair.Value)).ToArray();
+
+    public async Task<IReadOnlyList<RoleView>> ListRolesAsync(CancellationToken cancellationToken) =>
+        (await repository.ListRolesAsync(cancellationToken).ConfigureAwait(false)).Select(Map).ToArray();
+
+    public async Task<RoleView> CreateRoleAsync(
+        string name,
+        string description,
+        IReadOnlyList<string> permissions,
+        CancellationToken cancellationToken)
+    {
+        ValidatePermissions(permissions);
+        if (await repository.FindRoleByNormalizedNameAsync(name.Trim().ToUpperInvariant(), cancellationToken).ConfigureAwait(false) is not null)
+        {
+            throw new IdentityException("role_exists", "A role with this name already exists.");
+        }
+
+        CustomRole role = CustomRole.Create(name, description, permissions, timeProvider.GetUtcNow());
+        await repository.AddRoleAsync(role, cancellationToken).ConfigureAwait(false);
+        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return Map(role);
+    }
+
+    public async Task<RoleView> UpdateRoleAsync(
+        Guid roleId,
+        string name,
+        string description,
+        IReadOnlyList<string> permissions,
+        CancellationToken cancellationToken)
+    {
+        ValidatePermissions(permissions);
+        CustomRole role = await repository.GetRoleAsync(roleId, cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityException("role_not_found", "The role was not found.");
+        role.Update(name, description, permissions);
+        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return Map(role);
+    }
+
+    public async Task AssignRoleAsync(
+        Guid userId,
+        Guid roleId,
+        string? scope,
+        DateTimeOffset? expiresAt,
+        CancellationToken cancellationToken)
+    {
+        _ = await repository.GetUserAsync(userId, cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityException("user_not_found", "The user was not found.");
+        _ = await repository.GetRoleAsync(roleId, cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityException("role_not_found", "The role was not found.");
+        await repository.AssignRoleAsync(
+            UserRoleAssignment.Create(userId, roleId, scope, expiresAt, timeProvider.GetUtcNow()),
+            cancellationToken).ConfigureAwait(false);
+        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task BootstrapAdministratorAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        CustomRole role = await repository.FindRoleByNormalizedNameAsync("ADMINISTRATOR", cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new IdentityException("role_not_found", "The Administrator role is not configured.");
+        if (await repository.HasAssignmentsAsync(role.Id, cancellationToken).ConfigureAwait(false))
+        {
+            throw new IdentityException("bootstrap_closed", "An administrator already exists.");
+        }
+
+        await repository.AssignRoleAsync(
+            UserRoleAssignment.Create(userId, role.Id, "*", null, timeProvider.GetUtcNow()),
+            cancellationToken).ConfigureAwait(false);
+        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private AccessToken Issue(UserAccount account) =>
+        tokenIssuer.Issue(
+            account,
+            ActiveRoles(account)
+                .SelectMany(static role => role.Permissions)
+                .Select(static permission => permission.PermissionCode)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray());
+
+    private IEnumerable<CustomRole> ActiveRoles(UserAccount account)
+    {
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        return account.RoleAssignments
+            .Where(assignment => assignment.ExpiresAt is null || assignment.ExpiresAt > now)
+            .Select(static assignment => assignment.Role);
+    }
+
+    private async Task AssignDefaultRoleAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        CustomRole role = await repository.FindRoleByNormalizedNameAsync("PLAYER", cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityException("role_not_found", "The default Player role is not configured.");
+        await repository.AssignRoleAsync(
+            UserRoleAssignment.Create(userId, role.Id, "*", null, timeProvider.GetUtcNow()),
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private static RoleView Map(CustomRole role) =>
+        new(role.Id, role.Name, role.Description, role.IsSystem, role.Permissions.Select(static item => item.PermissionCode).Order().ToArray());
+
+    private static void ValidatePermissions(IEnumerable<string> permissions)
+    {
+        string? unknown = permissions.FirstOrDefault(permission => !PermissionCatalog.All.ContainsKey(permission));
+        if (unknown is not null)
+        {
+            throw new IdentityException("unknown_permission", $"Unknown permission '{unknown}'.");
+        }
     }
 
     private static void EnsureUserName(string userName)
@@ -89,12 +247,7 @@ public sealed class IdentityService(
 
     private static void EnsurePassword(string password)
     {
-        if (string.IsNullOrEmpty(password))
-        {
-            throw new IdentityException("invalid_password", "Password length must be between 12 and 128 characters.");
-        }
-
-        if (password.Length is < 12 or > 128)
+        if (string.IsNullOrEmpty(password) || password.Length is < 12 or > 128)
         {
             throw new IdentityException("invalid_password", "Password length must be between 12 and 128 characters.");
         }
@@ -103,17 +256,7 @@ public sealed class IdentityService(
 
 public sealed class IdentityException : InvalidOperationException
 {
-    public IdentityException(string code, string message)
-        : base(message)
-    {
-        Code = code;
-    }
-
-    public IdentityException(string code, string message, Exception innerException)
-        : base(message, innerException)
-    {
-        Code = code;
-    }
-
+    public IdentityException(string code, string message) : base(message) => Code = code;
+    public IdentityException(string code, string message, Exception innerException) : base(message, innerException) => Code = code;
     public string Code { get; }
 }

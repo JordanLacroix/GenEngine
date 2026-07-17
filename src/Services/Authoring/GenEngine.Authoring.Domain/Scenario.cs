@@ -8,12 +8,23 @@ public sealed class Scenario
     {
     }
 
-    private Scenario(Guid id, string ownerId, string title, string draftJson, DateTimeOffset now)
+    private Scenario(
+        Guid id,
+        string ownerId,
+        string title,
+        string draftJson,
+        DateTimeOffset now,
+        string frontId,
+        Guid? categoryId,
+        string creationBrief)
     {
         Id = id;
         OwnerId = ownerId;
         Title = title;
         DraftJson = draftJson;
+        FrontId = frontId;
+        CategoryId = categoryId;
+        CreationBrief = creationBrief;
         Revision = 1;
         CreatedAt = now;
         UpdatedAt = now;
@@ -32,11 +43,21 @@ public sealed class Scenario
     public DateTimeOffset CreatedAt { get; private set; }
 
     public DateTimeOffset UpdatedAt { get; private set; }
+    public string FrontId { get; private set; } = "default";
+    public Guid? CategoryId { get; private set; }
+    public string CreationBrief { get; private set; } = string.Empty;
 
     public IReadOnlyList<ScenarioVersion> Versions => versions;
 
-    public static Scenario Create(string ownerId, string title, string draftJson, DateTimeOffset now) =>
-        new(Guid.NewGuid(), ownerId, title, draftJson, now);
+    public static Scenario Create(
+        string ownerId,
+        string title,
+        string draftJson,
+        DateTimeOffset now,
+        string frontId = "default",
+        Guid? categoryId = null,
+        string creationBrief = "") =>
+        new(Guid.NewGuid(), ownerId, title, draftJson, now, frontId, categoryId, creationBrief);
 
     public void UpdateDraft(string title, string draftJson, int expectedRevision, DateTimeOffset now)
     {

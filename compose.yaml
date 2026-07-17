@@ -57,6 +57,38 @@ services:
       timeout: 3s
       retries: 20
 
+  configuration-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: genengine_configuration
+      POSTGRES_USER: configuration
+      POSTGRES_PASSWORD: ${CONFIGURATION_DB_PASSWORD:-configuration-local-password}
+    ports:
+      - "5435:5432"
+    volumes:
+      - configuration-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U configuration -d genengine_configuration"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  player-experience-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: genengine_player_experience
+      POSTGRES_USER: player_experience
+      POSTGRES_PASSWORD: ${PLAYER_EXPERIENCE_DB_PASSWORD:-player-experience-local-password}
+    ports:
+      - "5436:5432"
+    volumes:
+      - player-experience-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U player_experience -d genengine_player_experience"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   authoring:
     build:
       context: .
@@ -65,10 +97,15 @@ services:
       <<: *api-environment
       ConnectionStrings__Authoring: Host=authoring-db;Database=genengine_authoring;Username=authoring;Password=${AUTHORING_DB_PASSWORD:-authoring-local-password}
       InternalApi__Key: ${GENENGINE_INTERNAL_KEY:-local-internal-key-change-me}
+      Configuration__BaseUrl: http://configuration:8080
+      AzureFoundry__Endpoint: ${AZURE_FOUNDRY_ENDPOINT:-}
+      AzureFoundry__Deployment: ${AZURE_FOUNDRY_DEPLOYMENT:-}
     ports:
       - "5201:8080"
     depends_on:
       authoring-db:
+        condition: service_healthy
+      configuration:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/ready >/dev/null || exit 1"]
@@ -105,6 +142,10 @@ services:
     environment:
       <<: *api-environment
       ConnectionStrings__Identity: Host=identity-db;Database=genengine_identity;Username=identity;Password=${IDENTITY_DB_PASSWORD:-identity-local-password}
+      Authentication__Mode: ${AUTHENTICATION_MODE:-Cumulative}
+      Authentication__Entra__TenantId: ${ENTRA_TENANT_ID:-}
+      Authentication__Entra__ClientId: ${ENTRA_CLIENT_ID:-}
+      Bootstrap__Key: ${GENENGINE_BOOTSTRAP_KEY:-}
     ports:
       - "5203:8080"
     depends_on:
@@ -116,7 +157,49 @@ services:
       timeout: 3s
       retries: 20
 
+  configuration:
+    build:
+      context: .
+      dockerfile: src/Services/Configuration/GenEngine.Configuration.Api/Dockerfile
+    environment:
+      <<: *api-environment
+      ConnectionStrings__Configuration: Host=configuration-db;Database=genengine_configuration;Username=configuration;Password=${CONFIGURATION_DB_PASSWORD:-configuration-local-password}
+    ports:
+      - "5204:8080"
+    depends_on:
+      configuration-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/ready >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  player-experience:
+    build:
+      context: .
+      dockerfile: src/Services/PlayerExperience/GenEngine.PlayerExperience.Api/Dockerfile
+    environment:
+      <<: *api-environment
+      ConnectionStrings__PlayerExperience: Host=player-experience-db;Database=genengine_player_experience;Username=player_experience;Password=${PLAYER_EXPERIENCE_DB_PASSWORD:-player-experience-local-password}
+      Configuration__BaseUrl: http://configuration:8080
+      InternalApi__Key: ${GENENGINE_INTERNAL_KEY:-local-internal-key-change-me}
+    ports:
+      - "5205:8080"
+    depends_on:
+      player-experience-db:
+        condition: service_healthy
+      configuration:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/ready >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 volumes:
   authoring-data:
   play-data:
   identity-data:
+  configuration-data:
+  player-experience-data:

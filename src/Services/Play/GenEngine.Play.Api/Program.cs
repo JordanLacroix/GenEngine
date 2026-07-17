@@ -18,7 +18,8 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddPlayInfrastructure(builder.Configuration);
 AddJwtAuthentication(builder.Services, builder.Configuration);
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+    options.AddPolicy("session.play", policy => policy.RequireClaim("permission", "session.play")));
 
 WebApplication app = builder.Build();
 
@@ -37,7 +38,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapPlayHealthChecks();
 
-RouteGroupBuilder sessions = app.MapGroup("/sessions").RequireAuthorization();
+RouteGroupBuilder sessions = app.MapGroup("/sessions").RequireAuthorization("session.play");
 
 sessions.MapPost("/", async (
     StartSessionRequest request,

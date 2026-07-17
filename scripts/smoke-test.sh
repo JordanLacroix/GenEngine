@@ -4,6 +4,9 @@ set -euo pipefail
 IDENTITY_URL="${IDENTITY_URL:-http://localhost:5203}"
 AUTHORING_URL="${AUTHORING_URL:-http://localhost:5201}"
 PLAY_URL="${PLAY_URL:-http://localhost:5202}"
+CONFIGURATION_URL="${CONFIGURATION_URL:-http://localhost:5204}"
+PLAYER_EXPERIENCE_URL="${PLAYER_EXPERIENCE_URL:-http://localhost:5205}"
+BOOTSTRAP_KEY="${GENENGINE_BOOTSTRAP_KEY:?GENENGINE_BOOTSTRAP_KEY must be set for the administrative smoke flow}"
 SCENARIO_FILE="${SCENARIO_FILE:-specs/domain/examples/forest-choice.json}"
 USER_NAME="smoke-$(date +%s)"
 PASSWORD="LocalSmokePassword!2026"
@@ -12,9 +15,12 @@ for command in curl jq uuidgen; do
   command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 1; }
 done
 
-for endpoint in "$IDENTITY_URL/health/ready" "$AUTHORING_URL/health/ready" "$PLAY_URL/health/ready"; do
+for endpoint in "$IDENTITY_URL/health/ready" "$AUTHORING_URL/health/ready" "$PLAY_URL/health/ready" "$CONFIGURATION_URL/health/ready" "$PLAYER_EXPERIENCE_URL/health/ready"; do
   curl --fail --silent --show-error "$endpoint" >/dev/null
 done
+
+experience=$(curl --fail --silent --show-error "$CONFIGURATION_URL/experience/default")
+jq -e '.version == 1 and .document.game.name != "" and (.document.categories | length) > 0 and (.document.familiars | length) > 0 and .document.economy.currencyCode == "BRAISE" and (.document.aiProviders[] | select(.type == "AzureAiFoundry") | .secretReference) == null' <<<"$experience" >/dev/null
 
 credentials=$(jq -n --arg userName "$USER_NAME" --arg password "$PASSWORD" '{userName:$userName,password:$password}')
 echo "[1/11] Register"
@@ -28,6 +34,20 @@ token=$(curl --fail --silent --show-error \
   -H 'Content-Type: application/json' \
   -d "$credentials" \
   "$IDENTITY_URL/auth/login" | jq -er '.token')
+
+curl --fail --silent --show-error \
+  -X POST \
+  -H "Authorization: Bearer $token" \
+  -H "X-Bootstrap-Key: $BOOTSTRAP_KEY" \
+  "$IDENTITY_URL/admin/access/bootstrap" >/dev/null
+token=$(curl --fail --silent --show-error \
+  -H 'Content-Type: application/json' \
+  -d "$credentials" \
+  "$IDENTITY_URL/auth/login" | jq -er '.token')
+me=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$IDENTITY_URL/me")
+jq -e '(.permissions | index("scenario.author")) != null and (.permissions | index("config.read")) != null' <<<"$me" >/dev/null
+wallet=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$PLAYER_EXPERIENCE_URL/me/experience?frontId=default")
+jq -e '.currencyCode == "BRAISE" and .balance >= 0' <<<"$wallet" >/dev/null
 
 echo "[3/11] Import scenario"
 scenario=$(curl --fail-with-body --silent --show-error \

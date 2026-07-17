@@ -46,7 +46,7 @@ public sealed class PublishedCatalogTests
         var service = new AuthoringService(repository, TimeProvider.System);
 
         PublishedScenarioView result = Assert.Single(
-            await service.ListPublishedAsync(12, CancellationToken.None));
+            await service.ListPublishedAsync(12, null, CancellationToken.None));
 
         Assert.Equal(12, repository.RequestedLimit);
         Assert.Equal(scenario.Id, result.ScenarioId);
@@ -85,6 +85,7 @@ public sealed class PublishedCatalogTests
 
         public Task<IReadOnlyList<Scenario>> ListPublishedAsync(
             int limit,
+            Guid? categoryId,
             CancellationToken cancellationToken)
         {
             RequestedLimit = limit;

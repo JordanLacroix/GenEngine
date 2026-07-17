@@ -28,6 +28,18 @@ public sealed class ProjectDependencyTests
             ["GenEngine.Identity.Api"] = Only(
                 "GenEngine.Identity.Application", "GenEngine.Identity.Infrastructure",
                 "GenEngine.Observability"),
+            ["GenEngine.Configuration.Domain"] = None(),
+            ["GenEngine.Configuration.Application"] = Only("GenEngine.Configuration.Domain"),
+            ["GenEngine.Configuration.Infrastructure"] = Only("GenEngine.Configuration.Application"),
+            ["GenEngine.Configuration.Api"] = Only(
+                "GenEngine.Configuration.Application", "GenEngine.Configuration.Infrastructure",
+                "GenEngine.Observability"),
+            ["GenEngine.PlayerExperience.Domain"] = None(),
+            ["GenEngine.PlayerExperience.Application"] = Only("GenEngine.PlayerExperience.Domain"),
+            ["GenEngine.PlayerExperience.Infrastructure"] = Only("GenEngine.PlayerExperience.Application"),
+            ["GenEngine.PlayerExperience.Api"] = Only(
+                "GenEngine.PlayerExperience.Application", "GenEngine.PlayerExperience.Infrastructure",
+                "GenEngine.Observability"),
         };
 
     [Fact]
