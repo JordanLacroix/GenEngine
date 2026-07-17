@@ -253,6 +253,7 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 | [`specs/process/github-governance.md`](specs/process/github-governance.md) | Gouvernance GitHub, CI/CD et sécurité |
 | [`specs/process/slo.md`](specs/process/slo.md) | SLI, SLO provisoires, alertes et budget d’erreur |
 | [`specs/process/audit.md`](specs/process/audit.md) | Audit métier : événements, politique de non-fuite et consultation |
+| [`specs/process/resilience.md`](specs/process/resilience.md) | Résilience interservices : timeouts, retry et circuit breaker |
 | [`specs/process/threat-model.md`](specs/process/threat-model.md) | Menaces, frontières de confiance et mitigations initiales |
 | [`specs/api/http.md`](specs/api/http.md) | Contrats HTTP publics et interservices |
 | [`specs/domain/`](specs/domain/) | Scénarios, runtime, déterminisme et exemples exécutables |
