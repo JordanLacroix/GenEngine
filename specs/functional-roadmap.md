@@ -13,9 +13,11 @@ Cette roadmap rapproche progressivement le noyau actuel de la cible produit d'or
 
 ## F2 — Interactions typées et machine à états
 
-- [ ] séquence d'interactions par nœud : narration, choix, quiz et gate de caractéristique ;
+- [x] séquence d'interactions par nœud : narration, choix et quiz ;
+- [ ] gate de caractéristique et branchement automatique ;
 - [ ] statuts `AwaitingValidation` et `AwaitingExternalInput` ;
-- [ ] commande d'entrée typée et confirmation avant progression ;
+- [x] commandes idempotentes typées : continuer, répondre et choisir ;
+- [ ] confirmation avant progression pour les entrées analysées ;
 - [ ] points d'extension pour texte libre, document, photo et dialogue IA avec fallback déterministe.
 
 ## F3 — Sauvegardes et évolution des formats

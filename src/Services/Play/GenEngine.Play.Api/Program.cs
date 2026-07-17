@@ -112,6 +112,45 @@ sessions.MapPost("/{id:guid}/inputs", async (
     return Results.Ok(result);
 });
 
+sessions.MapPost("/{id:guid}/continue", async (
+    Guid id,
+    ContinueInteractionRequest request,
+    ClaimsPrincipal user,
+    PlayService service,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    string actorId = GetUserId(user);
+    InputResult result = await service.ContinueAsync(
+        id,
+        actorId,
+        request.CommandId,
+        request.ExpectedRevision,
+        cancellationToken).ConfigureAwait(false);
+    RecordInputAudit(auditLog, actorId, id, request.CommandId, result.Replayed, "narration_continued");
+    return Results.Ok(result);
+});
+
+sessions.MapPost("/{id:guid}/answers", async (
+    Guid id,
+    SubmitAnswerRequest request,
+    ClaimsPrincipal user,
+    PlayService service,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    string actorId = GetUserId(user);
+    InputResult result = await service.SubmitAnswerAsync(
+        id,
+        actorId,
+        request.CommandId,
+        request.ExpectedRevision,
+        request.AnswerId,
+        cancellationToken).ConfigureAwait(false);
+    RecordInputAudit(auditLog, actorId, id, request.CommandId, result.Replayed, "quiz_answered");
+    return Results.Ok(result);
+});
+
 sessions.MapPost("/{id:guid}/pause", async (
     Guid id,
     RevisionRequest request,
@@ -163,6 +202,28 @@ sessions.MapPost("/{id:guid}/resume", async (
 });
 
 app.Run();
+
+static void RecordInputAudit(
+    IAuditLog auditLog,
+    string actorId,
+    Guid sessionId,
+    Guid commandId,
+    bool replayed,
+    string action)
+{
+    auditLog.Record(new AuditEvent
+    {
+        Action = replayed ? $"{action}_replayed" : action,
+        Outcome = AuditOutcome.Success,
+        ActorId = actorId,
+        ResourceType = "session",
+        ResourceId = sessionId.ToString(),
+        Properties = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["command_id"] = commandId.ToString(),
+        },
+    });
+}
 
 static string GetUserId(ClaimsPrincipal user) =>
     user.FindFirstValue(JwtRegisteredClaimNames.Sub)

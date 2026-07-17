@@ -82,12 +82,20 @@ public static class ScenarioSimulator
         while (state.Status is SessionStatus.AwaitingInput && state.Turn < maximumTurns)
         {
             CurrentStep step = NarrativeRuntime.GetCurrentStep(scenario, state);
+            if (step.Kind is InteractionKind.Narration)
+            {
+                state = NarrativeRuntime.Continue(scenario, state);
+                continue;
+            }
+
             if (step.Choices.Count == 0)
             {
                 throw new NarrativeException("no_visible_choice", "The simulator found no visible choice.");
             }
 
-            state = NarrativeRuntime.SubmitChoice(scenario, state, step.Choices[0].Id);
+            state = step.Kind is InteractionKind.Quiz
+                ? NarrativeRuntime.SubmitAnswer(scenario, state, step.Choices[0].Id)
+                : NarrativeRuntime.SubmitChoice(scenario, state, step.Choices[0].Id);
         }
 
         if (state.Status is SessionStatus.AwaitingInput)

@@ -11,6 +11,10 @@ public sealed record StartSessionRequest(Guid ScenarioVersionId, ulong Seed);
 
 public sealed record SubmitChoiceRequest(Guid CommandId, int ExpectedRevision, string ChoiceId);
 
+public sealed record ContinueInteractionRequest(Guid CommandId, int ExpectedRevision);
+
+public sealed record SubmitAnswerRequest(Guid CommandId, int ExpectedRevision, string AnswerId);
+
 public sealed record RevisionRequest(int ExpectedRevision);
 
 public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler

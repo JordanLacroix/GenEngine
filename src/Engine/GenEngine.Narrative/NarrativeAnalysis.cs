@@ -32,18 +32,18 @@ public static class ScenarioAnalyzer
             }
 
             CurrentStep step = NarrativeRuntime.GetCurrentStep(scenario, state);
-            if (step.Choices.Count == 0)
+            if (step.Kind is not InteractionKind.Narration && step.Choices.Count == 0)
             {
                 deadEnds.Add(new SimulationDeadEnd(state.CurrentNodeId, state.Turn, "No choice is available."));
                 continue;
             }
 
             bool progressed = false;
-            foreach (VisibleChoice choice in step.Choices)
+            foreach ((string inputId, Func<GameState> transition) in GetTransitions(scenario, state, step))
             {
                 try
                 {
-                    GameState next = NarrativeRuntime.SubmitChoice(scenario, state, choice.Id);
+                    GameState next = transition();
                     if (visitedStates.Add(Fingerprint(next)))
                     {
                         pending.Enqueue(next);
@@ -56,7 +56,7 @@ public static class ScenarioAnalyzer
                     deadEnds.Add(new SimulationDeadEnd(
                         state.CurrentNodeId,
                         state.Turn,
-                        $"Choice '{choice.Id}' failed: {exception.Code}."));
+                        $"Input '{inputId}' failed: {exception.Code}."));
                 }
             }
 
@@ -71,6 +71,25 @@ public static class ScenarioAnalyzer
             endings.Order(StringComparer.Ordinal).ToArray(),
             deadEnds,
             pending.Count != 0);
+    }
+
+    private static IEnumerable<(string InputId, Func<GameState> Transition)> GetTransitions(
+        ScenarioDocument scenario,
+        GameState state,
+        CurrentStep step)
+    {
+        if (step.Kind is InteractionKind.Narration)
+        {
+            yield return ("continue", () => NarrativeRuntime.Continue(scenario, state));
+            yield break;
+        }
+
+        foreach (VisibleChoice choice in step.Choices)
+        {
+            yield return step.Kind is InteractionKind.Quiz
+                ? (choice.Id, () => NarrativeRuntime.SubmitAnswer(scenario, state, choice.Id))
+                : (choice.Id, () => NarrativeRuntime.SubmitChoice(scenario, state, choice.Id));
+        }
     }
 
     private static string Fingerprint(GameState state) => NarrativeJson.Serialize(state);
