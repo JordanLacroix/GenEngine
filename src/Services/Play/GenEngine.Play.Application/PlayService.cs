@@ -62,15 +62,17 @@ public sealed class PlayService(
         }
 
         GameState state = NarrativeRuntime.Start(scenario);
+        DateTimeOffset now = GetUtcNow();
+        GameSave save = GameSaveSerializer.Create(scenario.SchemaVersion, seed, now, state);
         GameSession session = GameSession.Create(
             ownerId,
             snapshot.Id,
             snapshot.SnapshotHash,
             snapshot.SnapshotJson,
-            NarrativeJson.Serialize(state),
+            GameSaveSerializer.Serialize(save),
             state.Status.ToString(),
             seed,
-            GetUtcNow());
+            now);
         await repository.AddAsync(session, cancellationToken).ConfigureAwait(false);
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return Map(session, state);
@@ -89,6 +91,15 @@ public sealed class PlayService(
     {
         GameSession session = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
         return NarrativeRuntime.GetCurrentStep(DeserializeScenario(session), DeserializeState(session));
+    }
+
+    public async Task<NarrativeTree> GetTreeAsync(
+        Guid id,
+        string ownerId,
+        CancellationToken cancellationToken)
+    {
+        GameSession session = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
+        return NarrativeTreeBuilder.Build(DeserializeScenario(session), DeserializeState(session));
     }
 
     public async Task<InputResult> SubmitChoiceAsync(
@@ -154,17 +165,19 @@ public sealed class PlayService(
 
         ScenarioDocument scenario = DeserializeScenario(session);
         GameState nextState = transition(scenario, DeserializeState(session));
+        DateTimeOffset now = GetUtcNow();
+        GameSave save = GameSaveSerializer.Create(scenario.SchemaVersion, session.Seed, now, nextState);
         session.ChangeState(
-            NarrativeJson.Serialize(nextState),
+            GameSaveSerializer.Serialize(save),
             nextState.Status.ToString(),
             expectedRevision,
-            GetUtcNow());
+            now);
         InputResult result = new(
             Map(session, nextState),
             NarrativeRuntime.GetCurrentStep(scenario, nextState),
             false);
         await repository.AddProcessedCommandAsync(
-            ProcessedCommand.Create(commandId, id, NarrativeJson.Serialize(result), GetUtcNow()),
+            ProcessedCommand.Create(commandId, id, NarrativeJson.Serialize(result), now),
             cancellationToken).ConfigureAwait(false);
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return result;
@@ -192,13 +205,15 @@ public sealed class PlayService(
         CancellationToken cancellationToken)
     {
         GameSession session = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
-        GameState currentState = DeserializeState(session);
+        GameSave currentSave = DeserializeSave(session);
+        GameState currentState = currentSave.State;
         GameState nextState = pause ? NarrativeRuntime.Pause(currentState) : NarrativeRuntime.Resume(currentState);
+        DateTimeOffset now = GetUtcNow();
         session.ChangeState(
-            NarrativeJson.Serialize(nextState),
+            GameSaveSerializer.Serialize(currentSave with { State = nextState, SavedAt = now }),
             nextState.Status.ToString(),
             expectedRevision,
-            GetUtcNow());
+            now);
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return Map(session, nextState);
     }
@@ -210,8 +225,10 @@ public sealed class PlayService(
     private static ScenarioDocument DeserializeScenario(GameSession session) =>
         NarrativeJson.Deserialize<ScenarioDocument>(session.SnapshotJson);
 
-    private static GameState DeserializeState(GameSession session) =>
-        NarrativeJson.Deserialize<GameState>(session.StateJson);
+    private static GameSave DeserializeSave(GameSession session) =>
+        GameSaveSerializer.Deserialize(session.StateJson, session.Seed, session.UpdatedAt);
+
+    private static GameState DeserializeState(GameSession session) => DeserializeSave(session).State;
 
     private DateTimeOffset GetUtcNow() => timeProvider.GetUtcNow();
 
