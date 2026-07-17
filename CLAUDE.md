@@ -64,4 +64,4 @@ docker compose -f compose.yaml -f compose.observability.yaml up --build --detach
 
 ## Prochaine tâche
 
-Commence par `HRD-005`, décrite dans [`specs/modules/hardening/tasks.md`](specs/modules/hardening/tasks.md). Ne poursuis pas automatiquement vers `HRD-006` tant que `HRD-005` n’est pas fusionnée et documentée.
+`HRD-001` à `HRD-006` sont fusionnées et documentées. La prochaine unité est `HRD-007` (outbox), décrite dans [`specs/modules/hardening/tasks.md`](specs/modules/hardening/tasks.md) : ne l’implémente **que** si un consommateur asynchrone réel apparaît ; sinon, documente la décision de ne rien ajouter.
