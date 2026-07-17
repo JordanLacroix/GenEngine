@@ -1,4 +1,6 @@
-# Tâches — Configuration
+# Tâches — Configuration et Organization
+
+## Configuration
 
 | ID | Statut | Tâche |
 |---|---|---|
@@ -12,11 +14,11 @@
 | CFG-008 | todo | Exposer configuration effective, provenance et capacités aux clients |
 | CFG-009 | todo | Configurer branding, locale, fuseau, terminologie, calendrier et auth par front |
 
-# Tâches — Organization
+## Organization
 
 | ID | Statut | Tâche |
 |---|---|---|
-| ORG-001 | todo | Modéliser un front générique et ses métadonnées d'établissement |
+| ORG-001 | todo | Rattacher un profil d'organisation au front sans dupliquer son ownership |
 | ORG-002 | todo | Gérer années, semestres ou périodes configurables |
 | ORG-003 | todo | Gérer classes/groupes hiérarchiques et encadrants |
 | ORG-004 | todo | Inscrire les utilisateurs dans un groupe pour une période |

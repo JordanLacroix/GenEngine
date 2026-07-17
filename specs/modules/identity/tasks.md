@@ -9,5 +9,5 @@
 | IDN-005 | todo | Définir le catalogue stable de permissions et les presets de rôles initiaux |
 | IDN-006 | todo | Administrer rôles et permissions avec audit et policies serveur |
 | IDN-007 | todo | Exposer les permissions effectives de l'utilisateur authentifié |
-| IDN-008 | todo | Modéliser fronts, périodes, groupes/classes et memberships sans base partagée |
-| IDN-009 | todo | Tester systématiquement allow/deny et isolation entre fronts |
+| IDN-008 | todo | Porter les affectations de rôles par identifiant de front sans posséder classes ou groupes |
+| IDN-009 | todo | Tester systématiquement allow/deny et scopes de front dans les policies |
