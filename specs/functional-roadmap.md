@@ -14,7 +14,7 @@ Cette roadmap rapproche progressivement le noyau actuel de la cible produit d'or
 ## F2 — Interactions typées et machine à états
 
 - [x] séquence d'interactions par nœud : narration, choix et quiz ;
-- [ ] gate de caractéristique et branchement automatique ;
+- [x] gate de caractéristique et branchement automatique ;
 - [ ] statuts `AwaitingValidation` et `AwaitingExternalInput` ;
 - [x] commandes idempotentes typées : continuer, répondre et choisir ;
 - [ ] confirmation avant progression pour les entrées analysées ;
@@ -36,7 +36,7 @@ Cette roadmap rapproche progressivement le noyau actuel de la cible produit d'or
 
 ## F5 — Capacités transverses branchées au moteur
 
-- [ ] caractéristiques joueur extensibles et progression de compétences ;
+- [x] caractéristiques joueur extensibles, conditions, effets et progression ;
 - [ ] événements différés par tour, condition et date logique ;
 - [ ] projections journal/collection/synthèse ;
 - [ ] ports déterministes pour météo, présence, temps et analyse d'entrée ;

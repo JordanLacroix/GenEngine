@@ -39,6 +39,7 @@ public sealed record NarrativeChoice(
 [JsonDerivedType(typeof(NarrationInteraction), "narration")]
 [JsonDerivedType(typeof(ChoiceSetInteraction), "choiceSet")]
 [JsonDerivedType(typeof(QuizInteraction), "quiz")]
+[JsonDerivedType(typeof(CharacteristicGateInteraction), "characteristicGate")]
 public abstract record StepInteraction(string Id);
 
 public sealed record NarrationInteraction(
@@ -61,6 +62,14 @@ public sealed record QuizInteraction(
 
 public sealed record QuizAnswer(string Id, string Text);
 
+public sealed record CharacteristicGateInteraction(
+    string Id,
+    ConditionExpression Condition,
+    string SatisfiedTargetNodeId,
+    string FailedTargetNodeId,
+    IReadOnlyList<LocalGameEffect> SatisfiedEffects,
+    IReadOnlyList<LocalGameEffect> FailedEffects) : StepInteraction(Id);
+
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(AlwaysCondition), "always")]
 [JsonDerivedType(typeof(AllCondition), "all")]
@@ -73,6 +82,7 @@ public sealed record QuizAnswer(string Id, string Text);
 [JsonDerivedType(typeof(RelationAtLeastCondition), "relationAtLeast")]
 [JsonDerivedType(typeof(HasRewardCondition), "hasReward")]
 [JsonDerivedType(typeof(VisitedNodeCondition), "visitedNode")]
+[JsonDerivedType(typeof(CharacteristicAtLeastCondition), "characteristicAtLeast")]
 public abstract record ConditionExpression;
 
 public sealed record AlwaysCondition : ConditionExpression;
@@ -97,6 +107,8 @@ public sealed record HasRewardCondition(string Reward) : ConditionExpression;
 
 public sealed record VisitedNodeCondition(string NodeId) : ConditionExpression;
 
+public sealed record CharacteristicAtLeastCondition(string Name, int Value) : ConditionExpression;
+
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(AssignEffect), "assign")]
 [JsonDerivedType(typeof(IncrementEffect), "increment")]
@@ -107,6 +119,8 @@ public sealed record VisitedNodeCondition(string NodeId) : ConditionExpression;
 [JsonDerivedType(typeof(GrantRewardEffect), "grantReward")]
 [JsonDerivedType(typeof(RecordNotableEventEffect), "recordNotableEvent")]
 [JsonDerivedType(typeof(ScheduleEffect), "schedule")]
+[JsonDerivedType(typeof(SetCharacteristicEffect), "setCharacteristic")]
+[JsonDerivedType(typeof(ChangeCharacteristicEffect), "changeCharacteristic")]
 public abstract record LocalGameEffect;
 
 public sealed record AssignEffect(string Name, int Value) : LocalGameEffect;
@@ -127,6 +141,10 @@ public sealed record RecordNotableEventEffect(string Label, string? Scope = null
 
 public sealed record ScheduleEffect(int Turns, LocalGameEffect Effect) : LocalGameEffect;
 
+public sealed record SetCharacteristicEffect(string Name, int Value) : LocalGameEffect;
+
+public sealed record ChangeCharacteristicEffect(string Name, int Amount) : LocalGameEffect;
+
 public sealed record ScheduledEffect(int DueTurn, LocalGameEffect Effect);
 
 public sealed record WorldState(
@@ -146,6 +164,8 @@ public sealed record WorldState(
     public List<JournalEntry> Journal { get; init; } = [];
 
     public List<InteractionHistoryEntry> InteractionHistory { get; init; } = [];
+
+    public Dictionary<string, int> Characteristics { get; init; } = new(StringComparer.Ordinal);
 
     public static WorldState Empty() => new(
         new Dictionary<string, int>(StringComparer.Ordinal),
@@ -190,6 +210,7 @@ public enum InteractionKind
     Narration,
     ChoiceSet,
     Quiz,
+    CharacteristicGate,
     Completed,
 }
 

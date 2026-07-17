@@ -48,17 +48,7 @@ public static class NarrativeTreeBuilder
             GetNodeState(node, state))).ToArray();
 
         NarrativeTreeEdge[] edges = scenario.Nodes
-            .SelectMany(node => EnumerateChoices(node).Select(choice =>
-            {
-                ConditionEvaluation evaluation = ConditionEvaluator.Explain(choice.Condition, state.World);
-                return new NarrativeTreeEdge(
-                    node.Id,
-                    choice.TargetNodeId,
-                    choice.Id,
-                    choice.Text,
-                    evaluation.Result,
-                    evaluation);
-            }))
+            .SelectMany(node => EnumerateEdges(node, state.World))
             .ToArray();
 
         return new NarrativeTree(scenario.InitialNodeId, state.CurrentNodeId, nodes, edges);
@@ -87,4 +77,42 @@ public static class NarrativeTreeBuilder
                 .OfType<ChoiceSetInteraction>()
                 .SelectMany(static interaction => interaction.Choices)
             ?? []);
+
+    private static IEnumerable<NarrativeTreeEdge> EnumerateEdges(NarrativeNode node, WorldState world)
+    {
+        foreach (NarrativeChoice choice in EnumerateChoices(node))
+        {
+            ConditionEvaluation evaluation = ConditionEvaluator.Explain(choice.Condition, world);
+            yield return new NarrativeTreeEdge(
+                node.Id,
+                choice.TargetNodeId,
+                choice.Id,
+                choice.Text,
+                evaluation.Result,
+                evaluation);
+        }
+
+        foreach (CharacteristicGateInteraction gate in node.Interactions?.OfType<CharacteristicGateInteraction>() ?? [])
+        {
+            ConditionEvaluation evaluation = ConditionEvaluator.Explain(gate.Condition, world);
+            yield return new NarrativeTreeEdge(
+                node.Id,
+                gate.SatisfiedTargetNodeId,
+                $"{gate.Id}:satisfied",
+                "Condition satisfied",
+                evaluation.Result,
+                evaluation);
+            yield return new NarrativeTreeEdge(
+                node.Id,
+                gate.FailedTargetNodeId,
+                $"{gate.Id}:failed",
+                "Condition failed",
+                !evaluation.Result,
+                new ConditionEvaluation(
+                    "not",
+                    !evaluation.Result,
+                    "The gate condition must not be satisfied.",
+                    [evaluation]));
+        }
+    }
 }

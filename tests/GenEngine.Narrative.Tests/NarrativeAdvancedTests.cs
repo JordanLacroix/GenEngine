@@ -117,6 +117,7 @@ public sealed class NarrativeAdvancedTests
         Assert.Empty(state.World.ChoiceHistory);
         Assert.Empty(state.World.Journal);
         Assert.Empty(state.World.InteractionHistory);
+        Assert.Empty(state.World.Characteristics);
     }
 
     private static ScenarioDocument CreateRichScenario() => new(
