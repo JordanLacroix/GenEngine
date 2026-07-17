@@ -146,6 +146,36 @@ public sealed class PlayService(
             (scenario, state) => NarrativeRuntime.SubmitAnswer(scenario, state, answerId),
             cancellationToken).ConfigureAwait(false);
 
+    public async Task<InputResult> SubmitTextAsync(
+        Guid id,
+        string ownerId,
+        Guid commandId,
+        int expectedRevision,
+        string text,
+        CancellationToken cancellationToken) =>
+        await SubmitInputAsync(
+            id,
+            ownerId,
+            commandId,
+            expectedRevision,
+            (scenario, state) => NarrativeRuntime.SubmitText(scenario, state, text),
+            cancellationToken).ConfigureAwait(false);
+
+    public async Task<InputResult> ConfirmTextAnalysisAsync(
+        Guid id,
+        string ownerId,
+        Guid commandId,
+        int expectedRevision,
+        bool confirmed,
+        CancellationToken cancellationToken) =>
+        await SubmitInputAsync(
+            id,
+            ownerId,
+            commandId,
+            expectedRevision,
+            (scenario, state) => NarrativeRuntime.ConfirmTextAnalysis(scenario, state, confirmed),
+            cancellationToken).ConfigureAwait(false);
+
     private async Task<InputResult> SubmitInputAsync(
         Guid id,
         string ownerId,

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 2,
+  "title": "La méthode critique",
+  "initialNodeId": "reflection",
+  "nodes": [
+    {
+      "id": "reflection",
+      "text": "Expliquez votre méthode.",
+      "enterCondition": null,
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "freeText",
+          "id": "critical-method",
+          "prompt": "Comment vérifiez-vous une affirmation ?",
+          "requiredTerms": ["source", "compare", "preuve"],
+          "minimumMatches": 2,
+          "acceptedEffects": [
+            {
+              "$type": "grantReward",
+              "reward": "critical-reader"
+            }
+          ],
+          "rejectedEffects": [
+            {
+              "$type": "increment",
+              "name": "reflection-help",
+              "amount": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

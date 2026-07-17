@@ -103,6 +103,9 @@ jobs:
       - name: Run typed interaction flow
         run: ./scripts/typed-interactions-smoke-test.sh
 
+      - name: Run confirmed free-text flow
+        run: ./scripts/free-text-smoke-test.sh
+
       - name: Collect container logs
         if: failure()
         run: docker compose logs --no-color
