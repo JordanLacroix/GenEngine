@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -53,12 +54,22 @@ scenarios.MapPost("/import", async (
     JsonElement document,
     ClaimsPrincipal user,
     AuthoringService service,
+    IAuditLog auditLog,
     CancellationToken cancellationToken) =>
 {
+    string actorId = GetUserId(user);
     ScenarioView result = await service.ImportAsync(
-        GetUserId(user),
+        actorId,
         document.GetRawText(),
         cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent
+    {
+        Action = "scenario_imported",
+        Outcome = AuditOutcome.Success,
+        ActorId = actorId,
+        ResourceType = "scenario",
+        ResourceId = result.Id.ToString(),
+    });
     return Results.Created($"/scenarios/{result.Id}", result);
 });
 
@@ -86,20 +97,51 @@ scenarios.MapPost("/{id:guid}/validate", async (
     Guid id,
     ClaimsPrincipal user,
     AuthoringService service,
+    IAuditLog auditLog,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.ValidateAsync(id, GetUserId(user), cancellationToken).ConfigureAwait(false)));
+{
+    string actorId = GetUserId(user);
+    ValidationReport report = await service.ValidateAsync(id, actorId, cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent
+    {
+        Action = "scenario_validated",
+        Outcome = AuditOutcome.Success,
+        ActorId = actorId,
+        ResourceType = "scenario",
+        ResourceId = id.ToString(),
+    });
+    return Results.Ok(report);
+});
 
 scenarios.MapPost("/{id:guid}/publish", async (
     Guid id,
     PublishRequest request,
     ClaimsPrincipal user,
     AuthoringService service,
+    IAuditLog auditLog,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.PublishAsync(
+{
+    string actorId = GetUserId(user);
+    ScenarioVersionView version = await service.PublishAsync(
         id,
-        GetUserId(user),
+        actorId,
         request.ExpectedRevision,
-        cancellationToken).ConfigureAwait(false)));
+        cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent
+    {
+        Action = "scenario_published",
+        Outcome = AuditOutcome.Success,
+        ActorId = actorId,
+        ResourceType = "scenario",
+        ResourceId = id.ToString(),
+        Properties = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["version_id"] = version.Id.ToString(),
+            ["version_number"] = version.Number.ToString(CultureInfo.InvariantCulture),
+        },
+    });
+    return Results.Ok(version);
+});
 
 scenarios.MapGet("/{id:guid}/versions", async (
     Guid id,
@@ -112,6 +154,7 @@ app.MapGet("/internal/scenario-versions/{versionId:guid}", async (
     Guid versionId,
     HttpRequest request,
     AuthoringService service,
+    IAuditLog auditLog,
     CancellationToken cancellationToken) =>
 {
     string configuredKey = app.Configuration["InternalApi:Key"] ?? string.Empty;
@@ -119,6 +162,13 @@ app.MapGet("/internal/scenario-versions/{versionId:guid}", async (
         || !request.Headers.TryGetValue("X-Internal-Key", out Microsoft.Extensions.Primitives.StringValues suppliedKey)
         || !string.Equals(configuredKey, suppliedKey.ToString(), StringComparison.Ordinal))
     {
+        auditLog.Record(new AuditEvent
+        {
+            Action = "internal_snapshot_access_denied",
+            Outcome = AuditOutcome.Denied,
+            ResourceType = "scenario_version",
+            ResourceId = versionId.ToString(),
+        });
         return Results.Unauthorized();
     }
 

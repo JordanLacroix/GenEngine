@@ -43,13 +43,27 @@ sessions.MapPost("/", async (
     StartSessionRequest request,
     ClaimsPrincipal user,
     PlayService service,
+    IAuditLog auditLog,
     CancellationToken cancellationToken) =>
 {
+    string actorId = GetUserId(user);
     SessionView session = await service.StartAsync(
-        GetUserId(user),
+        actorId,
         request.ScenarioVersionId,
         request.Seed,
         cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent
+    {
+        Action = "session_started",
+        Outcome = AuditOutcome.Success,
+        ActorId = actorId,
+        ResourceType = "session",
+        ResourceId = session.Id.ToString(),
+        Properties = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["scenario_version_id"] = session.ScenarioVersionId.ToString(),
+        },
+    });
     return Results.Created($"/sessions/{session.Id}", session);
 });
 
@@ -72,38 +86,81 @@ sessions.MapPost("/{id:guid}/inputs", async (
     SubmitChoiceRequest request,
     ClaimsPrincipal user,
     PlayService service,
+    IAuditLog auditLog,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.SubmitChoiceAsync(
+{
+    string actorId = GetUserId(user);
+    InputResult result = await service.SubmitChoiceAsync(
         id,
-        GetUserId(user),
+        actorId,
         request.CommandId,
         request.ExpectedRevision,
         request.ChoiceId,
-        cancellationToken).ConfigureAwait(false)));
+        cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent
+    {
+        Action = result.Replayed ? "choice_replayed" : "choice_submitted",
+        Outcome = AuditOutcome.Success,
+        ActorId = actorId,
+        ResourceType = "session",
+        ResourceId = id.ToString(),
+        Properties = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["command_id"] = request.CommandId.ToString(),
+        },
+    });
+    return Results.Ok(result);
+});
 
 sessions.MapPost("/{id:guid}/pause", async (
     Guid id,
     RevisionRequest request,
     ClaimsPrincipal user,
     PlayService service,
+    IAuditLog auditLog,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.PauseAsync(
+{
+    string actorId = GetUserId(user);
+    SessionView session = await service.PauseAsync(
         id,
-        GetUserId(user),
+        actorId,
         request.ExpectedRevision,
-        cancellationToken).ConfigureAwait(false)));
+        cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent
+    {
+        Action = "session_paused",
+        Outcome = AuditOutcome.Success,
+        ActorId = actorId,
+        ResourceType = "session",
+        ResourceId = id.ToString(),
+    });
+    return Results.Ok(session);
+});
 
 sessions.MapPost("/{id:guid}/resume", async (
     Guid id,
     RevisionRequest request,
     ClaimsPrincipal user,
     PlayService service,
+    IAuditLog auditLog,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.ResumeAsync(
+{
+    string actorId = GetUserId(user);
+    SessionView session = await service.ResumeAsync(
         id,
-        GetUserId(user),
+        actorId,
         request.ExpectedRevision,
-        cancellationToken).ConfigureAwait(false)));
+        cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent
+    {
+        Action = "session_resumed",
+        Outcome = AuditOutcome.Success,
+        ActorId = actorId,
+        ResourceType = "session",
+        ResourceId = id.ToString(),
+    });
+    return Results.Ok(session);
+});
 
 app.Run();
 

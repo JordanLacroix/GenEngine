@@ -232,6 +232,7 @@ Les versions NuGet sont centralisées dans [`Directory.Packages.props`](Director
 - SBOM SPDX générée automatiquement sur `main` ;
 - Dependabot, secret scanning et push protection ;
 - aucune donnée personnelle ou texte libre dans les logs par défaut ;
+- audit métier des opérations sensibles sans secret ni donnée personnelle (voir [`specs/process/audit.md`](specs/process/audit.md)) ;
 - threat model requis avant toute exposition publique de l’API.
 
 Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le build strict et les tests à chaque pull request et push sur `main`. La matrice complète des protections, outils actifs et intégrations différées est tenue dans [`specs/process/github-governance.md`](specs/process/github-governance.md).
@@ -251,6 +252,7 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 | [`specs/modules/hardening/tasks.md`](specs/modules/hardening/tasks.md) | Tâches du jalon de durcissement |
 | [`specs/process/github-governance.md`](specs/process/github-governance.md) | Gouvernance GitHub, CI/CD et sécurité |
 | [`specs/process/slo.md`](specs/process/slo.md) | SLI, SLO provisoires, alertes et budget d’erreur |
+| [`specs/process/audit.md`](specs/process/audit.md) | Audit métier : événements, politique de non-fuite et consultation |
 | [`specs/process/threat-model.md`](specs/process/threat-model.md) | Menaces, frontières de confiance et mitigations initiales |
 | [`specs/api/http.md`](specs/api/http.md) | Contrats HTTP publics et interservices |
 | [`specs/domain/`](specs/domain/) | Scénarios, runtime, déterminisme et exemples exécutables |

@@ -19,6 +19,8 @@ public static class ObservabilityExtensions
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(serviceName);
 
+        services.AddSingleton<IAuditLog, AuditLog>();
+
         bool exportOtlp = !string.IsNullOrWhiteSpace(configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
 
         OpenTelemetryBuilder telemetry = services

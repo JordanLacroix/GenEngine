@@ -46,23 +46,45 @@ RouteGroupBuilder auth = app.MapGroup("/auth").RequireRateLimiting("auth");
 auth.MapPost("/register", async (
     CredentialsRequest request,
     IdentityService service,
+    IAuditLog auditLog,
     CancellationToken cancellationToken) =>
 {
     UserView user = await service.RegisterAsync(
         request.UserName,
         request.Password,
         cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent
+    {
+        Action = "user_registered",
+        Outcome = AuditOutcome.Success,
+        ActorId = user.Id.ToString(),
+        ResourceType = "user",
+        ResourceId = user.Id.ToString(),
+    });
     return Results.Created($"/users/{user.Id}", user);
 });
 
 auth.MapPost("/login", async (
     CredentialsRequest request,
     IdentityService service,
+    IAuditLog auditLog,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.LoginAsync(
-        request.UserName,
-        request.Password,
-        cancellationToken).ConfigureAwait(false)));
+{
+    try
+    {
+        AccessToken token = await service.LoginAsync(
+            request.UserName,
+            request.Password,
+            cancellationToken).ConfigureAwait(false);
+        auditLog.Record(new AuditEvent { Action = "login_succeeded", Outcome = AuditOutcome.Success });
+        return Results.Ok(token);
+    }
+    catch (IdentityException exception) when (exception.Code == "invalid_credentials")
+    {
+        auditLog.Record(new AuditEvent { Action = "login_failed", Outcome = AuditOutcome.Failure });
+        throw;
+    }
+});
 
 app.Run();
 
