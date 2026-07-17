@@ -15,7 +15,7 @@ public sealed class NarrativeRuntime
         world.VisitedNodes.Add(initialNode.Id);
         ApplyEffects(world, initialNode.OnEnterEffects, 0);
 
-        return new GameState(
+        GameState state = new(
             initialNode.Id,
             0,
             initialNode.IsEnding && !HasTypedInteractions(initialNode)
@@ -25,6 +25,8 @@ public sealed class NarrativeRuntime
         {
             InteractionIndex = 0,
         };
+
+        return ResolveAutomaticInteractions(scenario, state);
     }
 
     public static GameState SubmitChoice(ScenarioDocument scenario, GameState state, string choiceId)
@@ -66,7 +68,7 @@ public sealed class NarrativeRuntime
             throw new NarrativeException("target_condition_failed", "The target node cannot be entered.");
         }
 
-        return EnterNode(targetNode, nextTurn, world);
+        return EnterNode(scenario, targetNode, nextTurn, world);
     }
 
     public static GameState Continue(ScenarioDocument scenario, GameState state)
@@ -84,7 +86,7 @@ public sealed class NarrativeRuntime
         ApplyEffects(world, narration.ContinueEffects, nextTurn);
         ApplyDueEffects(world, nextTurn);
         world.InteractionHistory.Add(new InteractionHistoryEntry(node.Id, narration.Id, "continue", null, nextTurn));
-        return AdvanceInteraction(node, state, world, nextTurn);
+        return AdvanceInteraction(scenario, node, state, world, nextTurn);
     }
 
     public static GameState SubmitAnswer(
@@ -111,7 +113,7 @@ public sealed class NarrativeRuntime
         ApplyEffects(world, isCorrect ? quiz.CorrectEffects : quiz.IncorrectEffects, nextTurn);
         ApplyDueEffects(world, nextTurn);
         world.InteractionHistory.Add(new InteractionHistoryEntry(node.Id, quiz.Id, answerId, isCorrect, nextTurn));
-        return AdvanceInteraction(node, state, world, nextTurn);
+        return AdvanceInteraction(scenario, node, state, world, nextTurn);
     }
 
     public static GameState Pause(GameState state)
@@ -184,6 +186,16 @@ public sealed class NarrativeRuntime
                     InteractionId = quiz.Id,
                     Kind = InteractionKind.Quiz,
                 },
+                CharacteristicGateInteraction gate => new CurrentStep(
+                    node.Id,
+                    ConditionEvaluator.Explain(gate.Condition, state.World).Explanation,
+                    state.Status,
+                    [],
+                    state.Turn)
+                {
+                    InteractionId = gate.Id,
+                    Kind = InteractionKind.CharacteristicGate,
+                },
                 _ => throw new NarrativeException("interaction_not_supported", "The interaction type is not supported."),
             };
         }
@@ -205,11 +217,15 @@ public sealed class NarrativeRuntime
         }).ToArray();
     }
 
-    private static GameState EnterNode(NarrativeNode node, int turn, WorldState world)
+    private static GameState EnterNode(
+        ScenarioDocument scenario,
+        NarrativeNode node,
+        int turn,
+        WorldState world)
     {
         world.VisitedNodes.Add(node.Id);
         ApplyEffects(world, node.OnEnterEffects, turn);
-        return new GameState(
+        GameState state = new(
             node.Id,
             turn,
             node.IsEnding && !HasTypedInteractions(node)
@@ -219,9 +235,12 @@ public sealed class NarrativeRuntime
         {
             InteractionIndex = 0,
         };
+
+        return ResolveAutomaticInteractions(scenario, state);
     }
 
     private static GameState AdvanceInteraction(
+        ScenarioDocument scenario,
         NarrativeNode node,
         GameState state,
         WorldState world,
@@ -230,10 +249,12 @@ public sealed class NarrativeRuntime
         int nextIndex = checked(state.InteractionIndex + 1);
         if (nextIndex < node.Interactions!.Count)
         {
-            return new GameState(node.Id, nextTurn, SessionStatus.AwaitingInput, world)
+            GameState next = new(node.Id, nextTurn, SessionStatus.AwaitingInput, world)
             {
                 InteractionIndex = nextIndex,
             };
+
+            return ResolveAutomaticInteractions(scenario, next);
         }
 
         if (!node.IsEnding)
@@ -283,6 +304,60 @@ public sealed class NarrativeRuntime
 
     private static bool HasTypedInteractions(NarrativeNode node) => node.Interactions is { Count: > 0 };
 
+    private static GameState ResolveAutomaticInteractions(ScenarioDocument scenario, GameState state)
+    {
+        const int maximumAutomaticTransitions = 32;
+        for (int transition = 0; transition < maximumAutomaticTransitions; transition++)
+        {
+            if (state.Status is not SessionStatus.AwaitingInput)
+            {
+                return state;
+            }
+
+            NarrativeNode node = FindNode(scenario, state.CurrentNodeId);
+            if (!HasTypedInteractions(node)
+                || GetCurrentInteraction(node, state) is not CharacteristicGateInteraction gate)
+            {
+                return state;
+            }
+
+            bool satisfied = ConditionEvaluator.Evaluate(gate.Condition, state.World);
+            WorldState world = Clone(state.World);
+            ApplyEffects(world, satisfied ? gate.SatisfiedEffects : gate.FailedEffects, state.Turn);
+            world.InteractionHistory.Add(new InteractionHistoryEntry(
+                node.Id,
+                gate.Id,
+                satisfied ? "satisfied" : "failed",
+                satisfied,
+                state.Turn));
+
+            NarrativeNode target = FindNode(
+                scenario,
+                satisfied ? gate.SatisfiedTargetNodeId : gate.FailedTargetNodeId);
+            if (!ConditionEvaluator.Evaluate(target.EnterCondition, world))
+            {
+                throw new NarrativeException("target_condition_failed", "The automatic target node cannot be entered.");
+            }
+
+            world.VisitedNodes.Add(target.Id);
+            ApplyEffects(world, target.OnEnterEffects, state.Turn);
+            state = new GameState(
+                target.Id,
+                state.Turn,
+                target.IsEnding && !HasTypedInteractions(target)
+                    ? SessionStatus.Completed
+                    : SessionStatus.AwaitingInput,
+                world)
+            {
+                InteractionIndex = 0,
+            };
+        }
+
+        throw new NarrativeException(
+            "automatic_transition_limit_exceeded",
+            "Too many automatic narrative transitions were resolved consecutively.");
+    }
+
     private static VisibleChoice[] VisibleChoices(
         IReadOnlyList<NarrativeChoice> choices,
         WorldState world) =>
@@ -307,6 +382,7 @@ public sealed class NarrativeRuntime
         ChoiceHistory = [.. source.ChoiceHistory],
         Journal = [.. source.Journal],
         InteractionHistory = [.. source.InteractionHistory],
+        Characteristics = new Dictionary<string, int>(source.Characteristics, StringComparer.Ordinal),
     };
 
     private static void ApplyEffects(WorldState world, IEnumerable<LocalGameEffect> effects, int currentTurn)
@@ -352,6 +428,13 @@ public sealed class NarrativeRuntime
                 break;
             case ScheduleEffect schedule:
                 world.ScheduledEffects.Add(new ScheduledEffect(checked(currentTurn + schedule.Turns), schedule.Effect));
+                break;
+            case SetCharacteristicEffect characteristic:
+                world.Characteristics[characteristic.Name] = characteristic.Value;
+                break;
+            case ChangeCharacteristicEffect characteristic:
+                world.Characteristics.TryGetValue(characteristic.Name, out int currentCharacteristic);
+                world.Characteristics[characteristic.Name] = checked(currentCharacteristic + characteristic.Amount);
                 break;
             default:
                 throw new NarrativeException("effect_not_supported", "The effect type is not supported.");
@@ -408,6 +491,10 @@ public static class ConditionEvaluator
             state.VisitedNodes.Contains(visited.NodeId),
             "visited node",
             visited.NodeId),
+        CharacteristicAtLeastCondition characteristic => CompareCharacteristic(
+            state,
+            characteristic.Name,
+            characteristic.Value),
         _ => throw new NarrativeException("condition_not_supported", "The condition type is not supported."),
     };
 
@@ -454,6 +541,15 @@ public static class ConditionEvaluator
             "relationAtLeast",
             actual >= expected,
             $"Relation with '{character}' is {actual}; expected at least {expected}.");
+    }
+
+    private static ConditionEvaluation CompareCharacteristic(WorldState state, string name, int expected)
+    {
+        state.Characteristics.TryGetValue(name, out int actual);
+        return Leaf(
+            "characteristicAtLeast",
+            actual >= expected,
+            $"Characteristic '{name}' is {actual}; expected at least {expected}.");
     }
 
     private static ConditionEvaluation Membership(string operation, bool result, string kind, string value) =>
@@ -573,7 +669,7 @@ public static class ScenarioValidator
 
     private static void ValidateInteractions(
         NarrativeNode node,
-        IReadOnlyDictionary<string, NarrativeNode> nodes,
+        Dictionary<string, NarrativeNode> nodes,
         List<ValidationIssue> issues)
     {
         if (node.Interactions is not { Count: > 0 } interactions)
@@ -592,17 +688,24 @@ public static class ScenarioValidator
             issues.Add(Error("duplicate_interaction", path, $"Interaction id '{duplicateId}' is duplicated."));
         }
 
-        if (!node.IsEnding && interactions[^1] is not ChoiceSetInteraction)
+        if (!node.IsEnding
+            && interactions[^1] is not ChoiceSetInteraction
+            && interactions[^1] is not CharacteristicGateInteraction)
         {
             issues.Add(Error(
                 "interaction_sequence_incomplete",
                 path,
-                "A non-ending node must finish with a choice set."));
+                "A non-ending node must finish with a choice set or an automatic gate."));
         }
 
         if (node.IsEnding && interactions.Any(static interaction => interaction is ChoiceSetInteraction))
         {
             issues.Add(Error("ending_has_choice_set", path, "An ending node cannot contain a choice set."));
+        }
+
+        if (node.IsEnding && interactions.Any(static interaction => interaction is CharacteristicGateInteraction))
+        {
+            issues.Add(Error("ending_has_gate", path, "An ending node cannot contain an automatic gate."));
         }
 
         for (int index = 0; index < interactions.Count; index++)
@@ -639,6 +742,35 @@ public static class ScenarioValidator
                     break;
                 case QuizInteraction quiz:
                     ValidateQuiz(quiz, interactionPath, issues);
+                    break;
+                case CharacteristicGateInteraction gate:
+                    if (index != interactions.Count - 1)
+                    {
+                        issues.Add(Error(
+                            "gate_must_be_last",
+                            interactionPath,
+                            "An automatic gate must be the final interaction of its node."));
+                    }
+
+                    if (!nodes.ContainsKey(gate.SatisfiedTargetNodeId))
+                    {
+                        issues.Add(Error(
+                            "gate_target_missing",
+                            interactionPath,
+                            $"Satisfied target node '{gate.SatisfiedTargetNodeId}' does not exist."));
+                    }
+
+                    if (!nodes.ContainsKey(gate.FailedTargetNodeId))
+                    {
+                        issues.Add(Error(
+                            "gate_target_missing",
+                            interactionPath,
+                            $"Failed target node '{gate.FailedTargetNodeId}' does not exist."));
+                    }
+
+                    ValidateCondition(gate.Condition, $"{interactionPath}.condition", nodes, issues, 0);
+                    ValidateEffects(gate.SatisfiedEffects, $"{interactionPath}.satisfiedEffects", issues, 0);
+                    ValidateEffects(gate.FailedEffects, $"{interactionPath}.failedEffects", issues, 0);
                     break;
             }
         }
@@ -684,7 +816,7 @@ public static class ScenarioValidator
     private static void ValidateChoices(
         IReadOnlyList<NarrativeChoice> choices,
         string path,
-        IReadOnlyDictionary<string, NarrativeNode> nodes,
+        Dictionary<string, NarrativeNode> nodes,
         List<ValidationIssue> issues)
     {
         string[] duplicateIds = choices
@@ -723,7 +855,7 @@ public static class ScenarioValidator
     private static void ValidateCondition(
         ConditionExpression? condition,
         string path,
-        IReadOnlyDictionary<string, NarrativeNode> nodes,
+        Dictionary<string, NarrativeNode> nodes,
         ICollection<ValidationIssue> issues,
         int depth)
     {
@@ -782,6 +914,9 @@ public static class ScenarioValidator
             case RelationAtLeastCondition relation when string.IsNullOrWhiteSpace(relation.Character):
                 issues.Add(Error("condition_character_required", path, "A relation condition requires a character."));
                 break;
+            case CharacteristicAtLeastCondition characteristic when string.IsNullOrWhiteSpace(characteristic.Name):
+                issues.Add(Error("condition_name_required", path, "A characteristic condition requires a name."));
+                break;
         }
     }
 
@@ -833,6 +968,12 @@ public static class ScenarioValidator
                 case RecordNotableEventEffect notable when string.IsNullOrWhiteSpace(notable.Label):
                     issues.Add(Error("effect_label_required", effectPath, "A notable event requires a label."));
                     break;
+                case SetCharacteristicEffect characteristic when string.IsNullOrWhiteSpace(characteristic.Name):
+                    issues.Add(Error("effect_name_required", effectPath, "A characteristic effect requires a name."));
+                    break;
+                case ChangeCharacteristicEffect characteristic when string.IsNullOrWhiteSpace(characteristic.Name):
+                    issues.Add(Error("effect_name_required", effectPath, "A characteristic effect requires a name."));
+                    break;
             }
         }
     }
@@ -859,6 +1000,12 @@ public static class ScenarioValidator
             foreach (NarrativeChoice choice in choices)
             {
                 pending.Push(choice.TargetNodeId);
+            }
+
+            foreach (CharacteristicGateInteraction gate in node.Interactions?.OfType<CharacteristicGateInteraction>() ?? [])
+            {
+                pending.Push(gate.SatisfiedTargetNodeId);
+                pending.Push(gate.FailedTargetNodeId);
             }
         }
 

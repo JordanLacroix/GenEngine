@@ -1,0 +1,69 @@
+{
+  "schemaVersion": 2,
+  "title": "Le passage des glyphes",
+  "initialNodeId": "glyphes",
+  "nodes": [
+    {
+      "id": "glyphes",
+      "text": "Des glyphes barrent le passage.",
+      "enterCondition": null,
+      "onEnterEffects": [
+        {
+          "$type": "setCharacteristic",
+          "name": "intuition",
+          "value": 3
+        }
+      ],
+      "choices": [],
+      "isEnding": false,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "observer",
+          "text": "Les symboles vibrent selon un rythme familier.",
+          "continueEffects": [
+            {
+              "$type": "changeCharacteristic",
+              "name": "intuition",
+              "amount": 1
+            }
+          ]
+        },
+        {
+          "$type": "characteristicGate",
+          "id": "comprendre-glyphes",
+          "condition": {
+            "$type": "characteristicAtLeast",
+            "name": "intuition",
+            "value": 4
+          },
+          "satisfiedTargetNodeId": "passage-ouvert",
+          "failedTargetNodeId": "aide-du-guide",
+          "satisfiedEffects": [
+            {
+              "$type": "grantReward",
+              "reward": "lecteur-de-glyphes"
+            }
+          ],
+          "failedEffects": []
+        }
+      ]
+    },
+    {
+      "id": "passage-ouvert",
+      "text": "Votre intuition révèle le chemin.",
+      "enterCondition": null,
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true
+    },
+    {
+      "id": "aide-du-guide",
+      "text": "Le guide vous montre comment lire les glyphes.",
+      "enterCondition": null,
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true
+    }
+  ]
+}
