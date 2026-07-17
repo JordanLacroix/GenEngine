@@ -1,6 +1,6 @@
 # Passage de relais
 
-Dernière mise à jour : 16 juillet 2026.
+Dernière mise à jour : 17 juillet 2026.
 
 ## État vérifié
 
@@ -14,6 +14,7 @@ Dernière mise à jour : 16 juillet 2026.
 - `HRD-003` livre des SLI/SLO provisoires : voir `specs/process/slo.md`, les règles Prometheus sous `deploy/observability/rules/` et le dashboard `GenEngine — SLO et budget d’erreur`.
 - `HRD-004` livre l’audit métier : primitive `IAuditLog` dans `GenEngine.Observability`, événements émis à la frontière Api des trois services, politique de non-fuite dans `specs/process/audit.md`.
 - `HRD-005` équipe l’appel `Play → Authoring` de résilience (timeouts, retry borné, circuit breaker) via `Microsoft.Extensions.Http.Resilience` : voir `specs/process/resilience.md`.
+- `HRD-006` livre la sauvegarde et la restauration chiffrées des trois PostgreSQL : scripts `scripts/backup-databases.sh`, `scripts/restore-database.sh` et `scripts/lib/age-crypto.sh` (chiffrement `age`, dumps `pg_dump -Fc`), procédure et test dans `specs/process/backup-restore.md`. Aucun code applicatif modifié.
 - La dernière PR fonctionnelle fusionnée avant ce handoff est la PR GitHub `#12`.
 - Au moment du handoff, le dépôt était propre, synchronisé avec `origin/main`, la stack complète était active et tous ses conteneurs étaient sains.
 
@@ -49,23 +50,23 @@ docker compose -f compose.yaml -f compose.observability.yaml down
 
 N’utilise `--volumes` que si la perte des données locales est explicitement souhaitée.
 
-## Prochaine unité de travail — HRD-005
+## Prochaine unité de travail — HRD-007
 
-Objectif : ajouter les politiques de résilience interservices — timeouts, retry borné et circuit breaker pour les appels idempotents.
+Objectif : ajouter une outbox **uniquement** si un consommateur asynchrone réel apparaît. Sans besoin consommateur validé, ne rien ajouter (ni bus, ni outbox) et documenter la décision.
 
-Contexte laissé par `HRD-004` :
+Contexte laissé par `HRD-004` à `HRD-006` :
 
-- L’audit vit à la frontière Api (`IAuditLog` dans `GenEngine.Observability`) ; la liste blanche des tests d’architecture interdit `Application`/`Infrastructure` de référencer `GenEngine.Observability`.
-- La politique de non-fuite et le catalogue d’événements sont dans `specs/process/audit.md`.
-- Cible principale de `HRD-005` : l’appel de `Play` vers l’API interne d’`Authoring` (`/internal/scenario-versions/{id}`), déjà audité côté refus (`internal_snapshot_access_denied`).
+- `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.
+- `HRD-005` résilience : `Microsoft.Extensions.Http.Resilience` sur l’appel `Play → Authoring` ; `specs/process/resilience.md`.
+- `HRD-006` sauvegarde/restauration chiffrée : outillage shell sous `scripts/`, chiffrement `age` (phrase secrète dev / destinataires prod, aucune clé committée), sorties dans `backups/` (ignoré par Git) ; `specs/process/backup-restore.md`.
 
-Ne choisis pas silencieusement une bibliothèque de résilience ni des seuils ; annonce toute hypothèse de périmètre.
+Ne choisis pas silencieusement une bibliothèque ni un mécanisme d’outbox ; annonce toute hypothèse de périmètre.
 
 ## Ordre restant du jalon 3
 
-1. `HRD-005` — timeouts, retry borné et circuit breaker pour les appels interservices idempotents ;
-2. `HRD-006` — sauvegarde et restauration testées des trois PostgreSQL ;
-3. `HRD-007` — outbox uniquement si un consommateur asynchrone réel apparaît.
+1. `HRD-007` — outbox uniquement si un consommateur asynchrone réel apparaît.
+
+`HRD-004`, `HRD-005` et `HRD-006` sont **livrées**.
 
 ## Décisions à préserver
 
@@ -88,4 +89,4 @@ Ne choisis pas silencieusement une bibliothèque de résilience ni des seuils ; 
 
 ## Critère de passage de relais réussi
 
-Un nouvel agent doit pouvoir cloner le dépôt, lire `CLAUDE.md`, lancer les commandes ci-dessus et commencer `HRD-003` sans dépendre de l’historique de conversation qui a créé le projet.
+Un nouvel agent doit pouvoir cloner le dépôt, lire `CLAUDE.md`, lancer les commandes ci-dessus et reprendre le travail restant du jalon 3 sans dépendre de l’historique de conversation qui a créé le projet.

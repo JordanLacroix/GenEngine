@@ -7,5 +7,5 @@
 | HRD-003 | done | Définir les SLI, SLO et alertes initiales | Objectifs provisoires documentés, règles Prometheus validées, health checks exclus et budget d’erreur visible dans Grafana |
 | HRD-004 | done | Renforcer l’audit métier | Événements sensibles traçables sans secret ni donnée personnelle dans les journaux |
 | HRD-005 | done | Ajouter les politiques de résilience interservices | Timeouts, retry borné et circuit breaker vérifiés pour les appels idempotents |
-| HRD-006 | todo | Automatiser sauvegarde et restauration | Chaque base possède une procédure chiffrée, testée et documentée |
+| HRD-006 | done | Automatiser sauvegarde et restauration | Chaque base possède une procédure chiffrée, testée et documentée |
 | HRD-007 | todo | Ajouter une outbox si un consommateur asynchrone existe | Aucun bus ni outbox sans besoin consommateur validé |

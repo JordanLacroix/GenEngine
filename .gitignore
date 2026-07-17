@@ -6,6 +6,9 @@
 # dotenv files
 .env
 
+# Encrypted database backups produced by scripts/backup-databases.sh
+/backups/
+
 # User-specific files
 *.rsuser
 *.suo
