@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Text;
+
 namespace GenEngine.Narrative;
 
 public sealed class NarrativeRuntime
@@ -18,9 +21,7 @@ public sealed class NarrativeRuntime
         GameState state = new(
             initialNode.Id,
             0,
-            initialNode.IsEnding && !HasTypedInteractions(initialNode)
-                ? SessionStatus.Completed
-                : SessionStatus.AwaitingInput,
+            GetInitialStatus(initialNode),
             world)
         {
             InteractionIndex = 0,
@@ -116,14 +117,90 @@ public sealed class NarrativeRuntime
         return AdvanceInteraction(scenario, node, state, world, nextTurn);
     }
 
+    public static GameState SubmitText(
+        ScenarioDocument scenario,
+        GameState state,
+        string text)
+    {
+        if (state.Status is not SessionStatus.AwaitingExternalInput)
+        {
+            throw new NarrativeException(
+                "session_not_awaiting_external_input",
+                "The session is not awaiting an external input.");
+        }
+
+        NarrativeNode node = FindNode(scenario, state.CurrentNodeId);
+        StepInteraction interaction = GetCurrentInteraction(node, state);
+        if (interaction is not FreeTextInteraction freeText)
+        {
+            throw new NarrativeException("interaction_not_free_text", "The current interaction is not a free-text input.");
+        }
+
+        TextAnalysisResult analysis = DeterministicTextAnalyzer.Analyze(freeText, text);
+        return state with
+        {
+            Status = SessionStatus.AwaitingValidation,
+            PendingTextAnalysis = analysis,
+        };
+    }
+
+    public static GameState ConfirmTextAnalysis(
+        ScenarioDocument scenario,
+        GameState state,
+        bool confirmed)
+    {
+        if (state.Status is not SessionStatus.AwaitingValidation || state.PendingTextAnalysis is null)
+        {
+            throw new NarrativeException(
+                "session_not_awaiting_validation",
+                "The session has no text analysis awaiting validation.");
+        }
+
+        NarrativeNode node = FindNode(scenario, state.CurrentNodeId);
+        StepInteraction interaction = GetCurrentInteraction(node, state);
+        if (interaction is not FreeTextInteraction freeText
+            || !string.Equals(freeText.Id, state.PendingTextAnalysis.InteractionId, StringComparison.Ordinal))
+        {
+            throw new NarrativeException("text_analysis_mismatch", "The pending analysis does not match the current interaction.");
+        }
+
+        if (!confirmed)
+        {
+            return state with
+            {
+                Status = SessionStatus.AwaitingExternalInput,
+                PendingTextAnalysis = null,
+            };
+        }
+
+        TextAnalysisResult analysis = state.PendingTextAnalysis;
+        WorldState world = Clone(state.World);
+        int nextTurn = checked(state.Turn + 1);
+        ApplyEffects(world, analysis.IsAccepted ? freeText.AcceptedEffects : freeText.RejectedEffects, nextTurn);
+        ApplyDueEffects(world, nextTurn);
+        world.InteractionHistory.Add(new InteractionHistoryEntry(
+            node.Id,
+            freeText.Id,
+            analysis.IsAccepted ? "accepted" : "rejected",
+            analysis.IsAccepted,
+            nextTurn));
+        return AdvanceInteraction(scenario, node, state, world, nextTurn);
+    }
+
     public static GameState Pause(GameState state)
     {
-        if (state.Status is not SessionStatus.AwaitingInput)
+        if (state.Status is not SessionStatus.AwaitingInput
+            && state.Status is not SessionStatus.AwaitingExternalInput
+            && state.Status is not SessionStatus.AwaitingValidation)
         {
             throw new NarrativeException("session_not_running", "Only an active session can be paused.");
         }
 
-        return state with { Status = SessionStatus.Paused };
+        return state with
+        {
+            Status = SessionStatus.Paused,
+            StatusBeforePause = state.Status,
+        };
     }
 
     public static GameState Resume(GameState state)
@@ -133,7 +210,11 @@ public sealed class NarrativeRuntime
             throw new NarrativeException("session_not_paused", "Only a paused session can be resumed.");
         }
 
-        return state with { Status = SessionStatus.AwaitingInput };
+        return state with
+        {
+            Status = state.StatusBeforePause ?? SessionStatus.AwaitingInput,
+            StatusBeforePause = null,
+        };
     }
 
     public static CurrentStep GetCurrentStep(ScenarioDocument scenario, GameState state)
@@ -196,6 +277,17 @@ public sealed class NarrativeRuntime
                     InteractionId = gate.Id,
                     Kind = InteractionKind.CharacteristicGate,
                 },
+                FreeTextInteraction freeText => new CurrentStep(
+                    node.Id,
+                    freeText.Prompt,
+                    state.Status,
+                    [],
+                    state.Turn)
+                {
+                    InteractionId = freeText.Id,
+                    Kind = InteractionKind.FreeText,
+                    PendingTextAnalysis = state.PendingTextAnalysis,
+                },
                 _ => throw new NarrativeException("interaction_not_supported", "The interaction type is not supported."),
             };
         }
@@ -228,9 +320,7 @@ public sealed class NarrativeRuntime
         GameState state = new(
             node.Id,
             turn,
-            node.IsEnding && !HasTypedInteractions(node)
-                ? SessionStatus.Completed
-                : SessionStatus.AwaitingInput,
+            GetInitialStatus(node),
             world)
         {
             InteractionIndex = 0,
@@ -249,7 +339,7 @@ public sealed class NarrativeRuntime
         int nextIndex = checked(state.InteractionIndex + 1);
         if (nextIndex < node.Interactions!.Count)
         {
-            GameState next = new(node.Id, nextTurn, SessionStatus.AwaitingInput, world)
+            GameState next = new(node.Id, nextTurn, GetInteractionStatus(node.Interactions[nextIndex]), world)
             {
                 InteractionIndex = nextIndex,
             };
@@ -303,6 +393,23 @@ public sealed class NarrativeRuntime
     }
 
     private static bool HasTypedInteractions(NarrativeNode node) => node.Interactions is { Count: > 0 };
+
+    private static SessionStatus GetInitialStatus(NarrativeNode node)
+    {
+        if (node.IsEnding && !HasTypedInteractions(node))
+        {
+            return SessionStatus.Completed;
+        }
+
+        return HasTypedInteractions(node)
+            ? GetInteractionStatus(node.Interactions![0])
+            : SessionStatus.AwaitingInput;
+    }
+
+    private static SessionStatus GetInteractionStatus(StepInteraction interaction) =>
+        interaction is FreeTextInteraction
+            ? SessionStatus.AwaitingExternalInput
+            : SessionStatus.AwaitingInput;
 
     private static GameState ResolveAutomaticInteractions(ScenarioDocument scenario, GameState state)
     {
@@ -455,6 +562,75 @@ public sealed class NarrativeRuntime
             ApplyEffect(world, scheduled.Effect, currentTurn);
         }
     }
+}
+
+
+public static class DeterministicTextAnalyzer
+{
+    public const int MaximumTextLength = 4_000;
+    public const int MaximumTerms = 100;
+    public const int MaximumTermLength = 100;
+
+    public static TextAnalysisResult Analyze(FreeTextInteraction interaction, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            throw new NarrativeException("text_required", "A non-empty text input is required.");
+        }
+
+        if (text.Length > MaximumTextLength)
+        {
+            throw new NarrativeException(
+                "text_too_long",
+                $"The text input cannot exceed {MaximumTextLength} characters.");
+        }
+
+        string normalizedText = NormalizeForComparison(text);
+        string[] matches = interaction.RequiredTerms
+            .Select(term => new { Original = term, Normalized = NormalizeForComparison(term) })
+            .Where(term => ContainsTerm(normalizedText, term.Normalized))
+            .GroupBy(static term => term.Normalized, StringComparer.Ordinal)
+            .Select(static group => group.First().Original)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        bool accepted = matches.Length >= interaction.MinimumMatches;
+        return new TextAnalysisResult(
+            interaction.Id,
+            accepted,
+            matches,
+            interaction.MinimumMatches,
+            accepted
+                ? $"{matches.Length} expected term(s) matched; {interaction.MinimumMatches} required."
+                : $"Only {matches.Length} expected term(s) matched; {interaction.MinimumMatches} required.");
+    }
+
+    public static string NormalizeForComparison(string value)
+    {
+        StringBuilder builder = new(value.Length);
+        foreach (char character in value.Normalize(NormalizationForm.FormD))
+        {
+            UnicodeCategory category = CharUnicodeInfo.GetUnicodeCategory(character);
+            if (category is UnicodeCategory.NonSpacingMark)
+            {
+                continue;
+            }
+
+            if (char.IsLetterOrDigit(character))
+            {
+                builder.Append(char.ToLowerInvariant(character));
+            }
+            else if (builder.Length > 0 && builder[^1] != ' ')
+            {
+                builder.Append(' ');
+            }
+        }
+
+        return builder.ToString().Trim().Normalize(NormalizationForm.FormC);
+    }
+
+    private static bool ContainsTerm(string normalizedText, string normalizedTerm) =>
+        !string.IsNullOrEmpty(normalizedTerm)
+        && $" {normalizedText} ".Contains($" {normalizedTerm} ", StringComparison.Ordinal);
 }
 
 public static class ConditionEvaluator
@@ -772,8 +948,48 @@ public static class ScenarioValidator
                     ValidateEffects(gate.SatisfiedEffects, $"{interactionPath}.satisfiedEffects", issues, 0);
                     ValidateEffects(gate.FailedEffects, $"{interactionPath}.failedEffects", issues, 0);
                     break;
+                case FreeTextInteraction freeText:
+                    ValidateFreeText(freeText, interactionPath, issues);
+                    break;
             }
         }
+    }
+
+    private static void ValidateFreeText(
+        FreeTextInteraction freeText,
+        string path,
+        List<ValidationIssue> issues)
+    {
+        if (string.IsNullOrWhiteSpace(freeText.Prompt))
+        {
+            issues.Add(Error("free_text_prompt_required", path, "A free-text interaction requires a prompt."));
+        }
+
+        string[] normalizedTerms = freeText.RequiredTerms
+            .Select(DeterministicTextAnalyzer.NormalizeForComparison)
+            .ToArray();
+        if (freeText.RequiredTerms.Count == 0
+            || freeText.RequiredTerms.Count > DeterministicTextAnalyzer.MaximumTerms
+            || freeText.RequiredTerms.Any(term => term.Length > DeterministicTextAnalyzer.MaximumTermLength)
+            || normalizedTerms.Any(string.IsNullOrWhiteSpace)
+            || normalizedTerms.Distinct(StringComparer.Ordinal).Count() != normalizedTerms.Length)
+        {
+            issues.Add(Error(
+                "free_text_terms_invalid",
+                path,
+                "Required terms must be non-empty and unique."));
+        }
+
+        if (freeText.MinimumMatches <= 0 || freeText.MinimumMatches > freeText.RequiredTerms.Count)
+        {
+            issues.Add(Error(
+                "free_text_threshold_invalid",
+                path,
+                "Minimum matches must be positive and cannot exceed the number of required terms."));
+        }
+
+        ValidateEffects(freeText.AcceptedEffects, $"{path}.acceptedEffects", issues, 0);
+        ValidateEffects(freeText.RejectedEffects, $"{path}.rejectedEffects", issues, 0);
     }
 
     private static void ValidateQuiz(

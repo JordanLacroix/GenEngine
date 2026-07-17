@@ -25,14 +25,18 @@ public static class ScenarioAnalyzer
                 continue;
             }
 
-            if (state.Status is not SessionStatus.AwaitingInput)
+            if (state.Status is not SessionStatus.AwaitingInput
+                && state.Status is not SessionStatus.AwaitingExternalInput
+                && state.Status is not SessionStatus.AwaitingValidation)
             {
                 deadEnds.Add(new SimulationDeadEnd(state.CurrentNodeId, state.Turn, $"Unexpected status {state.Status}."));
                 continue;
             }
 
             CurrentStep step = NarrativeRuntime.GetCurrentStep(scenario, state);
-            if (step.Kind is not InteractionKind.Narration && step.Choices.Count == 0)
+            if (state.Status is SessionStatus.AwaitingInput
+                && step.Kind is not InteractionKind.Narration
+                && step.Choices.Count == 0)
             {
                 deadEnds.Add(new SimulationDeadEnd(state.CurrentNodeId, state.Turn, "No choice is available."));
                 continue;
@@ -78,6 +82,22 @@ public static class ScenarioAnalyzer
         GameState state,
         CurrentStep step)
     {
+        if (state.Status is SessionStatus.AwaitingExternalInput)
+        {
+            NarrativeNode node = scenario.Nodes.Single(candidate =>
+                string.Equals(candidate.Id, state.CurrentNodeId, StringComparison.Ordinal));
+            FreeTextInteraction freeText = (FreeTextInteraction)node.Interactions![state.InteractionIndex];
+            string acceptedInput = string.Join(' ', freeText.RequiredTerms.Take(freeText.MinimumMatches));
+            yield return ("matching-text", () => NarrativeRuntime.SubmitText(scenario, state, acceptedInput));
+            yield break;
+        }
+
+        if (state.Status is SessionStatus.AwaitingValidation)
+        {
+            yield return ("confirm-analysis", () => NarrativeRuntime.ConfirmTextAnalysis(scenario, state, true));
+            yield break;
+        }
+
         if (step.Kind is InteractionKind.Narration)
         {
             yield return ("continue", () => NarrativeRuntime.Continue(scenario, state));

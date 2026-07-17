@@ -27,6 +27,8 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 - `POST /sessions/{id}/inputs`
 - `POST /sessions/{id}/continue` — progression d'une interaction de narration, commande idempotente
 - `POST /sessions/{id}/answers` — soumission d'une réponse de quiz, commande idempotente
+- `POST /sessions/{id}/text-inputs` — soumission idempotente d'un texte libre ; produit une analyse sans faire progresser le tour
+- `POST /sessions/{id}/text-inputs/confirm` — confirme l'analyse et progresse, ou la refuse et revient à la saisie
 - `POST /sessions/{id}/pause`
 - `POST /sessions/{id}/resume`
 

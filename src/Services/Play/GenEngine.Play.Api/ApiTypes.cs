@@ -15,6 +15,10 @@ public sealed record ContinueInteractionRequest(Guid CommandId, int ExpectedRevi
 
 public sealed record SubmitAnswerRequest(Guid CommandId, int ExpectedRevision, string AnswerId);
 
+public sealed record SubmitTextRequest(Guid CommandId, int ExpectedRevision, string Text);
+
+public sealed record ConfirmTextAnalysisRequest(Guid CommandId, int ExpectedRevision, bool Confirmed);
+
 public sealed record RevisionRequest(int ExpectedRevision);
 
 public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler

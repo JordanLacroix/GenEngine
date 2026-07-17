@@ -158,6 +158,46 @@ sessions.MapPost("/{id:guid}/answers", async (
     return Results.Ok(result);
 });
 
+sessions.MapPost("/{id:guid}/text-inputs", async (
+    Guid id,
+    SubmitTextRequest request,
+    ClaimsPrincipal user,
+    PlayService service,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    string actorId = GetUserId(user);
+    InputResult result = await service.SubmitTextAsync(
+        id,
+        actorId,
+        request.CommandId,
+        request.ExpectedRevision,
+        request.Text,
+        cancellationToken).ConfigureAwait(false);
+    RecordInputAudit(auditLog, actorId, id, request.CommandId, result.Replayed, "text_submitted");
+    return Results.Ok(result);
+});
+
+sessions.MapPost("/{id:guid}/text-inputs/confirm", async (
+    Guid id,
+    ConfirmTextAnalysisRequest request,
+    ClaimsPrincipal user,
+    PlayService service,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    string actorId = GetUserId(user);
+    InputResult result = await service.ConfirmTextAnalysisAsync(
+        id,
+        actorId,
+        request.CommandId,
+        request.ExpectedRevision,
+        request.Confirmed,
+        cancellationToken).ConfigureAwait(false);
+    RecordInputAudit(auditLog, actorId, id, request.CommandId, result.Replayed, "text_analysis_confirmed");
+    return Results.Ok(result);
+});
+
 sessions.MapPost("/{id:guid}/pause", async (
     Guid id,
     RevisionRequest request,

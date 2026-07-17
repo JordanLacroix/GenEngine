@@ -40,6 +40,7 @@ public sealed record NarrativeChoice(
 [JsonDerivedType(typeof(ChoiceSetInteraction), "choiceSet")]
 [JsonDerivedType(typeof(QuizInteraction), "quiz")]
 [JsonDerivedType(typeof(CharacteristicGateInteraction), "characteristicGate")]
+[JsonDerivedType(typeof(FreeTextInteraction), "freeText")]
 public abstract record StepInteraction(string Id);
 
 public sealed record NarrationInteraction(
@@ -69,6 +70,14 @@ public sealed record CharacteristicGateInteraction(
     string FailedTargetNodeId,
     IReadOnlyList<LocalGameEffect> SatisfiedEffects,
     IReadOnlyList<LocalGameEffect> FailedEffects) : StepInteraction(Id);
+
+public sealed record FreeTextInteraction(
+    string Id,
+    string Prompt,
+    IReadOnlyList<string> RequiredTerms,
+    int MinimumMatches,
+    IReadOnlyList<LocalGameEffect> AcceptedEffects,
+    IReadOnlyList<LocalGameEffect> RejectedEffects) : StepInteraction(Id);
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(AlwaysCondition), "always")]
@@ -192,6 +201,8 @@ public enum SessionStatus
     Paused,
     Completed,
     Abandoned,
+    AwaitingExternalInput,
+    AwaitingValidation,
 }
 
 public sealed record GameState(
@@ -201,6 +212,10 @@ public sealed record GameState(
     WorldState World)
 {
     public int InteractionIndex { get; init; }
+
+    public TextAnalysisResult? PendingTextAnalysis { get; init; }
+
+    public SessionStatus? StatusBeforePause { get; init; }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<InteractionKind>))]
@@ -211,6 +226,7 @@ public enum InteractionKind
     ChoiceSet,
     Quiz,
     CharacteristicGate,
+    FreeText,
     Completed,
 }
 
@@ -224,7 +240,16 @@ public sealed record CurrentStep(
     public string? InteractionId { get; init; }
 
     public InteractionKind Kind { get; init; } = InteractionKind.LegacyChoice;
+
+    public TextAnalysisResult? PendingTextAnalysis { get; init; }
 }
+
+public sealed record TextAnalysisResult(
+    string InteractionId,
+    bool IsAccepted,
+    IReadOnlyList<string> MatchedTerms,
+    int MinimumMatches,
+    string Explanation);
 
 public sealed record VisibleChoice(string Id, string Text);
 

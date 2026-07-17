@@ -25,6 +25,7 @@ public static class NarrativeJson
     };
 }
 
+
 public static class CanonicalSnapshot
 {
     public static byte[] GetCanonicalBytes(ScenarioDocument scenario)
@@ -79,9 +80,27 @@ public static class ScenarioSimulator
     {
         GameState state = NarrativeRuntime.Start(scenario);
 
-        while (state.Status is SessionStatus.AwaitingInput && state.Turn < maximumTurns)
+        while (IsActive(state.Status) && state.Turn < maximumTurns)
         {
             CurrentStep step = NarrativeRuntime.GetCurrentStep(scenario, state);
+            if (state.Status is SessionStatus.AwaitingExternalInput)
+            {
+                NarrativeNode node = scenario.Nodes.Single(candidate =>
+                    string.Equals(candidate.Id, state.CurrentNodeId, StringComparison.Ordinal));
+                FreeTextInteraction freeText = (FreeTextInteraction)node.Interactions![state.InteractionIndex];
+                state = NarrativeRuntime.SubmitText(
+                    scenario,
+                    state,
+                    string.Join(' ', freeText.RequiredTerms.Take(freeText.MinimumMatches)));
+                continue;
+            }
+
+            if (state.Status is SessionStatus.AwaitingValidation)
+            {
+                state = NarrativeRuntime.ConfirmTextAnalysis(scenario, state, true);
+                continue;
+            }
+
             if (step.Kind is InteractionKind.Narration)
             {
                 state = NarrativeRuntime.Continue(scenario, state);
@@ -98,11 +117,16 @@ public static class ScenarioSimulator
                 : NarrativeRuntime.SubmitChoice(scenario, state, step.Choices[0].Id);
         }
 
-        if (state.Status is SessionStatus.AwaitingInput)
+        if (IsActive(state.Status))
         {
             throw new NarrativeException("simulation_budget_exceeded", "The simulator exceeded its turn budget.");
         }
 
         return state;
     }
+
+    private static bool IsActive(SessionStatus status) =>
+        status is SessionStatus.AwaitingInput
+            or SessionStatus.AwaitingExternalInput
+            or SessionStatus.AwaitingValidation;
 }

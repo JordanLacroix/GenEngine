@@ -15,10 +15,10 @@ Cette roadmap rapproche progressivement le noyau actuel de la cible produit d'or
 
 - [x] séquence d'interactions par nœud : narration, choix et quiz ;
 - [x] gate de caractéristique et branchement automatique ;
-- [ ] statuts `AwaitingValidation` et `AwaitingExternalInput` ;
+- [x] statuts `AwaitingValidation` et `AwaitingExternalInput` ;
 - [x] commandes idempotentes typées : continuer, répondre et choisir ;
-- [ ] confirmation avant progression pour les entrées analysées ;
-- [ ] points d'extension pour texte libre, document, photo et dialogue IA avec fallback déterministe.
+- [x] texte libre déterministe, analyse explicable et confirmation avant progression ;
+- [ ] points d'extension pour document, photo et dialogue IA avec fallback déterministe.
 
 ## F3 — Sauvegardes et évolution des formats
 
