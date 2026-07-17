@@ -16,7 +16,7 @@ jobs:
     name: Update release draft
     permissions:
       contents: write # Required to create and update the draft release.
-      pull-requests: read
+      pull-requests: read # Required to read merged pull requests when drafting release notes.
     runs-on: ubuntu-latest
     steps:
       - name: Harden runner

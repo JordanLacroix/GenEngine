@@ -18,6 +18,22 @@ updates:
         patterns: ["Microsoft.*"]
       test-tooling:
         patterns: ["coverlet.*", "Microsoft.NET.Test.Sdk", "xunit*"]
+  - package-ecosystem: docker
+    directories:
+      - "/src/Services/Authoring/GenEngine.Authoring.Api"
+      - "/src/Services/Identity/GenEngine.Identity.Api"
+      - "/src/Services/Play/GenEngine.Play.Api"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:15"
+      timezone: Europe/Paris
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    labels: ["dependencies", "area: infrastructure"]
+    commit-message:
+      prefix: "build(deps)"
   - package-ecosystem: github-actions
     directory: "/"
     schedule:

@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0.103-alpine3.22 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0.103-alpine3.22@sha256:bb9890f2f2dbefa91b161feecfe6f85fd4c8c9e3933158c54287f37f611d5ed5 AS build
 WORKDIR /src
 COPY . .
 RUN dotnet restore src/Services/Play/GenEngine.Play.Api/GenEngine.Play.Api.csproj --force-evaluate
@@ -8,7 +8,7 @@ RUN dotnet publish src/Services/Play/GenEngine.Play.Api/GenEngine.Play.Api.cspro
     --output /app \
     /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0.3-alpine3.22@sha256:e0fd89188698106364ea47cd6bbedc1fdea99363766932a1f4c256c87631ec53 AS final
 WORKDIR /app
 COPY --from=build --chown=app:app /app .
 USER app
