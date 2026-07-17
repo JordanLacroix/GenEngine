@@ -33,7 +33,7 @@ Le projet vise un moteur :
 - **sobre en dépendances** — licences permissives et compatibles avec un usage commercial.
 
 > [!IMPORTANT]
-> GenEngine a terminé le **jalon 3** et son socle narratif profond. Le **jalon 4** priorise maintenant la configuration de plateforme, le RBAC, les établissements/classes/parcours/catégories, puis l'assistant/familier configurable et l'IA optionnelle avec fallback hors ligne.
+> GenEngine a terminé le **jalon 3** et son socle narratif profond. Le **jalon 4** priorise maintenant la configuration exhaustive du moteur et de la plateforme, le RBAC à rôles custom, les organisations école/entreprise/formation, puis l'assistant/familier, les providers IA et l'économie/magasin.
 
 ## État du projet
 
@@ -54,10 +54,11 @@ Le projet vise un moteur :
 | Catalogue public des versions publiées | ✅ Consommable par les clients Web et iOS |
 | Observabilité OpenTelemetry | 🚧 Logs, traces et métriques disponibles localement |
 | SLI/SLO et alertes | 🚧 Objectifs provisoires, règles Prometheus validées et budget d’erreur dans Grafana |
-| Configuration, RBAC et modèle établissement/classe/catégorie | 🚧 Priorité active |
+| Configuration moteur/plateforme, rôles custom et organisations | 🚧 Priorité active |
 | Assistant/familier et aide hors ligne | 📋 Prochain lot |
 | IA provider-agnostic, metering et quotas | 📋 Prioritaire après le fallback hors ligne |
-| Économie et fonctionnalités de plateforme avancées | ⏸️ Ultérieur |
+| Économie, récompenses et magasin configurable | 📋 Lot prioritaire P3 |
+| Fonctionnalités de plateforme avancées | ⏸️ Après les fondations configurables |
 
 La progression détaillée est suivie dans [`specs/roadmap.md`](specs/roadmap.md) et dans les fichiers `tasks.md` de chaque module.
 
@@ -204,7 +205,7 @@ GenEngine/
 - Les commandes joueur sont idempotentes et protégées par une révision optimiste.
 - L’IA est facultative, interchangeable, exclue du chemin déterministe et possède toujours un fallback hors ligne.
 - Chaque fonctionnalité déclare configuration, valeurs par défaut, permissions RBAC, audit et comportement désactivé.
-- Les fronts, établissements, classes, parcours et catégories restent configurables sans imposer le vocabulaire scolaire aux autres usages.
+- Les fronts, écoles, entreprises, classes, équipes, parcours et catégories restent configurables sans imposer un vocabulaire métier unique.
 
 Les invariants normatifs sont listés dans [`specs/invariants.md`](specs/invariants.md).
 
@@ -262,7 +263,8 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 | [`specs/README.md`](specs/README.md) | Index documentaire et sources de vérité |
 | [`specs/roadmap.md`](specs/roadmap.md) | Jalons et progression |
 | [`specs/functional-roadmap.md`](specs/functional-roadmap.md) | Priorités fonctionnelles P0 à P4 |
-| [`specs/platform-configuration.md`](specs/platform-configuration.md) | Configuration, école, RBAC, assistant et IA |
+| [`specs/platform-configuration.md`](specs/platform-configuration.md) | Configuration, organisations, RBAC, assistant et IA |
+| [`specs/configuration-catalog.md`](specs/configuration-catalog.md) | Catalogue exhaustif moteur, providers IA, économie et modules |
 | [`specs/handoff.md`](specs/handoff.md) | État vérifié et prochaine unité de travail |
 | [`specs/architecture.md`](specs/architecture.md) | Modules et règles de dépendance |
 | [`specs/invariants.md`](specs/invariants.md) | Invariants non négociables |
@@ -301,7 +303,7 @@ Ne jamais annoncer une fonctionnalité comme disponible avant qu’elle soit imp
 | **1 — Moteur en mémoire** | Domain, evaluator, reducer, runtime, validation et tests déterministes | ✅ Terminé |
 | **2 — Backend jouable** | Services autonomes, PostgreSQL séparés, publication, sessions, auth et Docker | ✅ Terminé |
 | **3 — Durcissement** | Observabilité complète, sécurité, résilience et sauvegarde/restauration | ✅ Terminé |
-| **4 — Plateforme fonctionnelle configurable** | Configuration, RBAC, établissements/classes/catégories, assistant puis IA optionnelle | 🚧 En cours |
+| **4 — Plateforme fonctionnelle configurable** | Configuration exhaustive, RBAC custom, organisations, assistant, IA et magasin | 🚧 En cours |
 
 ## Contribuer
 

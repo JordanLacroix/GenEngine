@@ -1,6 +1,6 @@
 # Roadmap fonctionnelle priorisée
 
-Cette roadmap rapproche le backend distribué actuel de la cible produit d'origine. Le socle narratif livré reste la fondation ; la priorité passe désormais à la configuration de la plateforme, au RBAC, au contexte scolaire, puis à l'assistant/familier et à l'IA optionnelle.
+Cette roadmap rapproche le backend distribué actuel de la cible produit d'origine. Le socle narratif livré reste la fondation ; la priorité passe désormais à la configuration exhaustive de la plateforme et du moteur, au RBAC, aux organisations école/entreprise/formation, puis à l'assistant/familier, à l'IA optionnelle et à l'économie.
 
 ## Règles transverses non négociables
 
@@ -14,7 +14,7 @@ Chaque nouvelle capacité doit, dans la même tranche verticale :
 6. mettre à jour la matrice RBAC, les contrats, les specs, les tâches et les clients concernés ;
 7. préserver un parcours jouable sans fournisseur cloud ni fournisseur d'IA.
 
-La référence transverse est [`platform-configuration.md`](platform-configuration.md).
+Les références transverses sont [`platform-configuration.md`](platform-configuration.md) et le [`configuration-catalog.md`](configuration-catalog.md).
 
 ## Socle livré
 
@@ -25,7 +25,7 @@ La référence transverse est [`platform-configuration.md`](platform-configurati
 - [x] caractéristiques extensibles, effets différés, date logique et projections joueur ;
 - [x] analyse d'entrée substituable et événements d'effets externes sans I/O.
 
-## P0 — Configuration, RBAC et contexte d'établissement
+## P0 — Configuration, RBAC et organisations
 
 Objectif : rendre la plateforme administrable sans valeurs métier codées en dur et établir le garde-fou d'autorisation utilisé par tous les lots suivants.
 
@@ -33,13 +33,13 @@ Objectif : rendre la plateforme administrable sans valeurs métier codées en du
 - [ ] résolution hiérarchique documentée : plateforme → front/établissement → catégorie ou parcours → groupe/classe → utilisateur ;
 - [ ] séparation stricte entre paramètres publiables et secrets d'infrastructure ;
 - [ ] feature flags et activation de modules par front avec dépendances validées ;
-- [ ] rôles configurables et permissions granulaires, policies serveur et endpoint des capacités effectives de l'utilisateur ;
-- [ ] rôles de départ : administrateur plateforme, administrateur d'établissement, auteur, publieur, enseignant/formateur, apprenant et lecteur analytique ;
+- [ ] rôles entièrement personnalisables par composition de permissions stables, affectations portées et temporisées, policies serveur et endpoint des capacités effectives ;
+- [ ] presets de départ adaptables : administrateur plateforme/organisation, auteur, publieur, enseignant/formateur/manager, participant, analyste, gestionnaire IA, magasin et modération ;
 - [ ] audit des changements de configuration, rôles, permissions et affectations ;
 - [ ] import/export d'une configuration portable, validée et versionnée ;
-- [ ] modèle `Front` générique pouvant représenter une école, une entreprise ou une organisation de formation ;
-- [ ] profil d'établissement : identité, branding, locale, fuseau horaire, terminologie, calendrier et politiques par défaut ;
-- [ ] établissements, années/périodes scolaires, classes, groupes, inscriptions et liens enseignant–apprenant ;
+- [ ] modèle `Front` typé `School`, `Company`, `TrainingProvider`, `Community` ou `Custom` ;
+- [ ] profil d'organisation : identité, branding, locale, fuseau horaire, terminologie, calendrier et politiques par défaut ;
+- [ ] unités génériques : classes/promotions ou départements/équipes/cohortes, memberships et liens encadrant–participant ;
 - [ ] parcours et catégories de scénarios configurables, ordonnés et réutilisables ;
 - [ ] affectation de scénarios ou parcours à une classe/groupe avec disponibilité et échéance ;
 - [ ] politiques pédagogiques configurables : tentatives, reprise, aide autorisée, seuil de réussite et visibilité des résultats ;
@@ -47,7 +47,7 @@ Objectif : rendre la plateforme administrable sans valeurs métier codées en du
 - [ ] règles d'accès combinant front, rôle, groupe, catégorie, publication et feature flags ;
 - [ ] tests d'isolation garantissant qu'un acteur d'un établissement ne lit ni ne modifie celui d'un autre.
 
-Premier incrément attendu : ADR des frontières, registre + résolution de configuration, catalogue de permissions initial et squelette établissement/classe/catégorie, avant toute fonction IA.
+Premier incrément attendu : ADR des frontières, registre + résolution de configuration, catalogue de permissions initial, rôles custom et squelette organisation/unité/catégorie, avant toute fonction IA.
 
 ## P1 — Assistant/familier configurable et aide hors ligne
 
@@ -83,7 +83,24 @@ Objectif : augmenter l'assistant et l'authoring sans rendre le jeu, les tests ou
 
 L'adoption éventuelle de `Microsoft.Extensions.AI` et de `IChatClient` dans l'infrastructure devra être confirmée par ADR au moment de l'implémentation. Aucun fournisseur particulier n'est une dépendance métier.
 
-## P3 — Expériences fonctionnelles augmentées
+## P3 — Économie, magasin et récompenses configurables
+
+Objectif : fournir une économie virtuelle entièrement pilotée par configuration et intégrée aux règles de déblocage, sans paiement réel implicite.
+
+- [ ] devises, précision, plafonds et règles de gain/dépense par front ;
+- [ ] wallet et ledger append-only, ajustements administratifs audités et idempotence ;
+- [ ] typologies de récompense extensibles : monnaie, titre, badge, cosmétique, familier, assistance, asset, collection, parcours ou scénario ;
+- [ ] magasins, rayons, items/offres, prix, disponibilité, ordre et ciblage configurables ;
+- [ ] stock, limites par joueur/groupe/période, conditions d'achat et règles de déblocage ;
+- [ ] inventaire, entitlements, équipement et customisation du familier ;
+- [ ] promotions virtuelles, bundles et événements saisonniers versionnés ;
+- [ ] historique d'achat, annulation/compensation métier et garde-fous anti-double dépense ;
+- [ ] permissions séparées pour consulter, acheter, gérer catalogue/prix/stock, ajuster un wallet et lire le ledger ;
+- [ ] packs capables d'importer/exporter devises, récompenses, cosmétiques et boutiques.
+
+Tout paiement en monnaie réelle nécessiterait un bounded context, un threat model et un ADR dédiés ; il n'est pas déduit de ce magasin virtuel.
+
+## P4 — Expériences fonctionnelles augmentées
 
 - [ ] dialogue contextuel du familier avec fallback déterministe ;
 - [ ] analyse de réponse libre par rubrique, explication et confirmation ;
@@ -91,14 +108,15 @@ L'adoption éventuelle de `Microsoft.Extensions.AI` et de `IChatClient` dans l'i
 - [ ] génération de quête en brouillon conforme au schéma, validée par le moteur et soumise à revue humaine ;
 - [ ] interactions document et photo avec workflow de validation ;
 - [ ] diff et restauration fonctionnelle de versions ;
-- [ ] reporting d'usage de l'aide et de l'IA par établissement, classe, catégorie et période, agrégé et pseudonymisé.
+- [ ] reporting d'usage de l'aide et de l'IA par organisation, unité, catégorie et période, agrégé et pseudonymisé.
 
-## P4 — Approfondissement produit
+## P5 — Plateforme étendue configurable
 
 - [ ] météo, présence et cycle jour/nuit comme contextes déterministes ;
-- [ ] économie, récompenses et cosmétiques de familier ;
 - [ ] packs de préconfiguration portables ;
 - [ ] compétences, hauts faits, certification et analytics avancés ;
-- [ ] notifications, LiveOps et espaces utilisateur configurables.
+- [ ] médias/documents, story arcs, aide/onboarding et espaces utilisateur ;
+- [ ] notifications, temps réel, sondages, gouvernance/modération et LiveOps ;
+- [ ] intégrations OIDC, LMS/LTI/xAPI, stockage, e-mail et webhooks derrière adaptateurs.
 
 Ces lots ne doivent ni réimplémenter les règles narratives dans les clients, ni contourner le registre de configuration ou les policies RBAC.

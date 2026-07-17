@@ -60,7 +60,7 @@ Le jalon 3 (durcissement) est **clos** : `HRD-001` à `HRD-007` sont traitées.
 
 `HRD-007` (outbox) est résolue par une **décision documentée de ne rien ajouter** : aucun consommateur asynchrone n’existe (ni bus, ni file, ni worker), voir l’ADR [`specs/adr/0004-no-outbox-without-async-consumer.md`](adr/0004-no-outbox-without-async-consumer.md). Réévaluer uniquement quand un consommateur asynchrone réel apparaîtra.
 
-Le besoin produit a été repriorisé à partir de la cible historique. Les migrations, effets différés, projections joueur, analyses substituables et contrats d'effets externes sont livrés. Le prochain lot cohérent est désormais **P0 Configuration + RBAC + contexte d'établissement** : ADR de frontières, registre typé et résolution hiérarchique, catalogue de permissions, puis squelette front/période/classe/catégorie. L'assistant/familier hors ligne vient en P1 et l'IA provider-agnostic avec metering/quotas en P2. Voir `specs/functional-roadmap.md` et `specs/platform-configuration.md`.
+Le besoin produit a été repriorisé à partir de la cible historique. Les migrations, effets différés, projections joueur, analyses substituables et contrats d'effets externes sont livrés. Le prochain lot cohérent est désormais **P0 Configuration + RBAC custom + organisations** : ADR de frontières, registre typé et résolution hiérarchique, permissions stables/rôles custom, puis squelette front typé école/entreprise/formation, unités et catégories. L'assistant/familier hors ligne vient en P1, les providers IA avec routage/metering/quotas en P2 et l'économie/magasin en P3. Voir `specs/functional-roadmap.md`, `specs/platform-configuration.md` et `specs/configuration-catalog.md`.
 
 Contexte livré au jalon 3 :
 
@@ -76,6 +76,7 @@ Contexte livré au jalon 3 :
 - Pas de transaction distribuée.
 - Pas d’IA dans le chemin déterministe.
 - Pas de fonctionnalité sans paramètres/défauts, permissions et comportement désactivé explicités.
+- Pas de rôle métier codé en dur : les règles testent des permissions stables et des scopes, les rôles sont personnalisables.
 - Pas de contrôle RBAC uniquement côté client ; allow/deny et isolation de front sont testés côté serveur.
 - Pas de dépendance cloud ou IA pour jouer, développer ou exécuter la CI.
 - Pas d’outbox anticipée.

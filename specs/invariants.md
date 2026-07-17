@@ -15,4 +15,6 @@
 13. Aucun secret de fournisseur, credential ou paramètre sensible n'est stocké dans le registre de configuration publiable.
 14. L'IA est optionnelle : une indisponibilité, une sortie invalide ou un quota atteint ne peut empêcher le parcours hors ligne prévu.
 15. Une sortie IA ne modifie jamais directement l'état narratif ; elle devient une entrée explicite, validée et figée avant tout effet.
-16. Les frontières de front ou d'établissement sont appliquées côté serveur et testées sur toute ressource concernée.
+16. Les frontières de front ou d'organisation sont appliquées côté serveur et testées sur toute ressource concernée.
+17. Une règle d'autorisation ne dépend jamais du nom d'un rôle ; elle évalue une permission stable et une portée de ressource.
+18. Une mutation de wallet ou un achat possède une clé d'idempotence et n'altère jamais rétrospectivement le ledger.

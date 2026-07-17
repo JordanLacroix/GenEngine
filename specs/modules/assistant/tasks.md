@@ -15,3 +15,5 @@
 | AIX-005 | todo | Mesurer tokens/coûts de façon idempotente avec pricing versionné |
 | AIX-006 | todo | Appliquer quotas plateforme/front/rôle/utilisateur et dégrader hors ligne |
 | AIX-007 | todo | Couvrir permissions d'usage, administration, reporting, pricing et quotas |
+| AIX-008 | todo | Configurer providers, modèles, capacités, secrets référencés et health checks |
+| AIX-009 | todo | Versionner prompts, routage multi-LLM, double avis et chaînes de fallback |

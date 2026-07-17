@@ -1,4 +1,4 @@
-# Configuration de plateforme, contexte scolaire, RBAC et IA
+# Configuration de plateforme, organisations, RBAC et IA
 
 Ce document fixe la cible fonctionnelle prioritaire issue du plan initial, adaptée à l'architecture distribuée actuelle. Il décrit les capacités attendues ; la création de nouveaux services ou le choix d'une bibliothèque nécessite un ADR séparé.
 
@@ -9,27 +9,30 @@ Ce document fixe la cible fonctionnelle prioritaire issue du plan initial, adapt
 - Un secret n'entre jamais dans le registre lisible par les API d'administration ; il est référencé depuis un secret store d'infrastructure.
 - L'autorisation est évaluée côté service propriétaire de la ressource.
 - Une configuration publiée ou utilisée par une session est identifiée par version ; aucune modification silencieuse ne change un replay.
-- L'installation par défaut fonctionne avec un seul front, sans école, SSO, cloud ou IA.
+- L'installation par défaut fonctionne avec un seul front générique, sans SSO, cloud ou IA.
+- Le catalogue exhaustif des objets configurables est tenu dans [`configuration-catalog.md`](configuration-catalog.md).
 
 ## Résolution de configuration
 
 La résolution suit l'ordre du plus spécifique au plus général :
 
-`utilisateur → groupe/classe → catégorie/parcours → front/établissement → plateforme → défaut du schéma`
+`utilisateur → unité/groupe → catégorie/parcours → front/organisation → plateforme → défaut du schéma`
 
 Toutes les clés n'acceptent pas toutes les portées. Leur déclaration indique les portées valides et la stratégie de fusion : remplacement, fusion d'objet ou union de liste. La réponse de résolution expose la valeur effective, sa version et sa provenance sans exposer les valeurs sensibles.
 
+Une clé peut accepter une surcharge par rôle. Si un utilisateur cumule plusieurs rôles, la définition doit fournir une priorité explicite ; une égalité contradictoire rend la configuration invalide au lieu de choisir silencieusement.
+
 Les feature flags ajoutent une décision d'activation par front puis, si nécessaire, par rôle ou cohorte. Ils ne remplacent jamais une permission : un flag active une capacité, une policy autorise un acteur à l'utiliser.
 
-## Modèle établissement et école
+## Modèle d'organisation multi-contexte
 
 Le vocabulaire métier reste générique afin de couvrir école, entreprise et formation :
 
 | Concept | Fonction |
 |---|---|
-| `Front` | Organisation isolée, branding, locale, modules et politiques par défaut |
-| `AcademicPeriod` | Année, semestre, promotion ou période de formation |
-| `Group` | Classe, promotion, équipe ou département, éventuellement hiérarchique |
+| `Front` | Organisation isolée typée école, entreprise, formation, communauté ou custom |
+| `OperatingPeriod` | Année scolaire, semestre, exercice, campagne ou période de formation |
+| `OrganizationUnit` | Classe, promotion, équipe, département ou cohorte, éventuellement hiérarchique |
 | `Membership` | Appartenance d'un utilisateur à un groupe avec rôle et période |
 | `Journey` | Parcours ordonné regroupant des catégories et objectifs |
 | `ScenarioCategory` | Classification réutilisable : matière, compétence, univers ou thème |
@@ -37,9 +40,9 @@ Le vocabulaire métier reste générique afin de couvrir école, entreprise et f
 
 Une catégorie peut appartenir à plusieurs parcours. Un scénario peut appartenir à plusieurs catégories. Les noms, descriptions, visuels, ordre, visibilité et règles de déblocage sont configurables par front. Les relations sont versionnées lorsqu'elles affectent une expérience publiée.
 
-Le modèle doit permettre au minimum : établissement → année scolaire → classe → apprenants, avec un ou plusieurs enseignants responsables, sans imposer cette hiérarchie aux fronts non scolaires.
+Le même modèle permet notamment : école → année scolaire → classe → apprenants, ou entreprise → exercice/campagne → département → équipe → collaborateurs. Les libellés et profondeurs sont configurables, avec un ou plusieurs enseignants, formateurs ou managers responsables.
 
-### Paramètres d'un établissement
+### Paramètres d'une organisation
 
 - identité publique, nom court, logo, design tokens, domaine et mentions légales ;
 - locale, langues disponibles, fuseau horaire, formats de date et terminologie affichée (`classe`, `promotion`, `équipe`...) ;
@@ -49,7 +52,7 @@ Le modèle doit permettre au minimum : établissement → année scolaire → cl
 - modules actifs, catégories visibles, parcours proposés et familier par défaut ;
 - politique d'aide/IA, conservation, quotas et visibilité des analytics.
 
-### Paramètres d'une classe ou d'un groupe
+### Paramètres d'une unité ou d'un groupe
 
 - libellé, code, période, parent éventuel, responsables et membres ;
 - statut brouillon/actif/archivé, dates d'ouverture et de fermeture ;
@@ -65,23 +68,28 @@ Le modèle doit permettre au minimum : établissement → année scolaire → cl
 - objectifs pédagogiques, tags de recherche et politique d'aide par défaut ;
 - version des relations publiée avec le catalogue afin qu'une session ne change pas silencieusement.
 
-## Matrice RBAC initiale
+## RBAC et rôles personnalisables
 
-Les rôles sont des presets modifiables ; les permissions sont les contrats stables utilisés par les policies.
+Les permissions sont des contrats stables enregistrés par les services. Un administrateur autorisé compose des rôles custom à partir de ces permissions, les clone, les versionne, les active ou les archive, sans créer de permission arbitraire inconnue du backend.
+
+Une affectation de rôle indique une portée (`platform`, `front`, `unit`, `group` ou ressource compatible), une date de début et une date de fin optionnelles. La résolution produit les permissions effectives et leur provenance. Les presets ne sont que des modèles initiaux ; aucun nom de rôle n'est codé dans une règle métier.
 
 | Domaine | Permissions initiales |
 |---|---|
 | Configuration | `config.read`, `config.write`, `config.publish`, `module.toggle` |
 | Identité/RBAC | `identity.user.read`, `identity.user.manage`, `rbac.read`, `rbac.manage` |
-| Établissement | `front.read`, `front.manage`, `group.read`, `group.manage`, `membership.manage` |
+| Organisation | `front.read`, `front.manage`, `unit.read`, `unit.manage`, `membership.manage` |
 | Catalogue | `journey.read`, `journey.manage`, `category.read`, `category.manage`, `assignment.manage` |
 | Scénarios | `scenario.read`, `scenario.author`, `scenario.review`, `scenario.publish` |
 | Jeu | `session.play`, `session.read.own`, `session.read.group`, `session.manage` |
 | Assistant | `assistant.use`, `assistant.customize`, `assistant.manage`, `assistant.import` |
 | IA | `ai.use`, `ai.profile.manage`, `ai.usage.read`, `ai.pricing.manage`, `ai.quota.manage` |
+| Économie | `shop.read`, `shop.buy`, `shop.manage`, `economy.reward.manage`, `wallet.read.own`, `wallet.read.scope`, `wallet.adjust`, `economy.ledger.read` |
+| Insights | `insights.read.own`, `insights.read.scope`, `insights.manage`, `insights.export` |
+| Gouvernance | `moderation.review`, `consent.manage`, `privacy.request.manage` |
 | Audit | `audit.read` |
 
-Les endpoints listant les capacités effectives permettent aux clients d'adapter leur interface, mais l'absence d'un contrôle visuel ne vaut jamais autorisation. Toute permission ajoutée doit rejoindre cette matrice, les presets concernés et des tests allow/deny dans la même PR.
+Les endpoints listant les capacités effectives permettent aux clients d'adapter leur interface, mais l'absence d'un contrôle visuel ne vaut jamais autorisation. Toute permission ajoutée doit rejoindre cette matrice, les presets concernés et des tests allow/deny dans la même PR. Les mutations RBAC empêchent l'auto-élévation, la suppression du dernier administrateur plateforme et les affectations hors de la portée de l'opérateur ; elles sont toutes auditées.
 
 ## Ownership distribué cible
 
@@ -89,13 +97,14 @@ Les endpoints listant les capacités effectives permettent aux clients d'adapter
 |---|---|---|
 | `Identity` | Comptes, rôles, permissions, affectations de rôles et émission des capacités signées | Classes, catégories, configuration produit et préférences de familier |
 | `Configuration` | Fronts, registre typé, résolution, versions, feature flags, modules et branding | Secrets, comptes et règles narratives |
-| `Organization` | Périodes, groupes/classes, memberships, encadrement et affectations | Credentials et contenu des scénarios |
+| `Organization` | Types de front métier, périodes, unités/classes/équipes, memberships, encadrement et affectations | Credentials et contenu des scénarios |
 | `Authoring` | Scénarios, parcours, catégories, relations éditoriales et publication | Comptes, classes et exécution de sessions |
 | `Play` | Sessions, préférences joueur utiles au jeu, snapshots effectifs et consommation d'aide | Administration des providers et catalogue maître de familiers |
-| `Assistant` | Catalogue neutre de familiers, politiques d'aide, profils IA, exécution des adaptateurs, metering et quotas | Mutation directe de l'état narratif |
+| `Assistant` | Catalogue neutre de familiers, politiques d'aide, profils/providers IA, exécution des adaptateurs, metering et quotas | Mutation directe de l'état narratif |
+| `Economy` | Devises, wallets, ledger, récompenses, inventaires, magasins, offres et achats | Paiement réel et mutation directe d'une session |
 | `Narrative` | Snapshots déterministes validés et décisions métier pures | Tenant, compte, secret, provider, quota, réseau et persistance |
 
-`Configuration`, `Organization` et `Assistant` sont des services autonomes candidats, chacun avec sa base et ses contrats versionnés. Un ADR doit confirmer leurs frontières et l'ordre d'introduction avant création des projets. Ils ne seront ni des modules internes d'un déployable global, ni des tables ajoutées aux bases existantes par commodité.
+`Configuration`, `Organization`, `Assistant` et `Economy` sont des services autonomes candidats, chacun avec sa base et ses contrats versionnés. Un ADR doit confirmer leurs frontières et l'ordre d'introduction avant création des projets. Ils ne seront ni des modules internes d'un déployable global, ni des tables ajoutées aux bases existantes par commodité.
 
 Le service propriétaire d'une ressource applique les policies localement à partir de capacités signées et de la portée de la ressource. Les relations interservices utilisent des identifiants stables et des contrats explicites, jamais des foreign keys entre bases ni des références de projet.
 

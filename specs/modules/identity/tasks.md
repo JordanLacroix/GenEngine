@@ -11,3 +11,6 @@
 | IDN-007 | todo | Exposer les permissions effectives de l'utilisateur authentifié |
 | IDN-008 | todo | Porter les affectations de rôles par identifiant de front sans posséder classes ou groupes |
 | IDN-009 | todo | Tester systématiquement allow/deny et scopes de front dans les policies |
+| IDN-010 | todo | Créer, cloner, versionner et archiver des rôles custom composés de permissions stables |
+| IDN-011 | todo | Gérer les affectations de rôles portées et temporisées avec provenance explicable |
+| IDN-012 | todo | Empêcher auto-élévation, délégation hors scope et suppression du dernier administrateur |
