@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "title": "Le témoignage d’Aya",
+  "initialNodeId": "briefing",
+  "nodes": [
+    {
+      "id": "briefing",
+      "text": "Aya vous confie une lettre scellée et demande votre confiance.",
+      "onEnterEffects": [
+        { "$type": "collect", "item": "sealed-letter" },
+        { "$type": "discoverEvidence", "evidence": "aya-testimony" },
+        { "$type": "changeRelation", "character": "aya", "amount": 1 }
+      ],
+      "choices": [
+        {
+          "id": "trust-aya",
+          "text": "Accorder votre confiance à Aya",
+          "targetNodeId": "trusted-end",
+          "condition": {
+            "$type": "all",
+            "conditions": [
+              { "$type": "hasEvidence", "evidence": "aya-testimony" },
+              { "$type": "relationAtLeast", "character": "aya", "value": 1 }
+            ]
+          },
+          "effects": [
+            { "$type": "removeItem", "item": "sealed-letter" },
+            { "$type": "grantReward", "reward": "critical-listener" },
+            {
+              "$type": "recordNotableEvent",
+              "label": "Vous avez accordé votre confiance à Aya.",
+              "scope": "journey"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trusted-end",
+      "text": "Aya se souviendra de votre décision.",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true
+    }
+  ]
+}

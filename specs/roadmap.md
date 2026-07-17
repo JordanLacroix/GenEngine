@@ -36,4 +36,4 @@ Le suivi détaillé se trouve dans [`modules/hardening/tasks.md`](modules/harden
 
 Rendre les capacités du moteur accessibles aux clients Web et iOS par tranches verticales, sans dupliquer les règles narratives dans les interfaces.
 
-**Statut : en cours.** La première tranche expose le catalogue public des dernières versions publiées (`AUT-006`) afin que les clients puissent découvrir et démarrer de vrais récits. La reprise des sessions persistées constituera la tranche suivante.
+**Statut : en cours.** La première tranche expose le catalogue public des dernières versions publiées (`AUT-006`). La priorité revient désormais à la profondeur fonctionnelle du moteur : état joueur riche, conditions/effets explicables, interactions typées, migrations et exploration. Le détail est suivi dans [`functional-roadmap.md`](functional-roadmap.md). Les clients évolueront après stabilisation de ces contrats.
