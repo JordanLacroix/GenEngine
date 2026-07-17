@@ -26,8 +26,8 @@ Services Authoring, Play et Identity indépendants, bases PostgreSQL séparées,
 
 Observabilité complète, audit renforcé, résilience, sauvegarde/restauration et outbox uniquement si un consommateur asynchrone existe.
 
-**Statut : en cours.** Les trois API exportent désormais logs, traces et métriques en OTLP. Une stack locale optionnelle fournit Collector, Prometheus, Tempo, Loki et Grafana. Les prochains lots portent sur les SLO/alertes, l’audit métier, la résilience puis la sauvegarde/restauration.
+**Statut : terminé.** Observabilité OTLP + stack locale (Collector, Prometheus, Tempo, Loki, Grafana), SLO/alertes et budget d’erreur (`HRD-003`), audit métier sans fuite (`HRD-004`), résilience interservices (`HRD-005`), sauvegarde/restauration chiffrée (`HRD-006`). L’outbox (`HRD-007`) est écartée par décision documentée faute de consommateur asynchrone (ADR 0004).
 
 Le suivi détaillé se trouve dans [`modules/hardening/tasks.md`](modules/hardening/tasks.md).
 
-**Prochaine tâche : `HRD-003`.** Le passage de relais et les critères de reprise sont détaillés dans [`handoff.md`](handoff.md).
+**Prochaine étape : jalon 4 (« première extension »), à cadrer selon les retours produit.** Le passage de relais et les critères de reprise sont détaillés dans [`handoff.md`](handoff.md).
