@@ -8,4 +8,6 @@ Les conditions autorisées sont : `always`, `all`, `any`, `not`, `variableEquals
 
 Le runtime conserve également l'historique ordonné des choix et interactions ainsi qu'un journal d'événements notables. `NarrativeRuntime.ExplainChoices` fournit une explication arborescente sans modifier l'état. `ScenarioAnalyzer.Explore` simule les branches et réponses de quiz atteignables dans un budget borné.
 
+Les sessions persistées utilisent une enveloppe `GameSave` versionnée contenant le schéma du scénario, la graine, l'horodatage et l'état déterministe complet. Le lecteur accepte également les anciens états bruts v1 et les enveloppe en mémoire. `NarrativeTreeBuilder` projette un scénario et une sauvegarde en arbre complet avec nœuds courants, visités, inexplorés ou verrouillés.
+
 La validation exige un titre, un point d'entrée existant, des identifiants uniques, des cibles valides, des conditions/effets bien formés et des budgets de profondeur bornés. Les exemples exécutables vivent dans [`examples/`](examples/).

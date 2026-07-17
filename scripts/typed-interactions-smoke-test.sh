@@ -35,6 +35,10 @@ choice_id=$(uuidgen | tr '[:upper:]' '[:lower:]')
 chosen=$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d "{\"commandId\":\"$choice_id\",\"expectedRevision\":3,\"choiceId\":\"conclude\"}" "$PLAY_URL/sessions/$session_id/inputs")
 jq -e '.session.revision == 4 and .currentStep.kind == "Narration" and .currentStep.interactionId == "outro"' <<<"$chosen" >/dev/null
 
+tree=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$PLAY_URL/sessions/$session_id/tree")
+jq -e '.nodes[] | select(.id == "lesson" and .state == "Visited")' <<<"$tree" >/dev/null
+jq -e '.nodes[] | select(.id == "ending" and .state == "Current")' <<<"$tree" >/dev/null
+
 ending_id=$(uuidgen | tr '[:upper:]' '[:lower:]')
 completed=$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d "{\"commandId\":\"$ending_id\",\"expectedRevision\":4}" "$PLAY_URL/sessions/$session_id/continue")
 jq -e '.session.revision == 5 and .session.status == "Completed" and .currentStep.kind == "Completed"' <<<"$completed" >/dev/null
@@ -42,5 +46,4 @@ jq -e '.session.revision == 5 and .session.status == "Completed" and .currentSte
 replayed=$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d "{\"commandId\":\"$ending_id\",\"expectedRevision\":4}" "$PLAY_URL/sessions/$session_id/continue")
 jq -e '.replayed == true and .session.revision == 5' <<<"$replayed" >/dev/null
 
-echo "Typed interaction smoke test passed: narration → quiz → choice → ending → replay"
-
+echo "Typed interaction smoke test passed: narration → quiz → choice → tree → ending → replay"

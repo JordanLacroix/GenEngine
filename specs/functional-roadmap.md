@@ -22,14 +22,14 @@ Cette roadmap rapproche progressivement le noyau actuel de la cible produit d'or
 
 ## F3 — Sauvegardes et évolution des formats
 
-- [ ] `GameSave` explicite, historique et graine inclus ;
+- [x] `GameSave` explicite et versionné, état complet, historique, graine et horodatage inclus ;
 - [ ] migrations chaînées de scénario et de sauvegarde ;
-- [ ] compatibilité de lecture des snapshots publiés v1 ;
+- [x] compatibilité de lecture des sauvegardes brutes historiques et snapshots publiés v1 ;
 - [ ] tests golden de migration et de replay.
 
 ## F4 — Exploration et authoring avancé
 
-- [ ] arbre complet/parcouru/verrouillé d'une session ;
+- [x] arbre complet/parcouru/inexploré/verrouillé d'une session ;
 - [ ] analyse des boucles, impasses conditionnelles et fins inatteignables ;
 - [ ] aperçu depuis n'importe quel nœud avec état injecté ;
 - [ ] diff et restauration fonctionnelle de versions.

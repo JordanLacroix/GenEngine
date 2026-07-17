@@ -23,6 +23,7 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 - `POST /sessions`
 - `GET /sessions/{id}`
 - `GET /sessions/{id}/current-step`
+- `GET /sessions/{id}/tree` — arbre complet avec état courant, visité, inexploré ou verrouillé et explication des conditions
 - `POST /sessions/{id}/inputs`
 - `POST /sessions/{id}/continue` — progression d'une interaction de narration, commande idempotente
 - `POST /sessions/{id}/answers` — soumission d'une réponse de quiz, commande idempotente
