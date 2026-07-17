@@ -33,7 +33,7 @@ Le projet vise un moteur :
 - **sobre en dépendances** — licences permissives et compatibles avec un usage commercial.
 
 > [!IMPORTANT]
-> GenEngine a terminé le **jalon 3** (durcissement) : observabilité et SLO, audit métier, résilience interservices et sauvegarde/restauration chiffrée. Le **jalon 4** (première extension) reste à cadrer selon les retours produit.
+> GenEngine a terminé le **jalon 3** (durcissement) : observabilité et SLO, audit métier, résilience interservices et sauvegarde/restauration chiffrée. Le **jalon 4** connecte désormais les clients au catalogue des versions publiées ; la reprise de session constitue la prochaine tranche verticale.
 
 ## État du projet
 
@@ -48,6 +48,7 @@ Le projet vise un moteur :
 | Moteur narratif en mémoire | ✅ Déterministe et testé |
 | PostgreSQL et sessions persistées | ✅ Une base par service |
 | Docker Compose | ✅ Parcours jouable automatisé |
+| Catalogue public des versions publiées | ✅ Consommable par les clients Web et iOS |
 | Observabilité OpenTelemetry | 🚧 Logs, traces et métriques disponibles localement |
 | SLI/SLO et alertes | 🚧 Objectifs provisoires, règles Prometheus validées et budget d’erreur dans Grafana |
 | IA, économie et multi-tenant | ⏸️ Hors V1 |
