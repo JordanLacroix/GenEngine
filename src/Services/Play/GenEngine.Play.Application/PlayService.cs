@@ -97,6 +97,50 @@ public sealed class PlayService(
         Guid commandId,
         int expectedRevision,
         string choiceId,
+        CancellationToken cancellationToken) =>
+        await SubmitInputAsync(
+            id,
+            ownerId,
+            commandId,
+            expectedRevision,
+            (scenario, state) => NarrativeRuntime.SubmitChoice(scenario, state, choiceId),
+            cancellationToken).ConfigureAwait(false);
+
+    public async Task<InputResult> ContinueAsync(
+        Guid id,
+        string ownerId,
+        Guid commandId,
+        int expectedRevision,
+        CancellationToken cancellationToken) =>
+        await SubmitInputAsync(
+            id,
+            ownerId,
+            commandId,
+            expectedRevision,
+            NarrativeRuntime.Continue,
+            cancellationToken).ConfigureAwait(false);
+
+    public async Task<InputResult> SubmitAnswerAsync(
+        Guid id,
+        string ownerId,
+        Guid commandId,
+        int expectedRevision,
+        string answerId,
+        CancellationToken cancellationToken) =>
+        await SubmitInputAsync(
+            id,
+            ownerId,
+            commandId,
+            expectedRevision,
+            (scenario, state) => NarrativeRuntime.SubmitAnswer(scenario, state, answerId),
+            cancellationToken).ConfigureAwait(false);
+
+    private async Task<InputResult> SubmitInputAsync(
+        Guid id,
+        string ownerId,
+        Guid commandId,
+        int expectedRevision,
+        Func<ScenarioDocument, GameState, GameState> transition,
         CancellationToken cancellationToken)
     {
         GameSession session = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
@@ -109,7 +153,7 @@ public sealed class PlayService(
         }
 
         ScenarioDocument scenario = DeserializeScenario(session);
-        GameState nextState = NarrativeRuntime.SubmitChoice(scenario, DeserializeState(session), choiceId);
+        GameState nextState = transition(scenario, DeserializeState(session));
         session.ChangeState(
             NarrativeJson.Serialize(nextState),
             nextState.Status.ToString(),

@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 2,
+  "title": "L’atelier des sources",
+  "initialNodeId": "lesson",
+  "nodes": [
+    {
+      "id": "lesson",
+      "text": "Un court atelier de lecture critique.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "intro",
+          "text": "Une affirmation apparaît sans citer sa source.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "unsupported-claim" }
+          ]
+        },
+        {
+          "$type": "quiz",
+          "id": "fact-or-opinion",
+          "prompt": "« Cette ville compte cent habitants » est…",
+          "answers": [
+            { "id": "fact", "text": "un fait vérifiable" },
+            { "id": "opinion", "text": "une opinion" }
+          ],
+          "correctAnswerId": "fact",
+          "correctEffects": [
+            { "$type": "grantReward", "reward": "fact-checker" }
+          ],
+          "incorrectEffects": [
+            { "$type": "increment", "name": "mistakes", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "next",
+          "prompt": "Comment poursuivre ?",
+          "choices": [
+            {
+              "id": "conclude",
+              "text": "Conclure l’atelier",
+              "targetNodeId": "ending",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ending",
+      "text": "Conclusion de l’atelier.",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "outro",
+          "text": "Vous confrontez désormais les affirmations à leurs sources.",
+          "continueEffects": [
+            {
+              "$type": "recordNotableEvent",
+              "label": "Vous avez distingué un fait d’une opinion.",
+              "scope": "learning"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

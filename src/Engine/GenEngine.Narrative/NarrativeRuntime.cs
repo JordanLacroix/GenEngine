@@ -18,8 +18,13 @@ public sealed class NarrativeRuntime
         return new GameState(
             initialNode.Id,
             0,
-            initialNode.IsEnding ? SessionStatus.Completed : SessionStatus.AwaitingInput,
-            world);
+            initialNode.IsEnding && !HasTypedInteractions(initialNode)
+                ? SessionStatus.Completed
+                : SessionStatus.AwaitingInput,
+            world)
+        {
+            InteractionIndex = 0,
+        };
     }
 
     public static GameState SubmitChoice(ScenarioDocument scenario, GameState state, string choiceId)
@@ -30,7 +35,8 @@ public sealed class NarrativeRuntime
         }
 
         NarrativeNode currentNode = FindNode(scenario, state.CurrentNodeId);
-        NarrativeChoice? choice = currentNode.Choices.FirstOrDefault(candidate =>
+        IReadOnlyList<NarrativeChoice> availableChoices = GetChoiceSet(currentNode, state);
+        NarrativeChoice? choice = availableChoices.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, choiceId, StringComparison.Ordinal));
 
         if (choice is null || !ConditionEvaluator.Evaluate(choice.Condition, state.World))
@@ -43,6 +49,16 @@ public sealed class NarrativeRuntime
         ApplyEffects(world, choice.Effects, nextTurn);
         ApplyDueEffects(world, nextTurn);
         world.ChoiceHistory.Add(new ChoiceHistoryEntry(currentNode.Id, choice.Id, nextTurn));
+        if (HasTypedInteractions(currentNode))
+        {
+            StepInteraction interaction = GetCurrentInteraction(currentNode, state);
+            world.InteractionHistory.Add(new InteractionHistoryEntry(
+                currentNode.Id,
+                interaction.Id,
+                choice.Id,
+                null,
+                nextTurn));
+        }
 
         NarrativeNode targetNode = FindNode(scenario, choice.TargetNodeId);
         if (!ConditionEvaluator.Evaluate(targetNode.EnterCondition, world))
@@ -50,14 +66,52 @@ public sealed class NarrativeRuntime
             throw new NarrativeException("target_condition_failed", "The target node cannot be entered.");
         }
 
-        world.VisitedNodes.Add(targetNode.Id);
-        ApplyEffects(world, targetNode.OnEnterEffects, nextTurn);
+        return EnterNode(targetNode, nextTurn, world);
+    }
 
-        return new GameState(
-            targetNode.Id,
-            nextTurn,
-            targetNode.IsEnding ? SessionStatus.Completed : SessionStatus.AwaitingInput,
-            world);
+    public static GameState Continue(ScenarioDocument scenario, GameState state)
+    {
+        EnsureAwaitingInput(state);
+        NarrativeNode node = FindNode(scenario, state.CurrentNodeId);
+        StepInteraction interaction = GetCurrentInteraction(node, state);
+        if (interaction is not NarrationInteraction narration)
+        {
+            throw new NarrativeException("interaction_not_narration", "The current interaction cannot be continued.");
+        }
+
+        WorldState world = Clone(state.World);
+        int nextTurn = checked(state.Turn + 1);
+        ApplyEffects(world, narration.ContinueEffects, nextTurn);
+        ApplyDueEffects(world, nextTurn);
+        world.InteractionHistory.Add(new InteractionHistoryEntry(node.Id, narration.Id, "continue", null, nextTurn));
+        return AdvanceInteraction(node, state, world, nextTurn);
+    }
+
+    public static GameState SubmitAnswer(
+        ScenarioDocument scenario,
+        GameState state,
+        string answerId)
+    {
+        EnsureAwaitingInput(state);
+        NarrativeNode node = FindNode(scenario, state.CurrentNodeId);
+        StepInteraction interaction = GetCurrentInteraction(node, state);
+        if (interaction is not QuizInteraction quiz)
+        {
+            throw new NarrativeException("interaction_not_quiz", "The current interaction is not a quiz.");
+        }
+
+        if (!quiz.Answers.Any(answer => string.Equals(answer.Id, answerId, StringComparison.Ordinal)))
+        {
+            throw new NarrativeException("answer_not_available", "The selected answer is not available.");
+        }
+
+        bool isCorrect = string.Equals(quiz.CorrectAnswerId, answerId, StringComparison.Ordinal);
+        WorldState world = Clone(state.World);
+        int nextTurn = checked(state.Turn + 1);
+        ApplyEffects(world, isCorrect ? quiz.CorrectEffects : quiz.IncorrectEffects, nextTurn);
+        ApplyDueEffects(world, nextTurn);
+        world.InteractionHistory.Add(new InteractionHistoryEntry(node.Id, quiz.Id, answerId, isCorrect, nextTurn));
+        return AdvanceInteraction(node, state, world, nextTurn);
     }
 
     public static GameState Pause(GameState state)
@@ -83,11 +137,59 @@ public sealed class NarrativeRuntime
     public static CurrentStep GetCurrentStep(ScenarioDocument scenario, GameState state)
     {
         NarrativeNode node = FindNode(scenario, state.CurrentNodeId);
+        if (HasTypedInteractions(node))
+        {
+            if (state.InteractionIndex >= node.Interactions!.Count)
+            {
+                return new CurrentStep(node.Id, node.Text, state.Status, [], state.Turn)
+                {
+                    Kind = InteractionKind.Completed,
+                };
+            }
+
+            StepInteraction interaction = GetCurrentInteraction(node, state);
+            return interaction switch
+            {
+                NarrationInteraction narration => new CurrentStep(
+                    node.Id,
+                    narration.Text,
+                    state.Status,
+                    [],
+                    state.Turn)
+                {
+                    InteractionId = narration.Id,
+                    Kind = InteractionKind.Narration,
+                },
+                ChoiceSetInteraction choiceSet => new CurrentStep(
+                    node.Id,
+                    choiceSet.Prompt,
+                    state.Status,
+                    state.Status is SessionStatus.AwaitingInput
+                        ? VisibleChoices(choiceSet.Choices, state.World)
+                        : [],
+                    state.Turn)
+                {
+                    InteractionId = choiceSet.Id,
+                    Kind = InteractionKind.ChoiceSet,
+                },
+                QuizInteraction quiz => new CurrentStep(
+                    node.Id,
+                    quiz.Prompt,
+                    state.Status,
+                    state.Status is SessionStatus.AwaitingInput
+                        ? quiz.Answers.Select(static answer => new VisibleChoice(answer.Id, answer.Text)).ToArray()
+                        : [],
+                    state.Turn)
+                {
+                    InteractionId = quiz.Id,
+                    Kind = InteractionKind.Quiz,
+                },
+                _ => throw new NarrativeException("interaction_not_supported", "The interaction type is not supported."),
+            };
+        }
+
         IReadOnlyList<VisibleChoice> choices = state.Status is SessionStatus.AwaitingInput
-            ? node.Choices
-                .Where(choice => ConditionEvaluator.Evaluate(choice.Condition, state.World))
-                .Select(static choice => new VisibleChoice(choice.Id, choice.Text))
-                .ToArray()
+            ? VisibleChoices(node.Choices, state.World)
             : [];
 
         return new CurrentStep(node.Id, node.Text, state.Status, choices, state.Turn);
@@ -96,12 +198,98 @@ public sealed class NarrativeRuntime
     public static IReadOnlyList<ChoiceAvailability> ExplainChoices(ScenarioDocument scenario, GameState state)
     {
         NarrativeNode node = FindNode(scenario, state.CurrentNodeId);
-        return node.Choices.Select(choice =>
+        return GetChoiceSet(node, state).Select(choice =>
         {
             ConditionEvaluation evaluation = ConditionEvaluator.Explain(choice.Condition, state.World);
             return new ChoiceAvailability(choice.Id, choice.Text, evaluation.Result, evaluation);
         }).ToArray();
     }
+
+    private static GameState EnterNode(NarrativeNode node, int turn, WorldState world)
+    {
+        world.VisitedNodes.Add(node.Id);
+        ApplyEffects(world, node.OnEnterEffects, turn);
+        return new GameState(
+            node.Id,
+            turn,
+            node.IsEnding && !HasTypedInteractions(node)
+                ? SessionStatus.Completed
+                : SessionStatus.AwaitingInput,
+            world)
+        {
+            InteractionIndex = 0,
+        };
+    }
+
+    private static GameState AdvanceInteraction(
+        NarrativeNode node,
+        GameState state,
+        WorldState world,
+        int nextTurn)
+    {
+        int nextIndex = checked(state.InteractionIndex + 1);
+        if (nextIndex < node.Interactions!.Count)
+        {
+            return new GameState(node.Id, nextTurn, SessionStatus.AwaitingInput, world)
+            {
+                InteractionIndex = nextIndex,
+            };
+        }
+
+        if (!node.IsEnding)
+        {
+            throw new NarrativeException(
+                "interaction_sequence_incomplete",
+                "A non-ending node must finish with a choice set.");
+        }
+
+        return new GameState(node.Id, nextTurn, SessionStatus.Completed, world)
+        {
+            InteractionIndex = nextIndex,
+        };
+    }
+
+    private static void EnsureAwaitingInput(GameState state)
+    {
+        if (state.Status is not SessionStatus.AwaitingInput)
+        {
+            throw new NarrativeException("session_not_awaiting_input", "The session is not awaiting input.");
+        }
+    }
+
+    private static IReadOnlyList<NarrativeChoice> GetChoiceSet(NarrativeNode node, GameState state)
+    {
+        if (!HasTypedInteractions(node))
+        {
+            return node.Choices;
+        }
+
+        return GetCurrentInteraction(node, state) is ChoiceSetInteraction choiceSet
+            ? choiceSet.Choices
+            : [];
+    }
+
+    private static StepInteraction GetCurrentInteraction(NarrativeNode node, GameState state)
+    {
+        if (!HasTypedInteractions(node)
+            || state.InteractionIndex < 0
+            || state.InteractionIndex >= node.Interactions!.Count)
+        {
+            throw new NarrativeException("interaction_not_found", "The current interaction was not found.");
+        }
+
+        return node.Interactions[state.InteractionIndex];
+    }
+
+    private static bool HasTypedInteractions(NarrativeNode node) => node.Interactions is { Count: > 0 };
+
+    private static VisibleChoice[] VisibleChoices(
+        IReadOnlyList<NarrativeChoice> choices,
+        WorldState world) =>
+        choices
+            .Where(choice => ConditionEvaluator.Evaluate(choice.Condition, world))
+            .Select(static choice => new VisibleChoice(choice.Id, choice.Text))
+            .ToArray();
 
     private static NarrativeNode FindNode(ScenarioDocument scenario, string nodeId) =>
         scenario.Nodes.FirstOrDefault(node => string.Equals(node.Id, nodeId, StringComparison.Ordinal))
@@ -118,6 +306,7 @@ public sealed class NarrativeRuntime
         Rewards = new HashSet<string>(source.Rewards, StringComparer.Ordinal),
         ChoiceHistory = [.. source.ChoiceHistory],
         Journal = [.. source.Journal],
+        InteractionHistory = [.. source.InteractionHistory],
     };
 
     private static void ApplyEffects(WorldState world, IEnumerable<LocalGameEffect> effects, int currentTurn)
@@ -281,9 +470,13 @@ public static class ScenarioValidator
     {
         List<ValidationIssue> issues = [];
 
-        if (scenario.SchemaVersion != NarrativeVersions.Schema)
+        if (scenario.SchemaVersion < NarrativeVersions.Schema
+            || scenario.SchemaVersion > NarrativeVersions.LatestSchema)
         {
-            issues.Add(Error("schema_version", "schemaVersion", "Only schema version 1 is supported."));
+            issues.Add(Error(
+                "schema_version",
+                "schemaVersion",
+                $"Schema version must be between {NarrativeVersions.Schema} and {NarrativeVersions.LatestSchema}."));
         }
 
         if (string.IsNullOrWhiteSpace(scenario.Title))
@@ -318,6 +511,7 @@ public static class ScenarioValidator
 
         foreach (NarrativeNode node in scenario.Nodes)
         {
+            bool hasTypedInteractions = node.Interactions is { Count: > 0 };
             if (string.IsNullOrWhiteSpace(node.Id))
             {
                 issues.Add(Error("node_id_required", "nodes", "Every node requires a stable id."));
@@ -328,7 +522,7 @@ public static class ScenarioValidator
                 issues.Add(Error("node_text_required", $"nodes.{node.Id}.text", "Every node requires narrative text."));
             }
 
-            if (!node.IsEnding && node.Choices.Count == 0)
+            if (!node.IsEnding && node.Choices.Count == 0 && !hasTypedInteractions)
             {
                 issues.Add(Error("dead_end", $"nodes.{node.Id}", "A non-ending node must expose a choice."));
             }
@@ -341,44 +535,24 @@ public static class ScenarioValidator
             ValidateCondition(node.EnterCondition, $"nodes.{node.Id}.enterCondition", nodes, issues, 0);
             ValidateEffects(node.OnEnterEffects, $"nodes.{node.Id}.onEnterEffects", issues, 0);
 
-            string[] duplicateChoiceIds = node.Choices
-                .GroupBy(static choice => choice.Id, StringComparer.Ordinal)
-                .Where(static group => group.Count() > 1)
-                .Select(static group => group.Key)
-                .ToArray();
-            foreach (string duplicateChoiceId in duplicateChoiceIds)
+            if (hasTypedInteractions && scenario.SchemaVersion < NarrativeVersions.LatestSchema)
             {
                 issues.Add(Error(
-                    "duplicate_choice",
-                    $"nodes.{node.Id}.choices",
-                    $"Choice id '{duplicateChoiceId}' is duplicated in node '{node.Id}'."));
+                    "interactions_require_schema_2",
+                    $"nodes.{node.Id}.interactions",
+                    "Typed interactions require schema version 2."));
             }
 
-            foreach (NarrativeChoice choice in node.Choices)
+            if (hasTypedInteractions && node.Choices.Count != 0)
             {
-                string choicePath = $"nodes.{node.Id}.choices.{choice.Id}";
-                if (string.IsNullOrWhiteSpace(choice.Id))
-                {
-                    issues.Add(Error("choice_id_required", choicePath, "Every choice requires a stable id."));
-                }
-
-                if (string.IsNullOrWhiteSpace(choice.Text))
-                {
-                    issues.Add(Error("choice_text_required", choicePath, "Every choice requires display text."));
-                }
-
-                if (!nodes.ContainsKey(choice.TargetNodeId))
-                {
-                    issues.Add(Error(
-                        "target_missing",
-                        $"nodes.{node.Id}.choices.{choice.Id}",
-                        $"Target node '{choice.TargetNodeId}' does not exist."));
-                }
-
-
-                ValidateCondition(choice.Condition, $"{choicePath}.condition", nodes, issues, 0);
-                ValidateEffects(choice.Effects, $"{choicePath}.effects", issues, 0);
+                issues.Add(Error(
+                    "mixed_interaction_models",
+                    $"nodes.{node.Id}",
+                    "A node cannot combine legacy choices with typed interactions."));
             }
+
+            ValidateChoices(node.Choices, $"nodes.{node.Id}.choices", nodes, issues);
+            ValidateInteractions(node, nodes, issues);
         }
 
         if (nodes.ContainsKey(scenario.InitialNodeId))
@@ -395,6 +569,155 @@ public static class ScenarioValidator
         }
 
         return new ValidationReport(issues);
+    }
+
+    private static void ValidateInteractions(
+        NarrativeNode node,
+        IReadOnlyDictionary<string, NarrativeNode> nodes,
+        List<ValidationIssue> issues)
+    {
+        if (node.Interactions is not { Count: > 0 } interactions)
+        {
+            return;
+        }
+
+        string path = $"nodes.{node.Id}.interactions";
+        string[] duplicateIds = interactions
+            .GroupBy(static interaction => interaction.Id, StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1)
+            .Select(static group => group.Key)
+            .ToArray();
+        foreach (string duplicateId in duplicateIds)
+        {
+            issues.Add(Error("duplicate_interaction", path, $"Interaction id '{duplicateId}' is duplicated."));
+        }
+
+        if (!node.IsEnding && interactions[^1] is not ChoiceSetInteraction)
+        {
+            issues.Add(Error(
+                "interaction_sequence_incomplete",
+                path,
+                "A non-ending node must finish with a choice set."));
+        }
+
+        if (node.IsEnding && interactions.Any(static interaction => interaction is ChoiceSetInteraction))
+        {
+            issues.Add(Error("ending_has_choice_set", path, "An ending node cannot contain a choice set."));
+        }
+
+        for (int index = 0; index < interactions.Count; index++)
+        {
+            StepInteraction interaction = interactions[index];
+            string interactionPath = $"{path}[{index}]";
+            if (string.IsNullOrWhiteSpace(interaction.Id))
+            {
+                issues.Add(Error("interaction_id_required", interactionPath, "Every interaction requires a stable id."));
+            }
+
+            switch (interaction)
+            {
+                case NarrationInteraction narration:
+                    if (string.IsNullOrWhiteSpace(narration.Text))
+                    {
+                        issues.Add(Error("narration_text_required", interactionPath, "Narration requires text."));
+                    }
+
+                    ValidateEffects(narration.ContinueEffects, $"{interactionPath}.continueEffects", issues, 0);
+                    break;
+                case ChoiceSetInteraction choiceSet:
+                    if (string.IsNullOrWhiteSpace(choiceSet.Prompt))
+                    {
+                        issues.Add(Error("choice_prompt_required", interactionPath, "A choice set requires a prompt."));
+                    }
+
+                    if (choiceSet.Choices.Count == 0)
+                    {
+                        issues.Add(Error("choice_set_empty", interactionPath, "A choice set requires at least one choice."));
+                    }
+
+                    ValidateChoices(choiceSet.Choices, $"{interactionPath}.choices", nodes, issues);
+                    break;
+                case QuizInteraction quiz:
+                    ValidateQuiz(quiz, interactionPath, issues);
+                    break;
+            }
+        }
+    }
+
+    private static void ValidateQuiz(
+        QuizInteraction quiz,
+        string path,
+        List<ValidationIssue> issues)
+    {
+        if (string.IsNullOrWhiteSpace(quiz.Prompt))
+        {
+            issues.Add(Error("quiz_prompt_required", path, "A quiz requires a prompt."));
+        }
+
+        if (quiz.Answers.Count < 2)
+        {
+            issues.Add(Error("quiz_answers_required", path, "A quiz requires at least two answers."));
+        }
+
+        if (quiz.Answers.GroupBy(static answer => answer.Id, StringComparer.Ordinal).Any(static group => group.Count() > 1))
+        {
+            issues.Add(Error("duplicate_quiz_answer", path, "Quiz answer ids must be unique."));
+        }
+
+        if (!quiz.Answers.Any(answer => string.Equals(answer.Id, quiz.CorrectAnswerId, StringComparison.Ordinal)))
+        {
+            issues.Add(Error("quiz_correct_answer_missing", path, "The correct answer id must reference an answer."));
+        }
+
+        foreach (QuizAnswer answer in quiz.Answers)
+        {
+            if (string.IsNullOrWhiteSpace(answer.Id) || string.IsNullOrWhiteSpace(answer.Text))
+            {
+                issues.Add(Error("quiz_answer_invalid", path, "Every quiz answer requires an id and text."));
+            }
+        }
+
+        ValidateEffects(quiz.CorrectEffects, $"{path}.correctEffects", issues, 0);
+        ValidateEffects(quiz.IncorrectEffects, $"{path}.incorrectEffects", issues, 0);
+    }
+
+    private static void ValidateChoices(
+        IReadOnlyList<NarrativeChoice> choices,
+        string path,
+        IReadOnlyDictionary<string, NarrativeNode> nodes,
+        List<ValidationIssue> issues)
+    {
+        string[] duplicateIds = choices
+            .GroupBy(static choice => choice.Id, StringComparer.Ordinal)
+            .Where(static group => group.Count() > 1)
+            .Select(static group => group.Key)
+            .ToArray();
+        foreach (string duplicateId in duplicateIds)
+        {
+            issues.Add(Error("duplicate_choice", path, $"Choice id '{duplicateId}' is duplicated."));
+        }
+
+        foreach (NarrativeChoice choice in choices)
+        {
+            string choicePath = $"{path}.{choice.Id}";
+            if (string.IsNullOrWhiteSpace(choice.Id))
+            {
+                issues.Add(Error("choice_id_required", choicePath, "Every choice requires a stable id."));
+            }
+
+            if (string.IsNullOrWhiteSpace(choice.Text))
+            {
+                issues.Add(Error("choice_text_required", choicePath, "Every choice requires display text."));
+            }
+
+            if (!nodes.ContainsKey(choice.TargetNodeId))
+            {
+                issues.Add(Error("target_missing", choicePath, $"Target node '{choice.TargetNodeId}' does not exist."));
+            }
+
+            ValidateCondition(choice.Condition, $"{choicePath}.condition", nodes, issues, 0);
+            ValidateEffects(choice.Effects, $"{choicePath}.effects", issues, 0);
+        }
     }
 
     private static void ValidateCondition(
@@ -528,7 +851,12 @@ public static class ScenarioValidator
                 continue;
             }
 
-            foreach (NarrativeChoice choice in node.Choices)
+            IEnumerable<NarrativeChoice> choices = node.Choices.Concat(
+                node.Interactions?
+                    .OfType<ChoiceSetInteraction>()
+                    .SelectMany(static interaction => interaction.Choices)
+                ?? []);
+            foreach (NarrativeChoice choice in choices)
             {
                 pending.Push(choice.TargetNodeId);
             }

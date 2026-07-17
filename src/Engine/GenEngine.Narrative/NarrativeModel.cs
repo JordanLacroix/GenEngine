@@ -5,6 +5,7 @@ namespace GenEngine.Narrative;
 public static class NarrativeVersions
 {
     public const int Schema = 1;
+    public const int LatestSchema = 2;
     public const string Runtime = "1.0.0";
     public const string HashFormat = "sha256-canonical-json-v1";
     public const string RngAlgorithm = "splitmix64-v1";
@@ -22,7 +23,10 @@ public sealed record NarrativeNode(
     ConditionExpression? EnterCondition,
     IReadOnlyList<LocalGameEffect> OnEnterEffects,
     IReadOnlyList<NarrativeChoice> Choices,
-    bool IsEnding = false);
+    bool IsEnding = false)
+{
+    public IReadOnlyList<StepInteraction>? Interactions { get; init; }
+}
 
 public sealed record NarrativeChoice(
     string Id,
@@ -30,6 +34,32 @@ public sealed record NarrativeChoice(
     string TargetNodeId,
     ConditionExpression? Condition,
     IReadOnlyList<LocalGameEffect> Effects);
+
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[JsonDerivedType(typeof(NarrationInteraction), "narration")]
+[JsonDerivedType(typeof(ChoiceSetInteraction), "choiceSet")]
+[JsonDerivedType(typeof(QuizInteraction), "quiz")]
+public abstract record StepInteraction(string Id);
+
+public sealed record NarrationInteraction(
+    string Id,
+    string Text,
+    IReadOnlyList<LocalGameEffect> ContinueEffects) : StepInteraction(Id);
+
+public sealed record ChoiceSetInteraction(
+    string Id,
+    string Prompt,
+    IReadOnlyList<NarrativeChoice> Choices) : StepInteraction(Id);
+
+public sealed record QuizInteraction(
+    string Id,
+    string Prompt,
+    IReadOnlyList<QuizAnswer> Answers,
+    string CorrectAnswerId,
+    IReadOnlyList<LocalGameEffect> CorrectEffects,
+    IReadOnlyList<LocalGameEffect> IncorrectEffects) : StepInteraction(Id);
+
+public sealed record QuizAnswer(string Id, string Text);
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(AlwaysCondition), "always")]
@@ -115,6 +145,8 @@ public sealed record WorldState(
 
     public List<JournalEntry> Journal { get; init; } = [];
 
+    public List<InteractionHistoryEntry> InteractionHistory { get; init; } = [];
+
     public static WorldState Empty() => new(
         new Dictionary<string, int>(StringComparer.Ordinal),
         new HashSet<string>(StringComparer.Ordinal),
@@ -125,6 +157,13 @@ public sealed record WorldState(
 public sealed record ChoiceHistoryEntry(string NodeId, string ChoiceId, int Turn);
 
 public sealed record JournalEntry(string Label, string? Scope, int Turn);
+
+public sealed record InteractionHistoryEntry(
+    string NodeId,
+    string InteractionId,
+    string InputId,
+    bool? WasCorrect,
+    int Turn);
 
 [JsonConverter(typeof(JsonStringEnumConverter<SessionStatus>))]
 public enum SessionStatus
@@ -139,14 +178,32 @@ public sealed record GameState(
     string CurrentNodeId,
     int Turn,
     SessionStatus Status,
-    WorldState World);
+    WorldState World)
+{
+    public int InteractionIndex { get; init; }
+}
+
+[JsonConverter(typeof(JsonStringEnumConverter<InteractionKind>))]
+public enum InteractionKind
+{
+    LegacyChoice,
+    Narration,
+    ChoiceSet,
+    Quiz,
+    Completed,
+}
 
 public sealed record CurrentStep(
     string NodeId,
     string Text,
     SessionStatus Status,
     IReadOnlyList<VisibleChoice> Choices,
-    int Turn);
+    int Turn)
+{
+    public string? InteractionId { get; init; }
+
+    public InteractionKind Kind { get; init; } = InteractionKind.LegacyChoice;
+}
 
 public sealed record VisibleChoice(string Id, string Text);
 
