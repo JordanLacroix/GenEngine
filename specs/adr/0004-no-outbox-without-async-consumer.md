@@ -20,6 +20,8 @@ Ne rien ajouter : **pas d'outbox, pas de bus, pas de table de messages, pas de w
 
 L'introduction d'une outbox est explicitement différée jusqu'à ce qu'un besoin réel apparaisse, c'est-à-dire l'arrivée d'un **consommateur asynchrone validé** (par exemple projection, notification, intégration externe ou tout traitement découplé du cycle requête/réponse).
 
+Les `ExternalEffectEvent` produits par le moteur Narrative ne changent pas cette décision : ils font partie du résultat déterministe sauvegardé et n'implémentent ni dispatch, ni retry, ni acquittement. Une outbox ne sera introduite à la frontière de Play que lorsqu'un consommateur externe concret devra recevoir ces contrats.
+
 Le déclencheur de réévaluation est donc concret : dès qu'une fonctionnalité exige de publier un événement de façon fiable vers un consommateur qui ne partage pas la transaction émettrice, cet ADR devra être révisé et l'outbox conçue à ce moment-là (nouvel ADR).
 
 ## Conséquences

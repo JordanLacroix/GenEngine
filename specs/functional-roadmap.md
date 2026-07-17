@@ -40,7 +40,7 @@ Cette roadmap rapproche progressivement le noyau actuel de la cible produit d'or
 - [x] événements différés par tour, condition et date logique ;
 - [x] projections journal/collection/synthèse ;
 - [ ] ports déterministes pour météo, présence, temps et analyse d'entrée ;
-- [ ] effets externes émis sous forme d'événements, sans couplage du moteur.
+- [x] effets externes émis sous forme d'événements, sans couplage du moteur.
 
 ## Après le noyau
 

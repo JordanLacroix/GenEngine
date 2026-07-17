@@ -177,10 +177,37 @@ public sealed class NarrativeRuntime
         }
 
         TextAnalysisResult analysis = DeterministicTextAnalyzer.Analyze(freeText, text);
+        return SubmitTextAnalysis(scenario, state, analysis);
+    }
+
+    public static GameState SubmitTextAnalysis(
+        ScenarioDocument scenario,
+        GameState state,
+        TextAnalysisResult analysis)
+    {
+        if (state.Status is not SessionStatus.AwaitingExternalInput)
+        {
+            throw new NarrativeException(
+                "session_not_awaiting_external_input",
+                "The session is not awaiting an external input.");
+        }
+
+        NarrativeNode node = FindNode(scenario, state.CurrentNodeId);
+        StepInteraction interaction = GetCurrentInteraction(node, state);
+        if (interaction is not FreeTextInteraction freeText)
+        {
+            throw new NarrativeException("interaction_not_free_text", "The current interaction is not a free-text input.");
+        }
+
+        ValidateTextAnalysis(freeText, analysis);
+        TextAnalysisResult frozenAnalysis = analysis with
+        {
+            MatchedTerms = [.. analysis.MatchedTerms],
+        };
         return state with
         {
             Status = SessionStatus.AwaitingValidation,
-            PendingTextAnalysis = analysis,
+            PendingTextAnalysis = frozenAnalysis,
         };
     }
 
@@ -542,6 +569,10 @@ public sealed class NarrativeRuntime
         InteractionHistory = [.. source.InteractionHistory],
         Characteristics = new Dictionary<string, int>(source.Characteristics, StringComparer.Ordinal),
         LogicalDay = source.LogicalDay,
+        ExternalEvents = source.ExternalEvents.Select(static external => external with
+        {
+            Attributes = new Dictionary<string, string>(external.Attributes, StringComparer.Ordinal),
+        }).ToList(),
     };
 
     private static void ApplyEffects(WorldState world, IEnumerable<LocalGameEffect> effects, int currentTurn)
@@ -603,6 +634,19 @@ public sealed class NarrativeRuntime
             case AdvanceLogicalTimeEffect advance:
                 world.LogicalDay = checked(world.LogicalDay + advance.Days);
                 break;
+            case EmitExternalEventEffect external:
+                world.ExternalEvents.Add(new ExternalEffectEvent(
+                    checked(world.ExternalEvents.Count + 1),
+                    external.EventName,
+                    external.Attributes
+                        .OrderBy(static attribute => attribute.Key, StringComparer.Ordinal)
+                        .ToDictionary(
+                            static attribute => attribute.Key,
+                            static attribute => attribute.Value,
+                            StringComparer.Ordinal),
+                    currentTurn,
+                    world.LogicalDay));
+                break;
             case SetCharacteristicEffect characteristic:
                 world.Characteristics[characteristic.Name] = characteristic.Value;
                 break;
@@ -650,8 +694,46 @@ public sealed class NarrativeRuntime
         scheduled.DueTurn <= currentTurn
         && (scheduled.DueLogicalDay is null || scheduled.DueLogicalDay <= world.LogicalDay)
         && ConditionEvaluator.Evaluate(scheduled.Condition, world);
+
+    private static void ValidateTextAnalysis(FreeTextInteraction interaction, TextAnalysisResult analysis)
+    {
+        if (!string.Equals(interaction.Id, analysis.InteractionId, StringComparison.Ordinal)
+            || analysis.MinimumMatches != interaction.MinimumMatches)
+        {
+            throw new NarrativeException(
+                "text_analysis_mismatch",
+                "The supplied analysis does not match the current interaction.");
+        }
+
+        HashSet<string> allowedTerms = interaction.RequiredTerms
+            .Select(DeterministicTextAnalyzer.NormalizeForComparison)
+            .ToHashSet(StringComparer.Ordinal);
+        string[] normalizedMatches = analysis.MatchedTerms
+            .Select(DeterministicTextAnalyzer.NormalizeForComparison)
+            .ToArray();
+        bool matchesAreValid = normalizedMatches.Length == normalizedMatches.Distinct(StringComparer.Ordinal).Count()
+            && normalizedMatches.All(allowedTerms.Contains);
+        bool expectedAcceptance = normalizedMatches.Length >= interaction.MinimumMatches;
+        if (!matchesAreValid || analysis.IsAccepted != expectedAcceptance || string.IsNullOrWhiteSpace(analysis.Explanation))
+        {
+            throw new NarrativeException(
+                "text_analysis_invalid",
+                "The supplied analysis is inconsistent with the current interaction rubric.");
+        }
+    }
 }
 
+
+public interface ITextInputAnalyzer
+{
+    TextAnalysisResult Analyze(FreeTextInteraction interaction, string text);
+}
+
+public sealed class KeywordTextInputAnalyzer : ITextInputAnalyzer
+{
+    public TextAnalysisResult Analyze(FreeTextInteraction interaction, string text) =>
+        DeterministicTextAnalyzer.Analyze(interaction, text);
+}
 
 public static class DeterministicTextAnalyzer
 {
@@ -1267,6 +1349,28 @@ public static class ScenarioValidator
                     break;
                 case AdvanceLogicalTimeEffect { Days: < 0 }:
                     issues.Add(Error("logical_time_days_invalid", effectPath, "Logical time cannot move backwards."));
+                    break;
+                case EmitExternalEventEffect external:
+                    if (string.IsNullOrWhiteSpace(external.EventName) || external.EventName.Length > 100)
+                    {
+                        issues.Add(Error(
+                            "external_event_name_invalid",
+                            effectPath,
+                            "An external event requires a name of at most 100 characters."));
+                    }
+
+                    if (external.Attributes.Count > 32
+                        || external.Attributes.Any(static attribute =>
+                            string.IsNullOrWhiteSpace(attribute.Key)
+                            || attribute.Key.Length > 100
+                            || attribute.Value.Length > 500))
+                    {
+                        issues.Add(Error(
+                            "external_event_attributes_invalid",
+                            effectPath,
+                            "External event attributes must contain at most 32 bounded key/value pairs."));
+                    }
+
                     break;
                 case AssignEffect assign when string.IsNullOrWhiteSpace(assign.Name):
                     issues.Add(Error("effect_name_required", effectPath, "A variable effect requires a name."));

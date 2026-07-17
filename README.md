@@ -33,7 +33,7 @@ Le projet vise un moteur :
 - **sobre en dépendances** — licences permissives et compatibles avec un usage commercial.
 
 > [!IMPORTANT]
-> GenEngine a terminé le **jalon 3** (durcissement) et approfondit le **jalon 4** côté fonctionnel : état joueur riche, interactions typées, sauvegardes migrables, effets différés conditionnels, date logique, projections joueur, arbre de session, texte libre confirmé, analyse structurelle et prévisualisation auteur. Les clients seront alignés sur ces contrats stabilisés.
+> GenEngine a terminé le **jalon 3** (durcissement) et approfondit le **jalon 4** côté fonctionnel : état joueur riche, interactions typées, sauvegardes migrables, effets différés, date logique, projections joueur, analyse d'entrée substituable et effets externes exprimés sans I/O. Les clients seront alignés sur ces contrats stabilisés.
 
 ## État du projet
 
