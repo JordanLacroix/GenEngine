@@ -36,6 +36,7 @@ public sealed class NarrativePersistenceAndTreeTests
         Assert.Equal(NarrativeVersions.Schema, restored.ScenarioSchemaVersion);
         Assert.Equal(77UL, restored.Seed);
         Assert.Equal(legacyDate, restored.SavedAt);
+        Assert.Equal(["legacy-state-to-save-v1", "save-v1-to-v2"], restored.AppliedMigrations);
         Assert.Equal(NarrativeJson.Serialize(state), NarrativeJson.Serialize(restored.State));
     }
 

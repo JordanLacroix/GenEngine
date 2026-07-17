@@ -53,7 +53,7 @@ public sealed class AuthoringService(IAuthoringRepository repository, TimeProvid
         string draftJson,
         CancellationToken cancellationToken)
     {
-        ScenarioDocument document = Deserialize(draftJson);
+        ScenarioDocument document = MigrateDraft(draftJson);
         Scenario scenario = Scenario.Create(ownerId, document.Title, NarrativeJson.Serialize(document), GetUtcNow());
         await repository.AddAsync(scenario, cancellationToken).ConfigureAwait(false);
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -73,7 +73,7 @@ public sealed class AuthoringService(IAuthoringRepository repository, TimeProvid
         string draftJson,
         CancellationToken cancellationToken)
     {
-        ScenarioDocument document = Deserialize(draftJson);
+        ScenarioDocument document = MigrateDraft(draftJson);
         Scenario scenario = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
         scenario.UpdateDraft(document.Title, NarrativeJson.Serialize(document), expectedRevision, GetUtcNow());
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -175,6 +175,18 @@ public sealed class AuthoringService(IAuthoringRepository repository, TimeProvid
         try
         {
             return NarrativeJson.Deserialize<ScenarioDocument>(json);
+        }
+        catch (Exception exception) when (exception is System.Text.Json.JsonException or NotSupportedException)
+        {
+            throw new AuthoringException("invalid_json", "The scenario JSON is invalid.", exception);
+        }
+    }
+
+    private static ScenarioDocument MigrateDraft(string json)
+    {
+        try
+        {
+            return ScenarioMigrationPipeline.MigrateToLatest(json).Document;
         }
         catch (Exception exception) when (exception is System.Text.Json.JsonException or NotSupportedException)
         {

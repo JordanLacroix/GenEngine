@@ -11,3 +11,4 @@
 | NAR-007 | done | Exécuter des interactions typées | Narration, quiz, choix, gates de caractéristiques et texte libre confirmé couverts |
 | NAR-008 | done | Versionner les sauvegardes et projeter l'arbre | Lecture legacy, enveloppe versionnée et arbre de session testés |
 | NAR-009 | done | Analyser la structure et prévisualiser un état injecté | Boucles, impasses, fins inatteignables et aperçu isolé couverts |
+| NAR-010 | done | Chaîner les migrations et figer le replay historique | Scénario v1, sauvegarde v1 et état final v2 couverts par fixtures golden |

@@ -7,6 +7,27 @@ namespace GenEngine.Services.Tests;
 public sealed class PublishedCatalogTests
 {
     [Fact]
+    public async Task ImportMigratesLegacyDraftWithoutHidingBusinessValidationIssues()
+    {
+        ScenarioDocument legacy = CreateDocument("Legacy draft", "Opening") with
+        {
+            InitialNodeId = "missing",
+        };
+        var repository = new CatalogRepository();
+        var service = new AuthoringService(repository, TimeProvider.System);
+
+        ScenarioView imported = await service.ImportAsync(
+            "owner",
+            NarrativeJson.Serialize(legacy),
+            CancellationToken.None);
+        ScenarioDocument stored = NarrativeJson.Deserialize<ScenarioDocument>(imported.DraftJson);
+
+        Assert.Equal(NarrativeVersions.LatestSchema, stored.SchemaVersion);
+        Assert.False(ScenarioValidator.Validate(stored).IsValid);
+        Assert.NotNull(repository.AddedScenario);
+    }
+
+    [Fact]
     public async Task CatalogUsesLatestPublishedSnapshotInsteadOfCurrentDraft()
     {
         DateTimeOffset now = new(2026, 7, 17, 18, 0, 0, TimeSpan.Zero);
@@ -49,10 +70,15 @@ public sealed class PublishedCatalogTests
 
     private sealed class CatalogRepository(params Scenario[] scenarios) : IAuthoringRepository
     {
+        public Scenario? AddedScenario { get; private set; }
+
         public int RequestedLimit { get; private set; }
 
-        public Task AddAsync(Scenario scenario, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
+        public Task AddAsync(Scenario scenario, CancellationToken cancellationToken)
+        {
+            AddedScenario = scenario;
+            return Task.CompletedTask;
+        }
 
         public Task<Scenario?> GetAsync(Guid id, string ownerId, CancellationToken cancellationToken) =>
             Task.FromResult(scenarios.SingleOrDefault(scenario => scenario.Id == id));

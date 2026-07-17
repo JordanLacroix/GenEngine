@@ -33,7 +33,7 @@ Le projet vise un moteur :
 - **sobre en dépendances** — licences permissives et compatibles avec un usage commercial.
 
 > [!IMPORTANT]
-> GenEngine a terminé le **jalon 3** (durcissement) et approfondit le **jalon 4** côté fonctionnel : état joueur riche, interactions typées, sauvegardes versionnées, arbre de session, gates de caractéristiques, texte libre confirmé, analyse structurelle et prévisualisation auteur. Les clients seront alignés sur ces contrats stabilisés.
+> GenEngine a terminé le **jalon 3** (durcissement) et approfondit le **jalon 4** côté fonctionnel : état joueur riche, interactions typées, sauvegardes versionnées et migrables, replay golden, arbre de session, gates de caractéristiques, texte libre confirmé, analyse structurelle et prévisualisation auteur. Les clients seront alignés sur ces contrats stabilisés.
 
 ## État du projet
 
@@ -292,7 +292,7 @@ Ne jamais annoncer une fonctionnalité comme disponible avant qu’elle soit imp
 | **1 — Moteur en mémoire** | Domain, evaluator, reducer, runtime, validation et tests déterministes | ✅ Terminé |
 | **2 — Backend jouable** | Services autonomes, PostgreSQL séparés, publication, sessions, auth et Docker | ✅ Terminé |
 | **3 — Durcissement** | Observabilité complète, sécurité, résilience et sauvegarde/restauration | ✅ Terminé |
-| **4 — Première extension** | Une extension choisie selon les retours utilisateurs | ⏳ À décider |
+| **4 — Extension fonctionnelle du moteur** | Convergence progressive vers la cible produit historique avant enrichissement des clients | 🚧 En cours |
 
 ## Contribuer
 

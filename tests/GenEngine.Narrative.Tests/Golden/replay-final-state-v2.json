@@ -1,0 +1,15 @@
+{
+  "currentNodeId": "ending",
+  "turn": 1,
+  "status": "Completed",
+  "world": {
+    "variables": { "courage": 3 },
+    "inventory": [],
+    "visitedNodes": ["start", "ending"],
+    "scheduledEffects": [],
+    "rewards": ["storm-walker"],
+    "choiceHistory": [
+      { "nodeId": "start", "choiceId": "brave", "turn": 1 }
+    ]
+  }
+}

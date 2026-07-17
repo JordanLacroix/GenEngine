@@ -15,4 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Engine\GenEngine.Narrative\GenEngine.Narrative.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="Golden/**/*.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

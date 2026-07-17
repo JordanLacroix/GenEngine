@@ -1,0 +1,17 @@
+{
+  "formatVersion": 1,
+  "scenarioSchemaVersion": 1,
+  "seed": 42,
+  "savedAt": "2026-07-17T20:00:00+00:00",
+  "state": {
+    "currentNodeId": "start",
+    "turn": 0,
+    "status": "AwaitingInput",
+    "world": {
+      "variables": { "courage": 1 },
+      "inventory": [],
+      "visitedNodes": ["start"],
+      "scheduledEffects": []
+    }
+  }
+}
