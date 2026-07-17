@@ -10,9 +10,9 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 ## Authoring — port 5201
 
 - `GET /catalog?limit=20` — dernières versions publiées, accès public, limite bornée entre 1 et 100
-- `POST /scenarios/import`
+- `POST /scenarios/import` — migre le brouillon vers le schéma courant avant stockage
 - `GET /scenarios/{id}`
-- `PUT /scenarios/{id}/draft`
+- `PUT /scenarios/{id}/draft` — migre le brouillon vers le schéma courant avant stockage
 - `POST /scenarios/{id}/validate`
 - `POST /scenarios/{id}/analyze` — boucles, sorties garanties, risques d'impasse conditionnelle et fins inatteignables
 - `POST /scenarios/{id}/preview` — prévisualisation depuis un nœud et un tour choisis avec état joueur injecté

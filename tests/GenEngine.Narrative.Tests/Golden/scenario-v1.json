@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "title": "Golden migration journey",
+  "initialNodeId": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "text": "A storm approaches.",
+      "enterCondition": null,
+      "onEnterEffects": [
+        { "$type": "assign", "name": "courage", "value": 1 }
+      ],
+      "choices": [
+        {
+          "id": "brave",
+          "text": "Face the storm",
+          "targetNodeId": "ending",
+          "condition": null,
+          "effects": [
+            { "$type": "increment", "name": "courage", "amount": 2 }
+          ]
+        }
+      ],
+      "isEnding": false
+    },
+    {
+      "id": "ending",
+      "text": "The storm passes.",
+      "enterCondition": null,
+      "onEnterEffects": [
+        { "$type": "grantReward", "reward": "storm-walker" }
+      ],
+      "choices": [],
+      "isEnding": true
+    }
+  ]
+}
