@@ -46,6 +46,7 @@ Le projet vise un moteur :
 | Spécifications et invariants initiaux | ✅ Documentés |
 | Scénarios JSON de référence | ✅ Trois scénarios |
 | Moteur narratif en mémoire | ✅ Déterministe et testé |
+| État joueur riche, choix explicables et simulation de branches | ✅ Fonctionnel et testé |
 | PostgreSQL et sessions persistées | ✅ Une base par service |
 | Docker Compose | ✅ Parcours jouable automatisé |
 | Catalogue public des versions publiées | ✅ Consommable par les clients Web et iOS |
