@@ -59,9 +59,9 @@ echo "[6/11] Preview injected state"
 preview=$(curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $token" \
   -H 'Content-Type: application/json' \
-  -d '{"nodeId":"safe-end","turn":4,"inventory":["author-map"],"characteristics":{"insight":2}}' \
+  -d '{"nodeId":"safe-end","turn":4,"logicalDay":7,"inventory":["author-map"],"characteristics":{"insight":2}}' \
   "$AUTHORING_URL/scenarios/$scenario_id/preview")
-jq -e '.state.currentNodeId == "safe-end" and .state.turn == 4 and .state.status == "Completed" and (.state.world.inventory | index("author-map")) != null and .currentStep.kind == "Completed"' <<<"$preview" >/dev/null
+jq -e '.state.currentNodeId == "safe-end" and .state.turn == 4 and .state.world.logicalDay == 7 and .state.status == "Completed" and (.state.world.inventory | index("author-map")) != null and .currentStep.kind == "Completed"' <<<"$preview" >/dev/null
 
 echo "[7/11] Publish snapshot"
 if ! published=$(curl --fail-with-body --silent --show-error \

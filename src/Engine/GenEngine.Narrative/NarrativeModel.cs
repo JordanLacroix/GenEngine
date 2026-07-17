@@ -128,6 +128,7 @@ public sealed record CharacteristicAtLeastCondition(string Name, int Value) : Co
 [JsonDerivedType(typeof(GrantRewardEffect), "grantReward")]
 [JsonDerivedType(typeof(RecordNotableEventEffect), "recordNotableEvent")]
 [JsonDerivedType(typeof(ScheduleEffect), "schedule")]
+[JsonDerivedType(typeof(AdvanceLogicalTimeEffect), "advanceLogicalTime")]
 [JsonDerivedType(typeof(SetCharacteristicEffect), "setCharacteristic")]
 [JsonDerivedType(typeof(ChangeCharacteristicEffect), "changeCharacteristic")]
 public abstract record LocalGameEffect;
@@ -148,13 +149,25 @@ public sealed record GrantRewardEffect(string Reward) : LocalGameEffect;
 
 public sealed record RecordNotableEventEffect(string Label, string? Scope = null) : LocalGameEffect;
 
-public sealed record ScheduleEffect(int Turns, LocalGameEffect Effect) : LocalGameEffect;
+public sealed record ScheduleEffect(int Turns, LocalGameEffect Effect) : LocalGameEffect
+{
+    public int Days { get; init; }
+
+    public ConditionExpression? Condition { get; init; }
+}
+
+public sealed record AdvanceLogicalTimeEffect(int Days) : LocalGameEffect;
 
 public sealed record SetCharacteristicEffect(string Name, int Value) : LocalGameEffect;
 
 public sealed record ChangeCharacteristicEffect(string Name, int Amount) : LocalGameEffect;
 
-public sealed record ScheduledEffect(int DueTurn, LocalGameEffect Effect);
+public sealed record ScheduledEffect(int DueTurn, LocalGameEffect Effect)
+{
+    public int? DueLogicalDay { get; init; }
+
+    public ConditionExpression? Condition { get; init; }
+}
 
 public sealed record WorldState(
     Dictionary<string, int> Variables,
@@ -175,6 +188,8 @@ public sealed record WorldState(
     public List<InteractionHistoryEntry> InteractionHistory { get; init; } = [];
 
     public Dictionary<string, int> Characteristics { get; init; } = new(StringComparer.Ordinal);
+
+    public int LogicalDay { get; set; }
 
     public static WorldState Empty() => new(
         new Dictionary<string, int>(StringComparer.Ordinal),

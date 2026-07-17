@@ -102,6 +102,15 @@ public sealed class PlayService(
         return NarrativeTreeBuilder.Build(DeserializeScenario(session), DeserializeState(session));
     }
 
+    public async Task<PlayerProjection> GetPlayerProjectionAsync(
+        Guid id,
+        string ownerId,
+        CancellationToken cancellationToken)
+    {
+        GameSession session = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
+        return PlayerProjectionBuilder.Build(DeserializeState(session));
+    }
+
     public async Task<InputResult> SubmitChoiceAsync(
         Guid id,
         string ownerId,

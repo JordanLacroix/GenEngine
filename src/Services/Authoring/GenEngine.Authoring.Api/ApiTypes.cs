@@ -15,6 +15,8 @@ public sealed record PublishRequest(int ExpectedRevision);
 
 public sealed record ScenarioPreviewRequest(string NodeId, int Turn = 0)
 {
+    public int LogicalDay { get; init; }
+
     public Dictionary<string, int>? Variables { get; init; }
 
     public Dictionary<string, int>? Characteristics { get; init; }

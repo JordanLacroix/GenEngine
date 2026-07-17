@@ -43,7 +43,10 @@ ending_id=$(uuidgen | tr '[:upper:]' '[:lower:]')
 completed=$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d "{\"commandId\":\"$ending_id\",\"expectedRevision\":4}" "$PLAY_URL/sessions/$session_id/continue")
 jq -e '.session.revision == 5 and .session.status == "Completed" and .currentStep.kind == "Completed"' <<<"$completed" >/dev/null
 
+player=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$PLAY_URL/sessions/$session_id/player")
+jq -e '.summary.status == "Completed" and .summary.turn == 4 and .summary.interactionCount == 4 and (.collection.evidence | index("unsupported-claim")) != null and (.collection.rewards | index("fact-checker")) != null and (.journal | length) == 1' <<<"$player" >/dev/null
+
 replayed=$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d "{\"commandId\":\"$ending_id\",\"expectedRevision\":4}" "$PLAY_URL/sessions/$session_id/continue")
 jq -e '.replayed == true and .session.revision == 5' <<<"$replayed" >/dev/null
 
-echo "Typed interaction smoke test passed: narration → quiz → choice → tree → ending → replay"
+echo "Typed interaction smoke test passed: narration → quiz → choice → tree → player projection → ending → replay"

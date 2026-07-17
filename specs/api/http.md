@@ -15,7 +15,7 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 - `PUT /scenarios/{id}/draft` — migre le brouillon vers le schéma courant avant stockage
 - `POST /scenarios/{id}/validate`
 - `POST /scenarios/{id}/analyze` — boucles, sorties garanties, risques d'impasse conditionnelle et fins inatteignables
-- `POST /scenarios/{id}/preview` — prévisualisation depuis un nœud et un tour choisis avec état joueur injecté
+- `POST /scenarios/{id}/preview` — prévisualisation depuis un nœud, un tour et un jour logique choisis avec état joueur injecté
 - `POST /scenarios/{id}/publish`
 - `GET /scenarios/{id}/versions`
 - `GET /internal/scenario-versions/{versionId}` — clé interservice
@@ -26,6 +26,7 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 - `GET /sessions/{id}`
 - `GET /sessions/{id}/current-step`
 - `GET /sessions/{id}/tree` — arbre complet avec état courant, visité, inexploré ou verrouillé et explication des conditions
+- `GET /sessions/{id}/player` — synthèse de progression, collection et journal joueur déterministes
 - `POST /sessions/{id}/inputs`
 - `POST /sessions/{id}/continue` — progression d'une interaction de narration, commande idempotente
 - `POST /sessions/{id}/answers` — soumission d'une réponse de quiz, commande idempotente
