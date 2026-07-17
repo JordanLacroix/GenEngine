@@ -38,6 +38,9 @@ Un changement est prêt lorsque :
 - la solution compile sans warning et les tests pertinents passent ;
 - les invariants et frontières de modules restent respectés ;
 - les changements d’API, données ou configuration sont documentés ;
+- chaque capacité déclare ses paramètres, défauts, portées et comportement désactivé ;
+- chaque capacité déclare ses permissions et couvre côté serveur un cas autorisé et un cas refusé ;
+- l'isolation entre fronts/établissements et le mode hors ligne/sans IA sont vérifiés lorsqu'ils s'appliquent ;
 - README, specs, ADR et tâches reflètent l’état réel ;
 - aucune donnée sensible ni dépendance injustifiée n’est introduite ;
 - tous les contrôles GitHub requis sont verts.

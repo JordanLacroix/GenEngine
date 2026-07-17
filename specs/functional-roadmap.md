@@ -1,47 +1,122 @@
-# Roadmap fonctionnelle du moteur
+# Roadmap fonctionnelle priorisée
 
-Cette roadmap rapproche progressivement le noyau actuel de la cible produit d'origine. Elle privilégie les comportements jouables et authorables ; l'infrastructure, l'IA, l'économie et les interfaces ne sont introduites que lorsqu'un cas d'usage moteur les exige.
+Cette roadmap rapproche le backend distribué actuel de la cible produit d'origine. Le socle narratif livré reste la fondation ; la priorité passe désormais à la configuration exhaustive de la plateforme et du moteur, au RBAC, aux organisations école/entreprise/formation, puis à l'assistant/familier, à l'IA optionnelle et à l'économie.
 
-## F1 — État joueur riche et explicable
+## Règles transverses non négociables
 
-- [x] preuves découvertes, relations, récompenses et inventaire mutable ;
-- [x] historique ordonné des choix et journal d'événements notables ;
-- [x] conditions et effets déclaratifs associés ;
-- [x] explication arborescente de la disponibilité de chaque choix ;
-- [x] simulation bornée de toutes les branches atteignables ;
-- [x] validation des budgets de complexité et des ambiguïtés d'auteur.
+Chaque nouvelle capacité doit, dans la même tranche verticale :
 
-## F2 — Interactions typées et machine à états
+1. déclarer ses paramètres typés, leurs valeurs par défaut, leur portée et leur validation ;
+2. déclarer les permissions nécessaires et les appliquer côté serveur, jamais seulement dans l'interface ;
+3. couvrir au minimum un cas autorisé et un cas refusé par des tests ;
+4. définir son comportement lorsque le module est désactivé ou sa configuration absente ;
+5. auditer toute mutation sensible sans journaliser de secret ni de donnée personnelle ;
+6. mettre à jour la matrice RBAC, les contrats, les specs, les tâches et les clients concernés ;
+7. préserver un parcours jouable sans fournisseur cloud ni fournisseur d'IA.
 
-- [x] séquence d'interactions par nœud : narration, choix et quiz ;
-- [x] gate de caractéristique et branchement automatique ;
-- [x] statuts `AwaitingValidation` et `AwaitingExternalInput` ;
-- [x] commandes idempotentes typées : continuer, répondre et choisir ;
-- [x] texte libre déterministe, analyse explicable et confirmation avant progression ;
-- [ ] points d'extension pour document, photo et dialogue IA avec fallback déterministe.
+Les références transverses sont [`platform-configuration.md`](platform-configuration.md) et le [`configuration-catalog.md`](configuration-catalog.md).
 
-## F3 — Sauvegardes et évolution des formats
+## Socle livré
 
-- [x] `GameSave` explicite et versionné, état complet, historique, graine et horodatage inclus ;
-- [x] migrations chaînées de scénario et de sauvegarde ;
-- [x] compatibilité de lecture des sauvegardes brutes historiques et snapshots publiés v1 ;
-- [x] tests golden de migration et de replay.
+- [x] état joueur riche, conditions/effets explicables et simulation bornée ;
+- [x] interactions typées, gates, texte libre déterministe et confirmation ;
+- [x] sauvegardes versionnées, migrations chaînées et replay golden ;
+- [x] exploration de session, analyse de graphe et prévisualisation auteur ;
+- [x] caractéristiques extensibles, effets différés, date logique et projections joueur ;
+- [x] analyse d'entrée substituable et événements d'effets externes sans I/O.
 
-## F4 — Exploration et authoring avancé
+## P0 — Configuration, RBAC et organisations
 
-- [x] arbre complet/parcouru/inexploré/verrouillé d'une session ;
-- [x] analyse des boucles, impasses conditionnelles et fins inatteignables ;
-- [x] aperçu depuis n'importe quel nœud avec état injecté ;
-- [ ] diff et restauration fonctionnelle de versions.
+Objectif : rendre la plateforme administrable sans valeurs métier codées en dur et établir le garde-fou d'autorisation utilisé par tous les lots suivants.
 
-## F5 — Capacités transverses branchées au moteur
+- [ ] registre de paramètres typés, versionnés et auditables avec défauts sûrs ;
+- [ ] résolution hiérarchique documentée : plateforme → front/établissement → catégorie ou parcours → groupe/classe → utilisateur ;
+- [ ] séparation stricte entre paramètres publiables et secrets d'infrastructure ;
+- [ ] feature flags et activation de modules par front avec dépendances validées ;
+- [ ] rôles entièrement personnalisables par composition de permissions stables, affectations portées et temporisées, policies serveur et endpoint des capacités effectives ;
+- [ ] presets de départ adaptables : administrateur plateforme/organisation, auteur, publieur, enseignant/formateur/manager, participant, analyste, gestionnaire IA, magasin et modération ;
+- [ ] audit des changements de configuration, rôles, permissions et affectations ;
+- [ ] import/export d'une configuration portable, validée et versionnée ;
+- [ ] modèle `Front` typé `School`, `Company`, `TrainingProvider`, `Community` ou `Custom` ;
+- [ ] profil d'organisation : identité, branding, locale, fuseau horaire, terminologie, calendrier et politiques par défaut ;
+- [ ] unités génériques : classes/promotions ou départements/équipes/cohortes, memberships et liens encadrant–participant ;
+- [ ] parcours et catégories de scénarios configurables, ordonnés et réutilisables ;
+- [ ] affectation de scénarios ou parcours à une classe/groupe avec disponibilité et échéance ;
+- [ ] politiques pédagogiques configurables : tentatives, reprise, aide autorisée, seuil de réussite et visibilité des résultats ;
+- [ ] authentification configurable par front et mapping de claims externes vers rôles, sans rendre un OIDC obligatoire ;
+- [ ] règles d'accès combinant front, rôle, groupe, catégorie, publication et feature flags ;
+- [ ] tests d'isolation garantissant qu'un acteur d'un établissement ne lit ni ne modifie celui d'un autre.
 
-- [x] caractéristiques joueur extensibles, conditions, effets et progression ;
-- [x] événements différés par tour, condition et date logique ;
-- [x] projections journal/collection/synthèse ;
-- [ ] ports déterministes pour météo, présence, temps et analyse d'entrée ;
-- [x] effets externes émis sous forme d'événements, sans couplage du moteur.
+Premier incrément attendu : ADR des frontières, registre + résolution de configuration, catalogue de permissions initial, rôles custom et squelette organisation/unité/catégorie, avant toute fonction IA.
 
-## Après le noyau
+## P1 — Assistant/familier configurable et aide hors ligne
 
-Catalogue avancé, économie, groupes, affectations, pédagogie, packs, IA optionnelle et clients seront développés à partir de ces contrats stabilisés. Ils ne doivent jamais réimplémenter les règles narratives.
+Objectif : fournir une aide contextuelle utile avant de dépendre d'un LLM.
+
+- [ ] modèle neutre de familier : identité, apparence, références d'assets, licence, style d'écriture et capacités d'assistance ;
+- [ ] configuration par défaut au niveau plateforme/front, limites par rôle et préférences utilisateur autorisées ;
+- [ ] sélection et personnalisation persistées, avec fallback vers un familier système valide ;
+- [ ] snapshot de configuration de l'assistant figé dans la session pour préserver le replay ;
+- [ ] contexte minimal et non identifiant : parcours, catégorie, objectif, nœud, interaction, variables autorisées et historique récent borné ;
+- [ ] aide statique/règles/indices auteurs pleinement fonctionnelle en mode hors ligne ;
+- [ ] niveaux et fréquence d'intervention configurables ;
+- [ ] import de familiers tiers derrière un adaptateur anti-corruption, dont Codex Pets, avec contrôle de licence ;
+- [ ] permissions dédiées pour consulter, personnaliser, administrer et importer les familiers.
+
+Le moteur `Narrative` porte uniquement les données déterministes nécessaires à la session et aux décisions d'aide. Les fournisseurs, prompts, credentials, quotas et appels réseau restent hors du moteur.
+
+## P2 — IA optionnelle, provider-agnostic et maîtrisée
+
+Objectif : augmenter l'assistant et l'authoring sans rendre le jeu, les tests ou Docker dépendants d'un service externe.
+
+- [ ] ports métier `INarrativeAssistant`, `IInputAnalyzer` et `IQuestGenerator` sans type de fournisseur dans les contrats ;
+- [ ] profils IA nommés et routage configurable par front, usage et catégorie ;
+- [ ] fournisseurs Offline, local et cloud interchangeables, choix par configuration ;
+- [ ] mode Offline déterministe activé par défaut et repli automatique sur aide statique ;
+- [ ] sorties structurées, validées et bornées ; aucune sortie IA ne modifie directement l'état narratif ;
+- [ ] confirmation humaine avant progression issue d'une interprétation libre et avant publication d'un contenu généré ;
+- [ ] redaction/allowlist des données envoyées, protection contre l'injection, modération et timeouts ;
+- [ ] métrage append-only des tokens/coûts avec pricing figé par appel et idempotence ;
+- [ ] quotas plateforme/front/rôle/utilisateur avec résolution explicite et dégradation hors ligne ;
+- [ ] permissions séparées pour utiliser l'IA, administrer les profils, lire les coûts, gérer pricing et quotas ;
+- [ ] trace de décision reproductible : résultat accepté figé dans la commande ou la sauvegarde, jamais régénéré pendant un replay.
+
+L'adoption éventuelle de `Microsoft.Extensions.AI` et de `IChatClient` dans l'infrastructure devra être confirmée par ADR au moment de l'implémentation. Aucun fournisseur particulier n'est une dépendance métier.
+
+## P3 — Économie, magasin et récompenses configurables
+
+Objectif : fournir une économie virtuelle entièrement pilotée par configuration et intégrée aux règles de déblocage, sans paiement réel implicite.
+
+- [ ] devises, précision, plafonds et règles de gain/dépense par front ;
+- [ ] wallet et ledger append-only, ajustements administratifs audités et idempotence ;
+- [ ] typologies de récompense extensibles : monnaie, titre, badge, cosmétique, familier, assistance, asset, collection, parcours ou scénario ;
+- [ ] magasins, rayons, items/offres, prix, disponibilité, ordre et ciblage configurables ;
+- [ ] stock, limites par joueur/groupe/période, conditions d'achat et règles de déblocage ;
+- [ ] inventaire, entitlements, équipement et customisation du familier ;
+- [ ] promotions virtuelles, bundles et événements saisonniers versionnés ;
+- [ ] historique d'achat, annulation/compensation métier et garde-fous anti-double dépense ;
+- [ ] permissions séparées pour consulter, acheter, gérer catalogue/prix/stock, ajuster un wallet et lire le ledger ;
+- [ ] packs capables d'importer/exporter devises, récompenses, cosmétiques et boutiques.
+
+Tout paiement en monnaie réelle nécessiterait un bounded context, un threat model et un ADR dédiés ; il n'est pas déduit de ce magasin virtuel.
+
+## P4 — Expériences fonctionnelles augmentées
+
+- [ ] dialogue contextuel du familier avec fallback déterministe ;
+- [ ] analyse de réponse libre par rubrique, explication et confirmation ;
+- [ ] copilote auteur : suggestions de nœuds, choix, indices et détection d'incohérences ;
+- [ ] génération de quête en brouillon conforme au schéma, validée par le moteur et soumise à revue humaine ;
+- [ ] interactions document et photo avec workflow de validation ;
+- [ ] diff et restauration fonctionnelle de versions ;
+- [ ] reporting d'usage de l'aide et de l'IA par organisation, unité, catégorie et période, agrégé et pseudonymisé.
+
+## P5 — Plateforme étendue configurable
+
+- [ ] météo, présence et cycle jour/nuit comme contextes déterministes ;
+- [ ] packs de préconfiguration portables ;
+- [ ] compétences, hauts faits, certification et analytics avancés ;
+- [ ] médias/documents, story arcs, aide/onboarding et espaces utilisateur ;
+- [ ] notifications, temps réel, sondages, gouvernance/modération et LiveOps ;
+- [ ] intégrations OIDC, LMS/LTI/xAPI, stockage, e-mail et webhooks derrière adaptateurs.
+
+Ces lots ne doivent ni réimplémenter les règles narratives dans les clients, ni contourner le registre de configuration ou les policies RBAC.

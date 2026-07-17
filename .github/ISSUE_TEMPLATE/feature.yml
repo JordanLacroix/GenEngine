@@ -27,6 +27,13 @@ body:
         - Authoring
         - Play
         - Identity
+        - Configuration
+        - Établissements, classes ou groupes
+        - Assistant ou familier
+        - IA ou metering
+        - Économie, magasin ou récompenses
+        - Catalogue, parcours ou catégories
+        - Analytics, KPI ou reporting
         - Infrastructure
         - API
         - CI/CD ou outillage
@@ -77,6 +84,25 @@ body:
       label: Contraintes et impacts techniques
       description: API, données, compatibilité, performance, déterminisme, sécurité, observabilité et migration.
       placeholder: Aucun impact identifié / préciser…
+    validations:
+      required: true
+  - type: textarea
+    id: configuration_rbac
+    attributes:
+      label: Configuration, RBAC et isolation
+      description: Paramètres et valeurs par défaut, portées, flag/module, permissions de lecture/usage/admin, rôles concernés et isolation entre fronts ou établissements.
+      placeholder: |
+        Paramètres et portées :
+        Comportement désactivé :
+        Permissions et rôles :
+        Isolation front/établissement :
+    validations:
+      required: true
+  - type: textarea
+    id: offline_ai
+    attributes:
+      label: Assistant, IA et mode hors ligne
+      description: Précisez l'impact sur l'assistant/familier, les données éventuellement envoyées à un fournisseur, les quotas et le fallback sans IA. Écrivez « non applicable » si nécessaire.
     validations:
       required: true
   - type: textarea

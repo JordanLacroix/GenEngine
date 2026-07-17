@@ -46,6 +46,19 @@ L’ingress n’est pas une application métier et ne compose pas les services e
 
 Un service ne lit ni la base, ni le `DbContext`, ni les assemblies internes d’un autre service.
 
+### Extensions fonctionnelles planifiées
+
+Le jalon 4 prévoit d'étendre la topologie par bounded contexts autonomes, sans agrandir les services existants jusqu'au spaghetti :
+
+| Service candidat | Ownership prévu | Statut |
+|---|---|---|
+| `Configuration` | Fronts, registre de settings, résolution hiérarchique, feature flags et modules | ADR puis P0 |
+| `Organization` | Écoles/entreprises/formations, périodes, classes/équipes/groupes, memberships et affectations | ADR puis P0 |
+| `Assistant` | Familiers, politiques d'aide, adaptateurs IA, metering et quotas | ADR puis P1/P2 |
+| `Economy` | Devises, wallet/ledger, récompenses, inventaire, magasins et achats | ADR puis P3 |
+
+Chaque ajout doit posséder son Domain, son Application, son Infrastructure, son API et sa base. La frontière détaillée et les contrats seront validés avant code dans un ADR ; la cible fonctionnelle est décrite dans [`platform-configuration.md`](platform-configuration.md).
+
 ## Clean Architecture par service
 
 Chaque service possède quatre projets et produit son propre exécutable :

@@ -31,6 +31,14 @@ Closes #
 - **Risques connus :**
 - **Points à challenger :**
 
+## Configuration et autorisation
+
+- **Paramètres/défauts/portées :** aucun / préciser
+- **Feature flag ou module :** aucun / préciser, y compris le comportement désactivé
+- **Permissions et rôles concernés :** aucun / préciser
+- **Isolation front/établissement :** non applicable / préciser
+- **Mode hors ligne ou sans IA :** non applicable / préciser
+
 ## Validation
 
 <!-- Commandes exécutées et résultats observés. -->
@@ -53,6 +61,9 @@ dotnet test --no-build
 - [ ] Le code compile sans warning et les tests pertinents passent.
 - [ ] Les nouveaux comportements sont couverts par des tests.
 - [ ] Les invariants, frontières de modules et règles de sécurité sont préservés.
+- [ ] Toute nouvelle capacité déclare et teste ses permissions côté serveur (cas autorisé et refusé).
+- [ ] Configuration, défauts, portées, flags et comportement désactivé sont documentés et testés si applicables.
+- [ ] L'isolation front/établissement et le fallback hors ligne/sans IA sont couverts si applicables.
 - [ ] Les changements d’API, de schéma ou de configuration sont documentés.
 - [ ] Le README, les specs, tâches et ADR concernés sont à jour.
 - [ ] Aucune clé, donnée personnelle ou information sensible n’est présente.
