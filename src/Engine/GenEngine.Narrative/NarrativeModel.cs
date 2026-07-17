@@ -129,6 +129,7 @@ public sealed record CharacteristicAtLeastCondition(string Name, int Value) : Co
 [JsonDerivedType(typeof(RecordNotableEventEffect), "recordNotableEvent")]
 [JsonDerivedType(typeof(ScheduleEffect), "schedule")]
 [JsonDerivedType(typeof(AdvanceLogicalTimeEffect), "advanceLogicalTime")]
+[JsonDerivedType(typeof(EmitExternalEventEffect), "emitExternalEvent")]
 [JsonDerivedType(typeof(SetCharacteristicEffect), "setCharacteristic")]
 [JsonDerivedType(typeof(ChangeCharacteristicEffect), "changeCharacteristic")]
 public abstract record LocalGameEffect;
@@ -157,6 +158,10 @@ public sealed record ScheduleEffect(int Turns, LocalGameEffect Effect) : LocalGa
 }
 
 public sealed record AdvanceLogicalTimeEffect(int Days) : LocalGameEffect;
+
+public sealed record EmitExternalEventEffect(
+    string EventName,
+    IReadOnlyDictionary<string, string> Attributes) : LocalGameEffect;
 
 public sealed record SetCharacteristicEffect(string Name, int Value) : LocalGameEffect;
 
@@ -191,6 +196,8 @@ public sealed record WorldState(
 
     public int LogicalDay { get; set; }
 
+    public List<ExternalEffectEvent> ExternalEvents { get; init; } = [];
+
     public static WorldState Empty() => new(
         new Dictionary<string, int>(StringComparer.Ordinal),
         new HashSet<string>(StringComparer.Ordinal),
@@ -201,6 +208,13 @@ public sealed record WorldState(
 public sealed record ChoiceHistoryEntry(string NodeId, string ChoiceId, int Turn);
 
 public sealed record JournalEntry(string Label, string? Scope, int Turn);
+
+public sealed record ExternalEffectEvent(
+    int Sequence,
+    string EventName,
+    IReadOnlyDictionary<string, string> Attributes,
+    int Turn,
+    int LogicalDay);
 
 public sealed record InteractionHistoryEntry(
     string NodeId,
