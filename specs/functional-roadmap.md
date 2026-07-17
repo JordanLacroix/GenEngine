@@ -43,4 +43,3 @@ Cette roadmap rapproche progressivement le noyau actuel de la cible produit d'or
 ## Après le noyau
 
 Catalogue avancé, économie, groupes, affectations, pédagogie, packs, IA optionnelle et clients seront développés à partir de ces contrats stabilisés. Ils ne doivent jamais réimplémenter les règles narratives.
-
