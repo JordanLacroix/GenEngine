@@ -12,3 +12,4 @@
 | NAR-008 | done | Versionner les sauvegardes et projeter l'arbre | Lecture legacy, enveloppe versionnée et arbre de session testés |
 | NAR-009 | done | Analyser la structure et prévisualiser un état injecté | Boucles, impasses, fins inatteignables et aperçu isolé couverts |
 | NAR-010 | done | Chaîner les migrations et figer le replay historique | Scénario v1, sauvegarde v1 et état final v2 couverts par fixtures golden |
+| NAR-011 | done | Déclencher les effets différés et projeter l'état joueur | Tours, jours logiques, conditions, synthèse, collection et journal couverts |

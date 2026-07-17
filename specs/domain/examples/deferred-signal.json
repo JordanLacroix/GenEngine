@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 2,
+  "title": "Le signal différé",
+  "initialNodeId": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "text": "Un signal traverse la brume.",
+      "onEnterEffects": [
+        {
+          "$type": "schedule",
+          "turns": 0,
+          "days": 2,
+          "condition": { "$type": "hasEvidence", "evidence": "signal-fragment" },
+          "effect": { "$type": "grantReward", "reward": "decoded-signal" }
+        },
+        {
+          "$type": "schedule",
+          "turns": 2,
+          "effect": {
+            "$type": "recordNotableEvent",
+            "label": "Le rendez-vous est arrivé.",
+            "scope": "timeline"
+          }
+        }
+      ],
+      "choices": [
+        {
+          "id": "investigate",
+          "text": "Enquêter",
+          "targetNodeId": "relay",
+          "effects": [
+            { "$type": "advanceLogicalTime", "days": 2 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "relay",
+      "text": "Le fragment est accessible.",
+      "onEnterEffects": [],
+      "choices": [
+        {
+          "id": "decode",
+          "text": "Décoder",
+          "targetNodeId": "ending",
+          "effects": [
+            { "$type": "discoverEvidence", "evidence": "signal-fragment" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ending",
+      "text": "Le message est révélé.",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true
+    }
+  ]
+}

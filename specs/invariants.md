@@ -9,3 +9,4 @@
 7. Le reducer ne modifie que le `WorldState` narratif local.
 8. Aucun script ou expression arbitraire fourni par un auteur n'est exécuté.
 9. Les anciennes sessions ne sont jamais rebasées silencieusement sur un nouveau snapshot.
+10. Le temps narratif est une donnée logique explicite de la session ; le moteur ne consulte jamais l'horloge système.

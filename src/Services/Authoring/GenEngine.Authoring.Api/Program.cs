@@ -240,6 +240,7 @@ static WorldState BuildPreviewWorld(ScenarioPreviewRequest request) => new(
     Rewards = request.Rewards is null
         ? new HashSet<string>(StringComparer.Ordinal)
         : new HashSet<string>(request.Rewards, StringComparer.Ordinal),
+    LogicalDay = request.LogicalDay,
 };
 
 static void AddJwtAuthentication(IServiceCollection services, IConfiguration configuration)

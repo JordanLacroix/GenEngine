@@ -7,3 +7,4 @@
 | PLY-003 | done | Soumettre un choix avec idempotence et contrôle optimiste |
 | PLY-004 | done | Exposer l'étape courante, la pause et la reprise |
 | PLY-005 | done | Couvrir le parcours complet par un smoke test Compose |
+| PLY-006 | done | Exposer la projection joueur synthèse/collection/journal |

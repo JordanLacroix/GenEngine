@@ -37,8 +37,8 @@ Cette roadmap rapproche progressivement le noyau actuel de la cible produit d'or
 ## F5 — Capacités transverses branchées au moteur
 
 - [x] caractéristiques joueur extensibles, conditions, effets et progression ;
-- [ ] événements différés par tour, condition et date logique ;
-- [ ] projections journal/collection/synthèse ;
+- [x] événements différés par tour, condition et date logique ;
+- [x] projections journal/collection/synthèse ;
 - [ ] ports déterministes pour météo, présence, temps et analyse d'entrée ;
 - [ ] effets externes émis sous forme d'événements, sans couplage du moteur.
 

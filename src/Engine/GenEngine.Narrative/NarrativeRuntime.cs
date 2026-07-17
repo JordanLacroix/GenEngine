@@ -17,6 +17,7 @@ public sealed class NarrativeRuntime
         WorldState world = WorldState.Empty();
         world.VisitedNodes.Add(initialNode.Id);
         ApplyEffects(world, initialNode.OnEnterEffects, 0);
+        ApplyDueEffects(world, 0);
 
         GameState state = new(
             initialNode.Id,
@@ -40,6 +41,12 @@ public sealed class NarrativeRuntime
         {
             throw new NarrativeException("preview_turn_invalid", "The preview turn cannot be negative.");
         }
+        if (injectedWorld.LogicalDay < 0)
+        {
+            throw new NarrativeException(
+                "preview_logical_day_invalid",
+                "The preview logical day cannot be negative.");
+        }
         ValidationReport report = ScenarioValidator.Validate(scenario);
         if (!report.IsValid)
         {
@@ -55,6 +62,7 @@ public sealed class NarrativeRuntime
 
         world.VisitedNodes.Add(node.Id);
         ApplyEffects(world, node.OnEnterEffects, turn);
+        ApplyDueEffects(world, turn);
         GameState state = new(node.Id, turn, GetInitialStatus(node), world)
         {
             InteractionIndex = 0,
@@ -357,6 +365,7 @@ public sealed class NarrativeRuntime
     {
         world.VisitedNodes.Add(node.Id);
         ApplyEffects(world, node.OnEnterEffects, turn);
+        ApplyDueEffects(world, turn);
         GameState state = new(
             node.Id,
             turn,
@@ -471,6 +480,7 @@ public sealed class NarrativeRuntime
             bool satisfied = ConditionEvaluator.Evaluate(gate.Condition, state.World);
             WorldState world = Clone(state.World);
             ApplyEffects(world, satisfied ? gate.SatisfiedEffects : gate.FailedEffects, state.Turn);
+            ApplyDueEffects(world, state.Turn);
             world.InteractionHistory.Add(new InteractionHistoryEntry(
                 node.Id,
                 gate.Id,
@@ -488,6 +498,7 @@ public sealed class NarrativeRuntime
 
             world.VisitedNodes.Add(target.Id);
             ApplyEffects(world, target.OnEnterEffects, state.Turn);
+            ApplyDueEffects(world, state.Turn);
             state = new GameState(
                 target.Id,
                 state.Turn,
@@ -530,6 +541,7 @@ public sealed class NarrativeRuntime
         Journal = [.. source.Journal],
         InteractionHistory = [.. source.InteractionHistory],
         Characteristics = new Dictionary<string, int>(source.Characteristics, StringComparer.Ordinal),
+        LogicalDay = source.LogicalDay,
     };
 
     private static void ApplyEffects(WorldState world, IEnumerable<LocalGameEffect> effects, int currentTurn)
@@ -570,11 +582,26 @@ public sealed class NarrativeRuntime
             case RecordNotableEventEffect notable:
                 world.Journal.Add(new JournalEntry(notable.Label, notable.Scope, currentTurn));
                 break;
-            case ScheduleEffect { Turns: <= 0 } schedule:
-                ApplyEffect(world, schedule.Effect, currentTurn);
-                break;
             case ScheduleEffect schedule:
-                world.ScheduledEffects.Add(new ScheduledEffect(checked(currentTurn + schedule.Turns), schedule.Effect));
+                var scheduled = new ScheduledEffect(checked(currentTurn + schedule.Turns), schedule.Effect)
+                {
+                    DueLogicalDay = schedule.Days > 0
+                        ? checked(world.LogicalDay + schedule.Days)
+                        : null,
+                    Condition = schedule.Condition,
+                };
+                if (IsDue(scheduled, world, currentTurn))
+                {
+                    ApplyEffect(world, scheduled.Effect, currentTurn);
+                }
+                else
+                {
+                    world.ScheduledEffects.Add(scheduled);
+                }
+
+                break;
+            case AdvanceLogicalTimeEffect advance:
+                world.LogicalDay = checked(world.LogicalDay + advance.Days);
                 break;
             case SetCharacteristicEffect characteristic:
                 world.Characteristics[characteristic.Name] = characteristic.Value;
@@ -590,18 +617,39 @@ public sealed class NarrativeRuntime
 
     private static void ApplyDueEffects(WorldState world, int currentTurn)
     {
-        ScheduledEffect[] dueEffects = world.ScheduledEffects
-            .Where(effect => effect.DueTurn <= currentTurn)
-            .OrderBy(static effect => effect.DueTurn)
-            .ToArray();
-
-        world.ScheduledEffects.RemoveAll(effect => effect.DueTurn <= currentTurn);
-
-        foreach (ScheduledEffect scheduled in dueEffects)
+        const int maximumTriggeredEffects = 256;
+        int triggeredEffects = 0;
+        while (true)
         {
-            ApplyEffect(world, scheduled.Effect, currentTurn);
+            (ScheduledEffect Effect, int Index) next = world.ScheduledEffects
+                .Select(static (effect, index) => (Effect: effect, Index: index))
+                .Where(candidate => IsDue(candidate.Effect, world, currentTurn))
+                .OrderBy(static candidate => candidate.Effect.DueTurn)
+                .ThenBy(static candidate => candidate.Effect.DueLogicalDay ?? int.MinValue)
+                .ThenBy(static candidate => candidate.Index)
+                .FirstOrDefault();
+            if (next.Effect is null)
+            {
+                return;
+            }
+
+            if (triggeredEffects >= maximumTriggeredEffects)
+            {
+                throw new NarrativeException(
+                    "scheduled_effect_limit_exceeded",
+                    "Too many deferred effects were triggered in a single transition.");
+            }
+
+            world.ScheduledEffects.RemoveAt(next.Index);
+            ApplyEffect(world, next.Effect.Effect, currentTurn);
+            triggeredEffects++;
         }
     }
+
+    private static bool IsDue(ScheduledEffect scheduled, WorldState world, int currentTurn) =>
+        scheduled.DueTurn <= currentTurn
+        && (scheduled.DueLogicalDay is null || scheduled.DueLogicalDay <= world.LogicalDay)
+        && ConditionEvaluator.Evaluate(scheduled.Condition, world);
 }
 
 
@@ -845,7 +893,7 @@ public static class ScenarioValidator
             }
 
             ValidateCondition(node.EnterCondition, $"nodes.{node.Id}.enterCondition", nodes, issues, 0);
-            ValidateEffects(node.OnEnterEffects, $"nodes.{node.Id}.onEnterEffects", issues, 0);
+            ValidateEffects(node.OnEnterEffects, $"nodes.{node.Id}.onEnterEffects", nodes, issues, 0);
 
             if (hasTypedInteractions && scenario.SchemaVersion < NarrativeVersions.LatestSchema)
             {
@@ -941,7 +989,7 @@ public static class ScenarioValidator
                         issues.Add(Error("narration_text_required", interactionPath, "Narration requires text."));
                     }
 
-                    ValidateEffects(narration.ContinueEffects, $"{interactionPath}.continueEffects", issues, 0);
+                    ValidateEffects(narration.ContinueEffects, $"{interactionPath}.continueEffects", nodes, issues, 0);
                     break;
                 case ChoiceSetInteraction choiceSet:
                     if (string.IsNullOrWhiteSpace(choiceSet.Prompt))
@@ -957,7 +1005,7 @@ public static class ScenarioValidator
                     ValidateChoices(choiceSet.Choices, $"{interactionPath}.choices", nodes, issues);
                     break;
                 case QuizInteraction quiz:
-                    ValidateQuiz(quiz, interactionPath, issues);
+                    ValidateQuiz(quiz, interactionPath, nodes, issues);
                     break;
                 case CharacteristicGateInteraction gate:
                     if (index != interactions.Count - 1)
@@ -985,11 +1033,11 @@ public static class ScenarioValidator
                     }
 
                     ValidateCondition(gate.Condition, $"{interactionPath}.condition", nodes, issues, 0);
-                    ValidateEffects(gate.SatisfiedEffects, $"{interactionPath}.satisfiedEffects", issues, 0);
-                    ValidateEffects(gate.FailedEffects, $"{interactionPath}.failedEffects", issues, 0);
+                    ValidateEffects(gate.SatisfiedEffects, $"{interactionPath}.satisfiedEffects", nodes, issues, 0);
+                    ValidateEffects(gate.FailedEffects, $"{interactionPath}.failedEffects", nodes, issues, 0);
                     break;
                 case FreeTextInteraction freeText:
-                    ValidateFreeText(freeText, interactionPath, issues);
+                    ValidateFreeText(freeText, interactionPath, nodes, issues);
                     break;
             }
         }
@@ -998,6 +1046,7 @@ public static class ScenarioValidator
     private static void ValidateFreeText(
         FreeTextInteraction freeText,
         string path,
+        Dictionary<string, NarrativeNode> nodes,
         List<ValidationIssue> issues)
     {
         if (string.IsNullOrWhiteSpace(freeText.Prompt))
@@ -1028,13 +1077,14 @@ public static class ScenarioValidator
                 "Minimum matches must be positive and cannot exceed the number of required terms."));
         }
 
-        ValidateEffects(freeText.AcceptedEffects, $"{path}.acceptedEffects", issues, 0);
-        ValidateEffects(freeText.RejectedEffects, $"{path}.rejectedEffects", issues, 0);
+        ValidateEffects(freeText.AcceptedEffects, $"{path}.acceptedEffects", nodes, issues, 0);
+        ValidateEffects(freeText.RejectedEffects, $"{path}.rejectedEffects", nodes, issues, 0);
     }
 
     private static void ValidateQuiz(
         QuizInteraction quiz,
         string path,
+        Dictionary<string, NarrativeNode> nodes,
         List<ValidationIssue> issues)
     {
         if (string.IsNullOrWhiteSpace(quiz.Prompt))
@@ -1065,8 +1115,8 @@ public static class ScenarioValidator
             }
         }
 
-        ValidateEffects(quiz.CorrectEffects, $"{path}.correctEffects", issues, 0);
-        ValidateEffects(quiz.IncorrectEffects, $"{path}.incorrectEffects", issues, 0);
+        ValidateEffects(quiz.CorrectEffects, $"{path}.correctEffects", nodes, issues, 0);
+        ValidateEffects(quiz.IncorrectEffects, $"{path}.incorrectEffects", nodes, issues, 0);
     }
 
     private static void ValidateChoices(
@@ -1104,7 +1154,7 @@ public static class ScenarioValidator
             }
 
             ValidateCondition(choice.Condition, $"{choicePath}.condition", nodes, issues, 0);
-            ValidateEffects(choice.Effects, $"{choicePath}.effects", issues, 0);
+            ValidateEffects(choice.Effects, $"{choicePath}.effects", nodes, issues, 0);
         }
     }
 
@@ -1179,6 +1229,7 @@ public static class ScenarioValidator
     private static void ValidateEffects(
         IReadOnlyList<LocalGameEffect> effects,
         string path,
+        Dictionary<string, NarrativeNode> nodes,
         ICollection<ValidationIssue> issues,
         int depth)
     {
@@ -1194,11 +1245,28 @@ public static class ScenarioValidator
             string effectPath = $"{path}[{index}]";
             switch (effect)
             {
-                case ScheduleEffect { Turns: < 0 }:
-                    issues.Add(Error("schedule_turns_invalid", effectPath, "A scheduled effect cannot target a past turn."));
-                    break;
                 case ScheduleEffect schedule:
-                    ValidateEffects([schedule.Effect], $"{effectPath}.effect", issues, depth + 1);
+                    if (schedule.Turns < 0)
+                    {
+                        issues.Add(Error(
+                            "schedule_turns_invalid",
+                            effectPath,
+                            "A scheduled effect cannot target a past turn."));
+                    }
+
+                    if (schedule.Days < 0)
+                    {
+                        issues.Add(Error(
+                            "schedule_days_invalid",
+                            effectPath,
+                            "A scheduled effect cannot target a past logical day."));
+                    }
+
+                    ValidateCondition(schedule.Condition, $"{effectPath}.condition", nodes, issues, depth + 1);
+                    ValidateEffects([schedule.Effect], $"{effectPath}.effect", nodes, issues, depth + 1);
+                    break;
+                case AdvanceLogicalTimeEffect { Days: < 0 }:
+                    issues.Add(Error("logical_time_days_invalid", effectPath, "Logical time cannot move backwards."));
                     break;
                 case AssignEffect assign when string.IsNullOrWhiteSpace(assign.Name):
                     issues.Add(Error("effect_name_required", effectPath, "A variable effect requires a name."));

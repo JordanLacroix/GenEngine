@@ -88,6 +88,13 @@ sessions.MapGet("/{id:guid}/tree", async (
     CancellationToken cancellationToken) =>
     Results.Ok(await service.GetTreeAsync(id, GetUserId(user), cancellationToken).ConfigureAwait(false)));
 
+sessions.MapGet("/{id:guid}/player", async (
+    Guid id,
+    ClaimsPrincipal user,
+    PlayService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetPlayerProjectionAsync(id, GetUserId(user), cancellationToken).ConfigureAwait(false)));
+
 sessions.MapPost("/{id:guid}/inputs", async (
     Guid id,
     SubmitChoiceRequest request,
