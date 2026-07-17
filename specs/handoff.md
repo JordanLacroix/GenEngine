@@ -50,23 +50,20 @@ docker compose -f compose.yaml -f compose.observability.yaml down
 
 N’utilise `--volumes` que si la perte des données locales est explicitement souhaitée.
 
-## Prochaine unité de travail — HRD-007
+## Prochaine unité de travail — jalon 4 (à cadrer)
 
-Objectif : ajouter une outbox **uniquement** si un consommateur asynchrone réel apparaît. Sans besoin consommateur validé, ne rien ajouter (ni bus, ni outbox) et documenter la décision.
+Le jalon 3 (durcissement) est **clos** : `HRD-001` à `HRD-007` sont traitées.
 
-Contexte laissé par `HRD-004` à `HRD-006` :
+`HRD-007` (outbox) est résolue par une **décision documentée de ne rien ajouter** : aucun consommateur asynchrone n’existe (ni bus, ni file, ni worker), voir l’ADR [`specs/adr/0004-no-outbox-without-async-consumer.md`](adr/0004-no-outbox-without-async-consumer.md). Réévaluer uniquement quand un consommateur asynchrone réel apparaîtra.
+
+La suite (jalon 4, « première extension ») dépend de retours produit et n’est pas encore cadrée : ne rien implémenter sans besoin utilisateur validé. Voir `specs/roadmap.md`.
+
+Contexte livré au jalon 3 :
 
 - `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.
 - `HRD-005` résilience : `Microsoft.Extensions.Http.Resilience` sur l’appel `Play → Authoring` ; `specs/process/resilience.md`.
-- `HRD-006` sauvegarde/restauration chiffrée : outillage shell sous `scripts/`, chiffrement `age` (phrase secrète dev / destinataires prod, aucune clé committée), sorties dans `backups/` (ignoré par Git) ; `specs/process/backup-restore.md`.
-
-Ne choisis pas silencieusement une bibliothèque ni un mécanisme d’outbox ; annonce toute hypothèse de périmètre.
-
-## Ordre restant du jalon 3
-
-1. `HRD-007` — outbox uniquement si un consommateur asynchrone réel apparaît.
-
-`HRD-004`, `HRD-005` et `HRD-006` sont **livrées**.
+- `HRD-006` sauvegarde/restauration chiffrée : outillage shell sous `scripts/`, chiffrement `age` ; `specs/process/backup-restore.md`.
+- `HRD-007` : décision « pas d’outbox » actée dans l’ADR 0004.
 
 ## Décisions à préserver
 

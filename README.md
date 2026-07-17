@@ -33,7 +33,7 @@ Le projet vise un moteur :
 - **sobre en dépendances** — licences permissives et compatibles avec un usage commercial.
 
 > [!IMPORTANT]
-> GenEngine a atteint le **jalon 2** et poursuit le **jalon 3** : le backend jouable dispose maintenant d’un premier socle OpenTelemetry et d’une stack d’observabilité locale.
+> GenEngine a terminé le **jalon 3** (durcissement) : observabilité et SLO, audit métier, résilience interservices et sauvegarde/restauration chiffrée. Le **jalon 4** (première extension) reste à cadrer selon les retours produit.
 
 ## État du projet
 
@@ -287,7 +287,7 @@ Ne jamais annoncer une fonctionnalité comme disponible avant qu’elle soit imp
 | **0 — Cadrage** | Scénarios de référence, invariants, JSON polymorphe, PRNG, hash et ADR | ✅ Terminé |
 | **1 — Moteur en mémoire** | Domain, evaluator, reducer, runtime, validation et tests déterministes | ✅ Terminé |
 | **2 — Backend jouable** | Services autonomes, PostgreSQL séparés, publication, sessions, auth et Docker | ✅ Terminé |
-| **3 — Durcissement** | Observabilité complète, sécurité, résilience et sauvegarde/restauration | 🚧 En cours |
+| **3 — Durcissement** | Observabilité complète, sécurité, résilience et sauvegarde/restauration | ✅ Terminé |
 | **4 — Première extension** | Une extension choisie selon les retours utilisateurs | ⏳ À décider |
 
 ## Contribuer

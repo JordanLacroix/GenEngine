@@ -64,4 +64,4 @@ docker compose -f compose.yaml -f compose.observability.yaml up --build --detach
 
 ## Prochaine tâche
 
-`HRD-001` à `HRD-006` sont fusionnées et documentées. La prochaine unité est `HRD-007` (outbox), décrite dans [`specs/modules/hardening/tasks.md`](specs/modules/hardening/tasks.md) : ne l’implémente **que** si un consommateur asynchrone réel apparaît ; sinon, documente la décision de ne rien ajouter.
+Le jalon 3 (durcissement) est clos : `HRD-001` à `HRD-007` sont traitées. `HRD-007` est résolue par une décision documentée de ne rien ajouter (aucun consommateur asynchrone), voir l’ADR [`specs/adr/0004-no-outbox-without-async-consumer.md`](specs/adr/0004-no-outbox-without-async-consumer.md). La suite (jalon 4, « première extension ») dépend de retours produit et n’est pas cadrée : n’implémente rien sans besoin utilisateur validé (voir [`specs/roadmap.md`](specs/roadmap.md)).
