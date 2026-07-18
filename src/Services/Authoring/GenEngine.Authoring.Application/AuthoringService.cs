@@ -15,6 +15,8 @@ public interface IAuthoringRepository
 
     Task<ScenarioVersion?> GetVersionAsync(Guid versionId, CancellationToken cancellationToken);
 
+    Task<Scenario?> GetScenarioByIdAsync(Guid scenarioId, CancellationToken cancellationToken);
+
     Task AddVersionAsync(ScenarioVersion version, CancellationToken cancellationToken);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
@@ -84,6 +86,8 @@ public interface IScenarioDraftGenerator
 public sealed record PublishedSnapshot(
     Guid Id,
     Guid ScenarioId,
+    string FrontId,
+    Guid? CategoryId,
     int Number,
     string SnapshotJson,
     string SnapshotHash);
@@ -280,9 +284,13 @@ public sealed class AuthoringService(
     {
         ScenarioVersion version = await repository.GetVersionAsync(versionId, cancellationToken).ConfigureAwait(false)
             ?? throw new AuthoringException("version_not_found", "The published scenario version was not found.");
+        Scenario scenario = await repository.GetScenarioByIdAsync(version.ScenarioId, cancellationToken).ConfigureAwait(false)
+            ?? throw new AuthoringException("scenario_not_found", "The published scenario was not found.");
         return new PublishedSnapshot(
             version.Id,
             version.ScenarioId,
+            scenario.FrontId,
+            scenario.CategoryId,
             version.Number,
             version.SnapshotJson,
             version.SnapshotHash);

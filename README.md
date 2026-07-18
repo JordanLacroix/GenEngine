@@ -54,7 +54,7 @@ Le projet vise un moteur :
 | Catalogue public des versions publiées | ✅ Consommable par les clients Web et iOS |
 | Observabilité OpenTelemetry | 🚧 Logs, traces et métriques disponibles localement |
 | SLI/SLO et alertes | 🚧 Objectifs provisoires, règles Prometheus validées et budget d’erreur dans Grafana |
-| Configuration moteur/plateforme, vocabulaire, rôles custom et organisations | 🚧 Socle fonctionnel disponible |
+| Configuration moteur/plateforme, vocabulaire, rôles custom et organisations | 🚧 Service Organization, memberships et affectations runtime disponibles |
 | Assistant/familier et aide hors ligne | 🚧 Profil illustré, nom, ton, aide, fréquence et fallback contextuel disponibles ; provider IA assistant restant |
 | Introduction, tutoriel et shell joueur configurables | ✅ Publiés par Configuration et consommés par Web/iOS |
 | Progression cross-session et journal joueur | ✅ Alimentés automatiquement par Play, persistés par PlayerExperience |
@@ -127,6 +127,7 @@ dotnet run --project src/Services/Play/GenEngine.Play.Api --launch-profile http
 dotnet run --project src/Services/Identity/GenEngine.Identity.Api --launch-profile http
 dotnet run --project src/Services/Configuration/GenEngine.Configuration.Api
 dotnet run --project src/Services/PlayerExperience/GenEngine.PlayerExperience.Api
+dotnet run --project src/Services/Organization/GenEngine.Organization.Api
 ```
 
 Chaque commande utilise un terminal distinct. Vérifier ensuite les health checks :
@@ -137,6 +138,7 @@ curl http://localhost:5202/health/live
 curl http://localhost:5203/health/live
 curl http://localhost:5204/health/live
 curl http://localhost:5205/health/live
+curl http://localhost:5206/health/live
 ```
 
 | Endpoint | Rôle |
@@ -146,7 +148,7 @@ curl http://localhost:5205/health/live
 
 ## Architecture
 
-GenEngine est un **backend distribué DDD/Clean** : cinq services indépendamment déployables et un moteur narratif pur, embarqué sous forme de package versionné.
+GenEngine est un **backend distribué DDD/Clean** : six services indépendamment déployables et un moteur narratif pur, embarqué sous forme de package versionné.
 
 ```mermaid
 flowchart LR
@@ -156,11 +158,13 @@ flowchart LR
     EDGE --> IDENTITY["Identity API<br/>déployable autonome"]
     EDGE --> CONFIG["Configuration API<br/>déployable autonome"]
     EDGE --> PLAYER["PlayerExperience API<br/>déployable autonome"]
+    EDGE --> ORG["Organization API<br/>déployable autonome"]
     AUTHORING --> AUTHORDB[("Authoring DB")]
     PLAY --> PLAYDB[("Play DB")]
     IDENTITY --> IDENTITYDB[("Identity DB")]
     CONFIG --> CONFIGDB[("Configuration DB")]
     PLAYER --> PLAYERDB[("PlayerExperience DB")]
+    ORG --> ORGDB[("Organization DB")]
     AUTHORING -. embarque .-> NARRATIVE["Narrative Engine<br/>package pur"]
     PLAY -. embarque .-> NARRATIVE
 ```
@@ -175,6 +179,7 @@ flowchart LR
 | `GenEngine.Identity.*` | Service autonome d’authentification locale et d’autorisation |
 | `GenEngine.Configuration.*` | Service autonome de configuration versionnée du jeu, des providers, familiers, modules et économie |
 | `GenEngine.PlayerExperience.*` | Service autonome du bootstrap joueur, onboarding, familier, progression, journal, portefeuille, récompenses et possessions |
+| `GenEngine.Organization.*` | Service autonome des fronts opérationnels, unités, memberships, encadrants et affectations de contenu |
 
 ### Règles de dépendance
 

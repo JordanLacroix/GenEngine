@@ -6,6 +6,7 @@ AUTHORING_URL="${AUTHORING_URL:-http://localhost:5201}"
 PLAY_URL="${PLAY_URL:-http://localhost:5202}"
 CONFIGURATION_URL="${CONFIGURATION_URL:-http://localhost:5204}"
 PLAYER_EXPERIENCE_URL="${PLAYER_EXPERIENCE_URL:-http://localhost:5205}"
+ORGANIZATION_URL="${ORGANIZATION_URL:-http://localhost:5206}"
 BOOTSTRAP_KEY="${GENENGINE_BOOTSTRAP_KEY:?GENENGINE_BOOTSTRAP_KEY must be set for the administrative smoke flow}"
 TOKEN_FILE="${GENENGINE_SMOKE_TOKEN_FILE:-/tmp/genengine-smoke-token}"
 SCENARIO_FILE="${SCENARIO_FILE:-specs/domain/examples/forest-choice.json}"
@@ -16,7 +17,7 @@ for command in curl jq uuidgen; do
   command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 1; }
 done
 
-for endpoint in "$IDENTITY_URL/health/ready" "$AUTHORING_URL/health/ready" "$PLAY_URL/health/ready" "$CONFIGURATION_URL/health/ready" "$PLAYER_EXPERIENCE_URL/health/ready"; do
+for endpoint in "$IDENTITY_URL/health/ready" "$AUTHORING_URL/health/ready" "$PLAY_URL/health/ready" "$CONFIGURATION_URL/health/ready" "$PLAYER_EXPERIENCE_URL/health/ready" "$ORGANIZATION_URL/health/ready"; do
   curl --fail --silent --show-error "$endpoint" >/dev/null
 done
 
@@ -49,6 +50,8 @@ umask 077
 printf '%s' "$token" > "$TOKEN_FILE"
 me=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$IDENTITY_URL/me")
 jq -e '(.permissions | index("scenario.author")) != null and (.permissions | index("config.read")) != null' <<<"$me" >/dev/null
+organization=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$ORGANIZATION_URL/me/organization/default")
+jq -e '.frontId == "default" and .isMember == false and .unitIds == [] and .assignments == []' <<<"$organization" >/dev/null
 wallet=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$PLAYER_EXPERIENCE_URL/me/experience?frontId=default")
 jq -e '.currencyCode == "BRAISE" and .balance >= 0' <<<"$wallet" >/dev/null
 

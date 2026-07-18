@@ -40,6 +40,12 @@ public sealed class ProjectDependencyTests
             ["GenEngine.PlayerExperience.Api"] = Only(
                 "GenEngine.PlayerExperience.Application", "GenEngine.PlayerExperience.Infrastructure",
                 "GenEngine.Observability"),
+            ["GenEngine.Organization.Domain"] = None(),
+            ["GenEngine.Organization.Application"] = Only("GenEngine.Organization.Domain"),
+            ["GenEngine.Organization.Infrastructure"] = Only("GenEngine.Organization.Application"),
+            ["GenEngine.Organization.Api"] = Only(
+                "GenEngine.Organization.Application", "GenEngine.Organization.Infrastructure",
+                "GenEngine.Observability"),
         };
 
     [Fact]

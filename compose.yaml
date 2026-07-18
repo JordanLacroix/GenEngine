@@ -89,6 +89,22 @@ services:
       timeout: 3s
       retries: 20
 
+  organization-db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: genengine_organization
+      POSTGRES_USER: organization
+      POSTGRES_PASSWORD: ${ORGANIZATION_DB_PASSWORD:-organization-local-password}
+    ports:
+      - "5437:5432"
+    volumes:
+      - organization-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U organization -d genengine_organization"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
   authoring:
     build:
       context: .
@@ -121,6 +137,7 @@ services:
       <<: *api-environment
       ConnectionStrings__Play: Host=play-db;Database=genengine_play;Username=play;Password=${PLAY_DB_PASSWORD:-play-local-password}
       Services__Authoring: http://authoring:8080
+      Services__Organization: http://organization:8080
       Services__PlayerExperience: http://player-experience:8080
       InternalApi__Key: ${GENENGINE_INTERNAL_KEY:-local-internal-key-change-me}
     ports:
@@ -129,6 +146,8 @@ services:
       play-db:
         condition: service_healthy
       authoring:
+        condition: service_healthy
+      organization:
         condition: service_healthy
       player-experience:
         condition: service_healthy
@@ -200,9 +219,29 @@ services:
       timeout: 3s
       retries: 20
 
+  organization:
+    build:
+      context: .
+      dockerfile: src/Services/Organization/GenEngine.Organization.Api/Dockerfile
+    environment:
+      <<: *api-environment
+      ConnectionStrings__Organization: Host=organization-db;Database=genengine_organization;Username=organization;Password=${ORGANIZATION_DB_PASSWORD:-organization-local-password}
+      InternalApi__Key: ${GENENGINE_INTERNAL_KEY:-local-internal-key-change-me}
+    ports:
+      - "5206:8080"
+    depends_on:
+      organization-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/ready >/dev/null || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
 volumes:
   authoring-data:
   play-data:
   identity-data:
   configuration-data:
   player-experience-data:
+  organization-data:

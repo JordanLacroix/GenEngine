@@ -41,15 +41,15 @@ Objectif : rendre la plateforme administrable sans valeurs métier codées en du
 - [x] modèle `Front` typé `School`, `Company`, `TrainingProvider`, `Community` ou `Custom` ;
 - [ ] profil d'organisation complet : identité, thème visuel, logo, typographies, calendrier et politiques par défaut ; la locale, le fuseau et la terminologie sont livrés ;
 - [x] unités génériques hiérarchiques : établissements/classes/groupes ou entreprises/départements/équipes/cohortes ;
-- [ ] memberships et liens encadrant–participant ;
+- [x] memberships et liens encadrant–participant, actifs et temporisés ;
 - [x] catégories de scénarios configurables et ordonnées ;
 - [x] parcours réutilisables au-dessus des catégories, avec relation N-N parcours↔catégories ;
-- [ ] affectation opérationnelle de scénarios ou parcours à une classe/groupe : le modèle configurable, les fenêtres et échéances sont livrés, les memberships et le contrôle d'accès runtime restent à faire ;
+- [x] affectation opérationnelle de scénarios ou catégories à une classe/groupe, avec fenêtres, échéances et contrôle serveur au démarrage d'une session ; l'affectation d'un parcours complet reste à résoudre via son catalogue versionné ;
 - [ ] politiques pédagogiques configurables : tentatives, reprise, aide autorisée, seuil de réussite et visibilité des résultats ;
 - [x] authentification locale/Entra/cumulative configurable, sans rendre OIDC obligatoire ;
 - [ ] mapping de claims externes vers rôles ;
 - [ ] règles d'accès combinant front, rôle, groupe, catégorie, publication et feature flags ;
-- [ ] tests d'isolation garantissant qu'un acteur d'un établissement ne lit ni ne modifie celui d'un autre.
+- [ ] tests d'isolation garantissant qu'un acteur d'un établissement ne lit ni ne modifie celui d'un autre ; Organization et le démarrage Play sont couverts, l'extension systématique aux autres services reste ouverte.
 
 Premier incrément attendu : ADR des frontières, registre + résolution de configuration, catalogue de permissions initial, rôles custom et squelette organisation/unité/catégorie, avant toute fonction IA.
 

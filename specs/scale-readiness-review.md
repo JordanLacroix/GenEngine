@@ -22,10 +22,10 @@ Cela ne signifie pas que la plateforme est déjà prête pour un déploiement mu
 
 | Priorité | Manque | Constat actuel | Critère de sortie |
 |---|---|---|---|
-| P0 | Contexte de front autoritatif | plusieurs appels et projections utilisent encore `frontId=default`; le client choisit parfois lui-même le front | front issu du jeton/domaine/affectation, propagé entre services et impossible à usurper |
-| P0 | Isolation multi-tenant | aucune preuve systématique qu’un acteur d’une organisation ne peut lire ou modifier les ressources d’une autre | filtres et policies par ressource, tests d’isolation croisés sur les cinq services |
-| P0 | Memberships et encadrement | les unités sont configurables, mais les membres, responsables et périodes ne forment pas encore un workflow métier complet | CRUD memberships, encadrants, import en masse, historique et écrans Web/iOS |
-| P0 | Affectations exécutées | les affectations sont décrites dans la configuration, mais ne filtrent ni n’autorisent réellement le catalogue/runtime | affecter parcours/scénario à un groupe ou joueur, fenêtres/échéances, statut et contrôle serveur |
+| P0 | Contexte de front autoritatif | Authoring fige le front dans le snapshot et Play le propage aux sessions/récompenses ; d'autres appels acceptent encore un front fourni par le client | front issu du jeton/domaine/affectation, propagé entre tous les services et impossible à usurper |
+| P0 | Isolation multi-tenant | Organization filtre par front et Play vérifie l'accès ; la preuve n'est pas encore systématique sur tous les services | filtres et policies par ressource, tests d’isolation croisés sur les six services |
+| P0 | Memberships et encadrement | CRUD opérationnel et écrans Web/iOS livrés avec dates d'effet ; périodes nommées, import de masse et historique restent ouverts | CRUD memberships, encadrants, import en masse, historique et écrans Web/iOS |
+| P0 | Affectations exécutées | scénario/catégorie affectés à une unité filtrent désormais le démarrage Play ; parcours complet et projection du catalogue restent partiels | affecter parcours/scénario à un groupe ou joueur, fenêtres/échéances, statut et contrôle serveur |
 | P0 | Scopes RBAC appliqués aux ressources | les permissions et scopes existent, mais l’autorisation reste principalement fondée sur les permissions du JWT | résolution permission + scope + ressource dans chaque endpoint sensible, allow/deny testés |
 | P0 | Cycle de compte complet | pas de reset mot de passe, confirmation e-mail, MFA, révocation des sessions ni mapping claims Entra→rôles | parcours administrateur et utilisateur complets, récupération sécurisée et révocation immédiate |
 | P0 | Catalogue publié cohérent | parcours/catégories/scénarios sont configurables mais la projection Play envoie encore des identifiants de parcours/catégorie incomplets | relations publiées/versionnées, snapshot de session, progression exacte par parcours et catégorie |

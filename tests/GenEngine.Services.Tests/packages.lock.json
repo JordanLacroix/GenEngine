@@ -291,6 +291,15 @@
           "OpenTelemetry.Instrumentation.Runtime": "[1.16.0, )"
         }
       },
+      "genengine.organization.application": {
+        "type": "Project",
+        "dependencies": {
+          "GenEngine.Organization.Domain": "[1.0.0, )"
+        }
+      },
+      "genengine.organization.domain": {
+        "type": "Project"
+      },
       "genengine.play.application": {
         "type": "Project",
         "dependencies": {

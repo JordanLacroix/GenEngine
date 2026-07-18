@@ -22,12 +22,12 @@
 |---|---|---|
 | ORG-001 | done | Rattacher un profil School/Company/Training/Community/Custom au front |
 | ORG-002 | todo | Gérer années, semestres ou périodes configurables |
-| ORG-003 | in-progress | Gérer classes/groupes hiérarchiques ; encadrants à venir |
-| ORG-004 | todo | Inscrire les utilisateurs dans un groupe pour une période |
-| ORG-005 | todo | Affecter scénario ou parcours à une classe avec fenêtre et échéance |
-| ORG-006 | todo | Tester l'isolation stricte entre fronts et les scopes enseignant/apprenant |
+| ORG-003 | done | Gérer classes/groupes hiérarchiques et memberships encadrants/participants |
+| ORG-004 | in-progress | Inscrire les utilisateurs avec validité temporelle ; périodes métier nommées et import de masse restent à livrer |
+| ORG-005 | in-progress | Affecter scénario ou catégorie à une unité avec fenêtre et échéance et l'appliquer dans Play ; parcours complet restant |
+| ORG-006 | in-progress | Tester l'isolation stricte entre fronts et les refus Play ; généralisation aux autres services restante |
 | ORG-007 | todo | Exposer une vue établissement → période → classe → membres sans données excessives |
 | ORG-008 | todo | Configurer tentatives, aide, réussite, reprise et visibilité des résultats par groupe |
-| ORG-009 | in-progress | Supporter départements/équipes/cohortes sans vocabulaire imposé ; managers à venir |
+| ORG-009 | done | Supporter départements/équipes/cohortes et managers via unités et memberships sans vocabulaire imposé |
 | ORG-010 | done | Configurer parcours, relation N-N aux catégories et rattachement explicite de scénarios |
-| ORG-011 | in-progress | Configurer fenêtres et échéances d'affectation ; appliquer ensuite memberships et accès runtime |
+| ORG-011 | done | Configurer fenêtres et échéances, résoudre memberships actifs et appliquer l'accès runtime scénario/catégorie |

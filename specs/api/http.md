@@ -65,4 +65,13 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 - `POST /internal/rewards` — applique une règle de récompense idempotente depuis un événement narratif
 - `POST /internal/progress-events` — journalise une interaction et consolide la maîtrise cross-session de façon idempotente
 
+## Organization — port 5206
+
+- `GET|PUT /admin/organization/{frontId}` — front opérationnel, filtré par portée signée
+- `GET|PUT /admin/organization/{frontId}/units[/{id}]` — unités hiérarchiques école/entreprise/formation
+- `GET|PUT|DELETE /admin/organization/{frontId}/memberships[/{id}]` — participants et encadrants temporisés
+- `GET|PUT|DELETE /admin/organization/{frontId}/assignments[/{id}]` — scénarios, catégories ou parcours affectés avec disponibilité et échéance
+- `GET /me/organization/{frontId}` — contexte effectif du joueur
+- `GET /internal/access/{frontId}/users/{userId}` — résolution interservice protégée par clé ; Play l'utilise avant de créer une session
+
 L'OpenAPI généré par chaque service reste la source de vérité exécutable.
