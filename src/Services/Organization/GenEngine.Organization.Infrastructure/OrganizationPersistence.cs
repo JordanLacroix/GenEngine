@@ -13,6 +13,7 @@ namespace GenEngine.Organization.Infrastructure;
 public sealed class OrganizationDbContext(DbContextOptions<OrganizationDbContext> options) : DbContext(options)
 {
     public DbSet<OrganizationFront> Fronts => Set<OrganizationFront>();
+    public DbSet<OperatingPeriod> Periods => Set<OperatingPeriod>();
     public DbSet<OrganizationUnit> Units => Set<OrganizationUnit>();
     public DbSet<Membership> Memberships => Set<Membership>();
     public DbSet<ContentAssignment> Assignments => Set<ContentAssignment>();
@@ -41,6 +42,17 @@ public sealed class OrganizationDbContext(DbContextOptions<OrganizationDbContext
             entity.HasIndex(static item => new { item.FrontId, item.Code }).IsUnique();
             entity.HasIndex(static item => new { item.FrontId, item.ParentId });
         });
+        modelBuilder.Entity<OperatingPeriod>(entity =>
+        {
+            entity.ToTable("operating_periods");
+            entity.HasKey(static item => item.Id);
+            entity.Property(static item => item.FrontId).HasMaxLength(80).IsRequired();
+            entity.Property(static item => item.Name).HasMaxLength(160).IsRequired();
+            entity.Property(static item => item.Code).HasMaxLength(60).IsRequired();
+            entity.Property(static item => item.Revision).IsConcurrencyToken();
+            entity.HasIndex(static item => new { item.FrontId, item.Code }).IsUnique();
+            entity.HasIndex(static item => new { item.FrontId, item.StartsAt, item.EndsAt });
+        });
         modelBuilder.Entity<Membership>(entity =>
         {
             entity.ToTable("memberships");
@@ -48,7 +60,9 @@ public sealed class OrganizationDbContext(DbContextOptions<OrganizationDbContext
             entity.Property(static item => item.FrontId).HasMaxLength(80).IsRequired();
             entity.Property(static item => item.Kind).HasConversion<string>().HasMaxLength(30);
             entity.Property(static item => item.Revision).IsConcurrencyToken();
-            entity.HasIndex(static item => new { item.FrontId, item.UserId, item.UnitId }).IsUnique();
+            entity.HasOne<OperatingPeriod>().WithMany().HasForeignKey(static item => item.PeriodId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasIndex(static item => new { item.FrontId, item.UserId, item.UnitId, item.StartsAt }).IsUnique();
+            entity.HasIndex(static item => new { item.FrontId, item.PeriodId });
             entity.HasIndex(static item => new { item.FrontId, item.UnitId, item.IsActive });
         });
         modelBuilder.Entity<ContentAssignment>(entity =>
@@ -69,10 +83,13 @@ internal sealed class OrganizationRepository(OrganizationDbContext dbContext) : 
 {
     private static string Normalize(string frontId) => frontId.Trim().ToLowerInvariant();
     public Task<OrganizationFront?> GetFrontAsync(string frontId, CancellationToken cancellationToken) => dbContext.Fronts.SingleOrDefaultAsync(item => item.FrontId == Normalize(frontId), cancellationToken);
+    public Task<OperatingPeriod?> GetPeriodAsync(string frontId, Guid id, CancellationToken cancellationToken) => dbContext.Periods.SingleOrDefaultAsync(item => item.FrontId == Normalize(frontId) && item.Id == id, cancellationToken);
     public Task<OrganizationUnit?> GetUnitAsync(string frontId, Guid id, CancellationToken cancellationToken) => dbContext.Units.SingleOrDefaultAsync(item => item.FrontId == Normalize(frontId) && item.Id == id, cancellationToken);
     public Task<Membership?> GetMembershipAsync(string frontId, Guid id, CancellationToken cancellationToken) => dbContext.Memberships.SingleOrDefaultAsync(item => item.FrontId == Normalize(frontId) && item.Id == id, cancellationToken);
+    public Task<Membership?> GetMembershipByNaturalKeyAsync(string frontId, Guid userId, Guid unitId, DateTimeOffset startsAt, CancellationToken cancellationToken) => dbContext.Memberships.SingleOrDefaultAsync(item => item.FrontId == Normalize(frontId) && item.UserId == userId && item.UnitId == unitId && item.StartsAt == startsAt, cancellationToken);
     public Task<ContentAssignment?> GetAssignmentAsync(string frontId, Guid id, CancellationToken cancellationToken) => dbContext.Assignments.SingleOrDefaultAsync(item => item.FrontId == Normalize(frontId) && item.Id == id, cancellationToken);
     public async Task<IReadOnlyList<OrganizationUnit>> ListUnitsAsync(string frontId, CancellationToken cancellationToken) => await dbContext.Units.AsNoTracking().Where(item => item.FrontId == Normalize(frontId)).OrderBy(static item => item.Name).ToArrayAsync(cancellationToken).ConfigureAwait(false);
+    public async Task<IReadOnlyList<OperatingPeriod>> ListPeriodsAsync(string frontId, CancellationToken cancellationToken) => await dbContext.Periods.AsNoTracking().Where(item => item.FrontId == Normalize(frontId)).OrderByDescending(static item => item.StartsAt).ToArrayAsync(cancellationToken).ConfigureAwait(false);
 
     public async Task<(IReadOnlyList<Membership> Items, int Total)> ListMembershipsAsync(string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, int offset, int limit, CancellationToken cancellationToken)
     {
@@ -102,6 +119,7 @@ internal sealed class OrganizationRepository(OrganizationDbContext dbContext) : 
         await dbContext.Assignments.AsNoTracking().Where(item => item.FrontId == Normalize(frontId) && unitIds.Contains(item.UnitId) && item.IsActive && (item.AvailableFrom == null || item.AvailableFrom <= now) && (item.DueAt == null || item.DueAt >= now)).OrderByDescending(static item => item.Required).ThenBy(static item => item.DueAt).ToArrayAsync(cancellationToken).ConfigureAwait(false);
 
     public async Task AddFrontAsync(OrganizationFront front, CancellationToken cancellationToken) => await dbContext.Fronts.AddAsync(front, cancellationToken).ConfigureAwait(false);
+    public async Task AddPeriodAsync(OperatingPeriod period, CancellationToken cancellationToken) => await dbContext.Periods.AddAsync(period, cancellationToken).ConfigureAwait(false);
     public async Task AddUnitAsync(OrganizationUnit unit, CancellationToken cancellationToken) => await dbContext.Units.AddAsync(unit, cancellationToken).ConfigureAwait(false);
     public async Task AddMembershipAsync(Membership membership, CancellationToken cancellationToken) => await dbContext.Memberships.AddAsync(membership, cancellationToken).ConfigureAwait(false);
     public async Task AddAssignmentAsync(ContentAssignment assignment, CancellationToken cancellationToken) => await dbContext.Assignments.AddAsync(assignment, cancellationToken).ConfigureAwait(false);
@@ -128,6 +146,9 @@ public static class OrganizationInfrastructureExtensions
         string connectionString = configuration.GetConnectionString("Organization") ?? "Host=localhost;Port=5437;Database=genengine_organization;Username=postgres;Password=postgres";
         services.AddDbContext<OrganizationDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
+        services.AddSingleton(new MembershipImportPolicy(
+            configuration.GetValue("Organization:MembershipImport:Enabled", true),
+            configuration.GetValue("Organization:MembershipImport:MaxRows", 500)));
         services.AddScoped<OrganizationService>();
         services.AddSingleton(TimeProvider.System);
         services.AddHealthChecks().AddCheck<OrganizationDatabaseHealthCheck>("organization-database");

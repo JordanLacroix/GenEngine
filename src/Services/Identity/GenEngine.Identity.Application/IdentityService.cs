@@ -21,6 +21,8 @@ public static class PermissionCatalog
             ["front.manage"] = "Administrer un front d'organisation",
             ["unit.read"] = "Consulter les unités d'organisation",
             ["unit.manage"] = "Administrer les unités d'organisation",
+            ["period.read"] = "Consulter les périodes métier",
+            ["period.manage"] = "Administrer les périodes métier",
             ["membership.read"] = "Consulter les appartenances et encadrants",
             ["membership.manage"] = "Administrer les appartenances et encadrants",
             ["journey.read"] = "Consulter les parcours",

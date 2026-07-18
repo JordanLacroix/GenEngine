@@ -6,8 +6,10 @@ using Microsoft.AspNetCore.Mvc;
 namespace GenEngine.Organization.Api;
 
 public sealed record UpsertFrontRequest(string Name, string Type, bool IsActive, int? ExpectedRevision);
+public sealed record UpsertPeriodRequest(string Name, string Code, DateTimeOffset StartsAt, DateTimeOffset EndsAt, bool IsActive, int? ExpectedRevision);
 public sealed record UpsertUnitRequest(Guid? ParentId, string Name, string Type, string Code, bool IsActive, int? ExpectedRevision);
-public sealed record UpsertMembershipRequest(Guid UnitId, Guid UserId, MembershipKind Kind, DateTimeOffset StartsAt, DateTimeOffset? EndsAt, bool IsActive, int? ExpectedRevision);
+public sealed record UpsertMembershipRequest(Guid UnitId, Guid UserId, Guid? PeriodId, MembershipKind Kind, DateTimeOffset StartsAt, DateTimeOffset? EndsAt, bool IsActive, int? ExpectedRevision);
+public sealed record ImportMembershipsRequest(bool DryRun, IReadOnlyList<Application.MembershipImportRow> Rows);
 public sealed record UpsertAssignmentRequest(Guid UnitId, AssignedContentType ContentType, Guid ContentId, string Name, bool Required, DateTimeOffset? AvailableFrom, DateTimeOffset? DueAt, bool IsActive, int? ExpectedRevision);
 
 public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler

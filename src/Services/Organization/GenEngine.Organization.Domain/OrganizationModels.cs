@@ -3,6 +3,52 @@ namespace GenEngine.Organization.Domain;
 public enum MembershipKind { Participant, Supervisor }
 public enum AssignedContentType { Journey, Category, Scenario }
 
+public sealed class OperatingPeriod
+{
+    private OperatingPeriod() { }
+    private OperatingPeriod(Guid id, string frontId, string name, string code, DateTimeOffset startsAt, DateTimeOffset endsAt, DateTimeOffset now)
+    {
+        Id = id == Guid.Empty ? Guid.NewGuid() : id;
+        FrontId = OrganizationFront.NormalizeFrontId(frontId);
+        Apply(name, code, startsAt, endsAt, true, now);
+        CreatedAt = now;
+    }
+
+    public Guid Id { get; private set; }
+    public string FrontId { get; private set; } = string.Empty;
+    public string Name { get; private set; } = string.Empty;
+    public string Code { get; private set; } = string.Empty;
+    public DateTimeOffset StartsAt { get; private set; }
+    public DateTimeOffset EndsAt { get; private set; }
+    public bool IsActive { get; private set; } = true;
+    public int Revision { get; private set; } = 1;
+    public DateTimeOffset CreatedAt { get; private set; }
+    public DateTimeOffset UpdatedAt { get; private set; }
+
+    public static OperatingPeriod Create(Guid id, string frontId, string name, string code, DateTimeOffset startsAt, DateTimeOffset endsAt, DateTimeOffset now) => new(id, frontId, name, code, startsAt, endsAt, now);
+
+    public void Update(string name, string code, DateTimeOffset startsAt, DateTimeOffset endsAt, bool isActive, int expectedRevision, DateTimeOffset now)
+    {
+        if (Revision != expectedRevision) throw new OrganizationDomainException("revision_conflict", "The operating period was modified concurrently.");
+        Apply(name, code, startsAt, endsAt, isActive, now);
+        Revision++;
+    }
+
+    public bool Contains(DateTimeOffset instant) => IsActive && StartsAt <= instant && EndsAt >= instant;
+
+    private void Apply(string name, string code, DateTimeOffset startsAt, DateTimeOffset endsAt, bool isActive, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(name) || name.Trim().Length > 160 || string.IsNullOrWhiteSpace(code) || code.Trim().Length > 60 || endsAt <= startsAt)
+            throw new OrganizationDomainException("invalid_period", "An operating period requires a name, a code and a valid date range.");
+        Name = name.Trim();
+        Code = code.Trim().ToUpperInvariant();
+        StartsAt = startsAt;
+        EndsAt = endsAt;
+        IsActive = isActive;
+        UpdatedAt = now;
+    }
+}
+
 public sealed class OrganizationFront
 {
     private OrganizationFront() { }
@@ -105,12 +151,13 @@ public sealed class OrganizationUnit
 public sealed class Membership
 {
     private Membership() { }
-    private Membership(Guid id, string frontId, Guid unitId, Guid userId, MembershipKind kind, DateTimeOffset startsAt, DateTimeOffset? endsAt, DateTimeOffset now)
+    private Membership(Guid id, string frontId, Guid unitId, Guid userId, Guid? periodId, MembershipKind kind, DateTimeOffset startsAt, DateTimeOffset? endsAt, DateTimeOffset now)
     {
         Id = id == Guid.Empty ? Guid.NewGuid() : id;
         FrontId = OrganizationFront.NormalizeFrontId(frontId);
         UnitId = unitId;
         UserId = userId;
+        PeriodId = periodId;
         Apply(kind, startsAt, endsAt, true, now);
         CreatedAt = now;
     }
@@ -119,6 +166,7 @@ public sealed class Membership
     public string FrontId { get; private set; } = string.Empty;
     public Guid UnitId { get; private set; }
     public Guid UserId { get; private set; }
+    public Guid? PeriodId { get; private set; }
     public MembershipKind Kind { get; private set; }
     public DateTimeOffset StartsAt { get; private set; }
     public DateTimeOffset? EndsAt { get; private set; }
@@ -127,7 +175,7 @@ public sealed class Membership
     public DateTimeOffset CreatedAt { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
 
-    public static Membership Create(Guid id, string frontId, Guid unitId, Guid userId, MembershipKind kind, DateTimeOffset startsAt, DateTimeOffset? endsAt, DateTimeOffset now) => new(id, frontId, unitId, userId, kind, startsAt, endsAt, now);
+    public static Membership Create(Guid id, string frontId, Guid unitId, Guid userId, Guid? periodId, MembershipKind kind, DateTimeOffset startsAt, DateTimeOffset? endsAt, DateTimeOffset now) => new(id, frontId, unitId, userId, periodId, kind, startsAt, endsAt, now);
 
     public void Update(MembershipKind kind, DateTimeOffset startsAt, DateTimeOffset? endsAt, bool isActive, int expectedRevision, DateTimeOffset now)
     {

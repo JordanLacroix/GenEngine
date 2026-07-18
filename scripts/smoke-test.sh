@@ -10,7 +10,7 @@ ORGANIZATION_URL="${ORGANIZATION_URL:-http://localhost:5206}"
 BOOTSTRAP_KEY="${GENENGINE_BOOTSTRAP_KEY:?GENENGINE_BOOTSTRAP_KEY must be set for the administrative smoke flow}"
 TOKEN_FILE="${GENENGINE_SMOKE_TOKEN_FILE:-/tmp/genengine-smoke-token}"
 SCENARIO_FILE="${SCENARIO_FILE:-specs/domain/examples/forest-choice.json}"
-USER_NAME="smoke-$(date +%s)"
+USER_NAME="${GENENGINE_SMOKE_USER_NAME:-smoke-$(date +%s)}"
 PASSWORD="LocalSmokePassword!2026"
 
 for command in curl jq uuidgen; do
@@ -25,11 +25,15 @@ experience=$(curl --fail --silent --show-error "$CONFIGURATION_URL/experience/de
 jq -e '.version >= 1 and .document.game.name != "" and (.document.categories | length) > 0 and (.document.familiars | length) > 0 and .document.economy.currencyCode == "BRAISE" and (.document.aiProviders[] | select(.type == "AzureAiFoundry") | .secretReference) == null' <<<"$experience" >/dev/null
 
 credentials=$(jq -n --arg userName "$USER_NAME" --arg password "$PASSWORD" '{userName:$userName,password:$password}')
-echo "[1/11] Register"
-curl --fail --silent --show-error \
-  -H 'Content-Type: application/json' \
-  -d "$credentials" \
-  "$IDENTITY_URL/auth/register" >/dev/null
+if [[ -z "${GENENGINE_SMOKE_USER_NAME:-}" ]]; then
+  echo "[1/11] Register"
+  curl --fail --silent --show-error \
+    -H 'Content-Type: application/json' \
+    -d "$credentials" \
+    "$IDENTITY_URL/auth/register" >/dev/null
+else
+  echo "[1/11] Reuse smoke administrator"
+fi
 
 echo "[2/11] Login"
 token=$(curl --fail --silent --show-error \
@@ -37,21 +41,56 @@ token=$(curl --fail --silent --show-error \
   -d "$credentials" \
   "$IDENTITY_URL/auth/login" | jq -er '.token')
 
-curl --fail --silent --show-error \
-  -X POST \
-  -H "Authorization: Bearer $token" \
-  -H "X-Bootstrap-Key: $BOOTSTRAP_KEY" \
-  "$IDENTITY_URL/admin/access/bootstrap" >/dev/null
-token=$(curl --fail --silent --show-error \
-  -H 'Content-Type: application/json' \
-  -d "$credentials" \
-  "$IDENTITY_URL/auth/login" | jq -er '.token')
+if [[ -z "${GENENGINE_SMOKE_USER_NAME:-}" ]]; then
+  curl --fail --silent --show-error \
+    -X POST \
+    -H "Authorization: Bearer $token" \
+    -H "X-Bootstrap-Key: $BOOTSTRAP_KEY" \
+    "$IDENTITY_URL/admin/access/bootstrap" >/dev/null
+  token=$(curl --fail --silent --show-error \
+    -H 'Content-Type: application/json' \
+    -d "$credentials" \
+    "$IDENTITY_URL/auth/login" | jq -er '.token')
+fi
 umask 077
 printf '%s' "$token" > "$TOKEN_FILE"
 me=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$IDENTITY_URL/me")
 jq -e '(.permissions | index("scenario.author")) != null and (.permissions | index("config.read")) != null' <<<"$me" >/dev/null
 organization=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$ORGANIZATION_URL/me/organization/default")
-jq -e '.frontId == "default" and .isMember == false and .unitIds == [] and .assignments == []' <<<"$organization" >/dev/null
+jq -e '.frontId == "default" and .isMember == false and .hasGlobalScope == true and .unitIds == [] and .assignments == []' <<<"$organization" >/dev/null
+
+period_id=$(uuidgen)
+unit_id=$(uuidgen)
+membership_id=$(uuidgen)
+imported_user_id=$(uuidgen)
+period_code="SMOKE-${period_id:0:8}"
+unit_code="SMOKE-${unit_id:0:8}"
+period_payload=$(jq -n --arg code "$period_code" '{name:"Smoke period",code:$code,startsAt:"2026-01-01T00:00:00Z",endsAt:"2026-12-31T23:59:59Z",isActive:true,expectedRevision:null}')
+curl --fail --silent --show-error \
+  -X PUT \
+  -H "Authorization: Bearer $token" \
+  -H 'Content-Type: application/json' \
+  -d "$period_payload" \
+  "$ORGANIZATION_URL/admin/organization/default/periods/$period_id" >/dev/null
+unit_payload=$(jq -n --arg code "$unit_code" '{parentId:null,name:"Smoke unit",type:"Cohort",code:$code,isActive:true,expectedRevision:null}')
+curl --fail --silent --show-error \
+  -X PUT \
+  -H "Authorization: Bearer $token" \
+  -H 'Content-Type: application/json' \
+  -d "$unit_payload" \
+  "$ORGANIZATION_URL/admin/organization/default/units/$unit_id" >/dev/null
+import_payload=$(jq -n \
+  --arg membershipId "$membership_id" \
+  --arg userId "$imported_user_id" \
+  --arg unitId "$unit_id" \
+  --arg periodId "$period_id" \
+  '{dryRun:true,rows:[{id:$membershipId,userId:$userId,unitId:$unitId,periodId:$periodId,kind:"Participant",startsAt:"2026-01-01T00:00:00Z",endsAt:"2026-12-31T23:59:59Z"}]}')
+preview_import=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" -H 'Content-Type: application/json' -d "$import_payload" "$ORGANIZATION_URL/admin/organization/default/memberships/import")
+jq -e '.dryRun == true and .received == 1 and .created == 1 and .errors == []' <<<"$preview_import" >/dev/null
+apply_import=$(jq '.dryRun = false' <<<"$import_payload" | curl --fail --silent --show-error -H "Authorization: Bearer $token" -H 'Content-Type: application/json' --data-binary @- "$ORGANIZATION_URL/admin/organization/default/memberships/import")
+jq -e '.dryRun == false and .created == 1 and .errors == []' <<<"$apply_import" >/dev/null
+replay_import=$(jq '.dryRun = false' <<<"$import_payload" | curl --fail --silent --show-error -H "Authorization: Bearer $token" -H 'Content-Type: application/json' --data-binary @- "$ORGANIZATION_URL/admin/organization/default/memberships/import")
+jq -e '.created == 0 and .unchanged == 1 and .errors == []' <<<"$replay_import" >/dev/null
 wallet=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$PLAYER_EXPERIENCE_URL/me/experience?frontId=default")
 jq -e '.currencyCode == "BRAISE" and .balance >= 0' <<<"$wallet" >/dev/null
 

@@ -58,6 +58,20 @@ public interface IContentAccessClient
     Task EnsureCanStartAsync(Guid userId, string frontId, Guid scenarioId, Guid? categoryId, CancellationToken cancellationToken);
 }
 
+public sealed record AssignedContentAccess(string ContentType, Guid ContentId);
+public sealed record JourneyCatalogAccess(Guid Id, IReadOnlyList<Guid> CategoryIds);
+
+public static class ContentAssignmentEvaluator
+{
+    public static bool IsAssigned(Guid scenarioId, Guid? categoryId, IReadOnlyList<AssignedContentAccess> assignments, IReadOnlyList<JourneyCatalogAccess> journeys) =>
+        assignments.Any(assignment =>
+            (string.Equals(assignment.ContentType, "Scenario", StringComparison.OrdinalIgnoreCase) && assignment.ContentId == scenarioId)
+            || (string.Equals(assignment.ContentType, "Category", StringComparison.OrdinalIgnoreCase) && categoryId is Guid category && assignment.ContentId == category)
+            || (string.Equals(assignment.ContentType, "Journey", StringComparison.OrdinalIgnoreCase)
+                && categoryId is Guid journeyCategory
+                && journeys.Any(journey => journey.Id == assignment.ContentId && journey.CategoryIds.Contains(journeyCategory))));
+}
+
 public sealed class PlayService(
     IPlayRepository repository,
     IAuthoringSnapshotClient authoringClient,
