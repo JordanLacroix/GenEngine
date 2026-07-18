@@ -53,11 +53,13 @@ public sealed class PlayDbContext(DbContextOptions<PlayDbContext> options) : DbC
     }
 }
 
-internal sealed record OrganizationAssignmentContract(string ContentType, Guid ContentId);
-internal sealed record OrganizationAccessContract(bool IsMember, IReadOnlyList<OrganizationAssignmentContract> Assignments);
+internal sealed record OrganizationAccessContract(bool IsMember, IReadOnlyList<AssignedContentAccess> Assignments);
+internal sealed record PublishedExperienceContract(PublishedExperienceDocument Document);
+internal sealed record PublishedExperienceDocument(IReadOnlyList<JourneyCatalogAccess>? Journeys);
 
 internal sealed class OrganizationContentAccessClient(
     HttpClient httpClient,
+    IHttpClientFactory httpClientFactory,
     IConfiguration configuration) : IContentAccessClient
 {
     public async Task EnsureCanStartAsync(
@@ -75,11 +77,14 @@ internal sealed class OrganizationContentAccessClient(
         OrganizationAccessContract access = await response.Content.ReadFromJsonAsync<OrganizationAccessContract>(cancellationToken)
             .ConfigureAwait(false)
             ?? throw new PlayException("invalid_organization_response", "Organization returned an empty response.");
-        bool assigned = access.Assignments.Any(assignment =>
-            (string.Equals(assignment.ContentType, "Scenario", StringComparison.OrdinalIgnoreCase) && assignment.ContentId == scenarioId)
-            || (string.Equals(assignment.ContentType, "Category", StringComparison.OrdinalIgnoreCase)
-                && categoryId is Guid category
-                && assignment.ContentId == category));
+        IReadOnlyList<JourneyCatalogAccess> journeys = [];
+        if (categoryId is not null && access.Assignments.Any(static assignment => string.Equals(assignment.ContentType, "Journey", StringComparison.OrdinalIgnoreCase)))
+        {
+            HttpClient configurationClient = httpClientFactory.CreateClient("configuration-catalog");
+            PublishedExperienceContract? experience = await configurationClient.GetFromJsonAsync<PublishedExperienceContract>($"/experience/{normalizedFrontId}", cancellationToken).ConfigureAwait(false);
+            journeys = experience?.Document.Journeys ?? [];
+        }
+        bool assigned = ContentAssignmentEvaluator.IsAssigned(scenarioId, categoryId, access.Assignments, journeys);
         if (!access.IsMember || !assigned)
         {
             throw new PlayException("content_not_assigned", "This scenario is not assigned to the authenticated player.");
@@ -238,6 +243,10 @@ public static class PlayInfrastructureExtensions
         services.AddHttpClient<IContentAccessClient, OrganizationContentAccessClient>(client =>
         {
             client.BaseAddress = new Uri(configuration["Services:Organization"] ?? "http://localhost:5206");
+        });
+        services.AddHttpClient("configuration-catalog", client =>
+        {
+            client.BaseAddress = new Uri(configuration["Services:Configuration"] ?? "http://localhost:5204");
         });
         services.AddHttpClient<IRewardDispatcher, PlayerExperienceRewardDispatcher>(client =>
         {

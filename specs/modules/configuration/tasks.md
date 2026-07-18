@@ -21,12 +21,12 @@
 | ID | Statut | Tâche |
 |---|---|---|
 | ORG-001 | done | Rattacher un profil School/Company/Training/Community/Custom au front |
-| ORG-002 | todo | Gérer années, semestres ou périodes configurables |
+| ORG-002 | done | Gérer années, semestres ou périodes configurables |
 | ORG-003 | done | Gérer classes/groupes hiérarchiques et memberships encadrants/participants |
-| ORG-004 | in-progress | Inscrire les utilisateurs avec validité temporelle ; périodes métier nommées et import de masse restent à livrer |
-| ORG-005 | in-progress | Affecter scénario ou catégorie à une unité avec fenêtre et échéance et l'appliquer dans Play ; parcours complet restant |
+| ORG-004 | done | Inscrire les utilisateurs avec validité temporelle, historique par période et import de masse prévalidé/idempotent |
+| ORG-005 | done | Affecter scénario, catégorie ou parcours à une unité avec fenêtre et échéance, l'appliquer dans Play et filtrer les catalogues clients |
 | ORG-006 | in-progress | Tester l'isolation stricte entre fronts et les refus Play ; généralisation aux autres services restante |
-| ORG-007 | todo | Exposer une vue établissement → période → classe → membres sans données excessives |
+| ORG-007 | done | Exposer une vue établissement → période → classe → membres sans données excessives |
 | ORG-008 | todo | Configurer tentatives, aide, réussite, reprise et visibilité des résultats par groupe |
 | ORG-009 | done | Supporter départements/équipes/cohortes et managers via unités et memberships sans vocabulaire imposé |
 | ORG-010 | done | Configurer parcours, relation N-N aux catégories et rattachement explicite de scénarios |

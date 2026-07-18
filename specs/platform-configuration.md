@@ -78,7 +78,7 @@ Une affectation de rôle indique une portée (`platform`, `front`, `unit`, `grou
 |---|---|
 | Configuration | `config.read`, `config.write`, `config.publish`, `module.toggle` |
 | Identité/RBAC | `identity.user.read`, `identity.user.manage`, `rbac.read`, `rbac.manage` |
-| Organisation | `front.read`, `front.manage`, `unit.read`, `unit.manage`, `membership.manage` |
+| Organisation | `front.read`, `front.manage`, `unit.read`, `unit.manage`, `period.read`, `period.manage`, `membership.read`, `membership.manage` |
 | Catalogue | `journey.read`, `journey.manage`, `category.read`, `category.manage`, `assignment.manage` |
 | Scénarios | `scenario.read`, `scenario.author`, `scenario.review`, `scenario.publish` |
 | Jeu | `session.play`, `session.read.own`, `session.read.group`, `session.manage` |

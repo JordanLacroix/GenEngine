@@ -24,12 +24,12 @@ Cela ne signifie pas que la plateforme est déjà prête pour un déploiement mu
 |---|---|---|---|
 | P0 | Contexte de front autoritatif | Authoring fige le front dans le snapshot et Play le propage aux sessions/récompenses ; d'autres appels acceptent encore un front fourni par le client | front issu du jeton/domaine/affectation, propagé entre tous les services et impossible à usurper |
 | P0 | Isolation multi-tenant | Organization filtre par front et Play vérifie l'accès ; la preuve n'est pas encore systématique sur tous les services | filtres et policies par ressource, tests d’isolation croisés sur les six services |
-| P0 | Memberships et encadrement | CRUD opérationnel et écrans Web/iOS livrés avec dates d'effet ; périodes nommées, import de masse et historique restent ouverts | CRUD memberships, encadrants, import en masse, historique et écrans Web/iOS |
-| P0 | Affectations exécutées | scénario/catégorie affectés à une unité filtrent désormais le démarrage Play ; parcours complet et projection du catalogue restent partiels | affecter parcours/scénario à un groupe ou joueur, fenêtres/échéances, statut et contrôle serveur |
+| P0 | Memberships et encadrement | CRUD, périodes nommées, historique, prévalidation/import de masse et écrans Web/iOS sont livrés | ajouter export, traitement de très gros volumes et politiques d'archivage |
+| P0 | Affectations exécutées | scénario, catégorie ou parcours affectés à une unité filtrent le démarrage Play et les catalogues Web/iOS | ajouter ciblage joueur direct, statut collectif et règles de déblocage avancées |
 | P0 | Scopes RBAC appliqués aux ressources | les permissions et scopes existent, mais l’autorisation reste principalement fondée sur les permissions du JWT | résolution permission + scope + ressource dans chaque endpoint sensible, allow/deny testés |
 | P0 | Cycle de compte complet | pas de reset mot de passe, confirmation e-mail, MFA, révocation des sessions ni mapping claims Entra→rôles | parcours administrateur et utilisateur complets, récupération sécurisée et révocation immédiate |
 | P0 | Catalogue publié cohérent | parcours/catégories/scénarios sont configurables mais la projection Play envoie encore des identifiants de parcours/catégorie incomplets | relations publiées/versionnées, snapshot de session, progression exacte par parcours et catégorie |
-| P0 | Exploitation de masse | les écrans recherchent les utilisateurs/scénarios, mais pas d’import/export, opérations en lot ou traitement asynchrone suivi | CSV/import, actions bulk, validation, aperçu, rapport d’erreurs et idempotence |
+| P0 | Exploitation de masse | l'import CSV de memberships offre aperçu, rapport d'erreurs et idempotence jusqu'à 500 lignes ; les autres objets et l'export restent unitaires | export, actions bulk multi-objet et traitement suivi pour les volumes supérieurs |
 
 ## Fonctions importantes encore partielles
 

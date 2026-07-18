@@ -14,10 +14,12 @@ Les portées possibles sont `platform`, `front`, `unit`, `group`, `journey`, `ca
 |---|---|---|
 | Plateforme | Fronts, type d'organisation, modules, feature flags, branding, design tokens, langues, fuseau, terminologie, domaines et rétention | `config.*`, `front.*`, `module.toggle` |
 | Identité | Auth locale, providers OIDC/OAuth2, politiques de compte, claim mappings, provisioning JIT, sessions, rôles custom et affectations portées | `identity.*`, `auth.provider.*`, `rbac.*` |
-| Organisation | Périodes, unités hiérarchiques, classes, promotions, départements, équipes, cohortes, responsables, memberships et affectations | `unit.*`, `membership.*`, `assignment.*` |
+| Organisation | Périodes, unités hiérarchiques, classes, promotions, départements, équipes, cohortes, responsables, memberships, import de masse et affectations | `period.*`, `unit.*`, `membership.*`, `membership.import.*`, `assignment.*` |
 | Catalogue | Parcours, catégories N-N, tags, ordre, visibilité, planning, prérequis, règles de déblocage et scénarios optionnels | `journey.*`, `category.*`, `catalog.*` |
 | Moteur narratif | Types d'interaction activés, caractéristiques, registres de conditions/effets, budgets de complexité, politique de sauvegarde/replay et contextes temps/météo/présence | `engine.config.*`, `scenario.author` |
 | Authoring | Templates, schémas, lint rules, seuils, workflow auteur/revue/publication, preview, diff/restore, imports/exports et limites média | `scenario.*`, `authoring.config.*` |
+
+L'import de memberships est une politique d'exploitation du service propriétaire : activé par défaut, limité à 500 lignes par commande et borné entre 1 et 5 000. `Organization:MembershipImport:Enabled=false` le désactive explicitement avec `membership_import_disabled`; `Organization:MembershipImport:MaxRows` règle la limite plateforme. L'API effectue toujours une prévalidation complète avant écriture et n'applique aucune ligne si le rapport contient une erreur.
 | Jeu | Politique de session, pause/reprise, tentatives, reprise après échec, visibilité de l'arbre, aides, résultats et idempotence | `session.*`, `play.config.*` |
 | Assistant | Familiers, assets/licences, style, ton, fréquence, capacités, niveaux d'aide, indices offline et préférences autorisées | `assistant.*` |
 | IA | Providers, modèles, profils, routage, fallback, double avis, prompts, structured outputs, tools autorisés, cache, résilience, sûreté, pricing et quotas | `ai.*` |

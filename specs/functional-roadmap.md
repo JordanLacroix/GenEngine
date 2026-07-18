@@ -41,10 +41,10 @@ Objectif : rendre la plateforme administrable sans valeurs métier codées en du
 - [x] modèle `Front` typé `School`, `Company`, `TrainingProvider`, `Community` ou `Custom` ;
 - [ ] profil d'organisation complet : identité, thème visuel, logo, typographies, calendrier et politiques par défaut ; la locale, le fuseau et la terminologie sont livrés ;
 - [x] unités génériques hiérarchiques : établissements/classes/groupes ou entreprises/départements/équipes/cohortes ;
-- [x] memberships et liens encadrant–participant, actifs et temporisés ;
+- [x] memberships et liens encadrant–participant actifs, temporisés, historisés par période et importables en masse avec prévalidation ;
 - [x] catégories de scénarios configurables et ordonnées ;
 - [x] parcours réutilisables au-dessus des catégories, avec relation N-N parcours↔catégories ;
-- [x] affectation opérationnelle de scénarios ou catégories à une classe/groupe, avec fenêtres, échéances et contrôle serveur au démarrage d'une session ; l'affectation d'un parcours complet reste à résoudre via son catalogue versionné ;
+- [x] affectation opérationnelle de scénarios, catégories ou parcours à une classe/groupe, avec fenêtres, échéances, catalogue client filtré et contrôle serveur au démarrage d'une session ;
 - [ ] politiques pédagogiques configurables : tentatives, reprise, aide autorisée, seuil de réussite et visibilité des résultats ;
 - [x] authentification locale/Entra/cumulative configurable, sans rendre OIDC obligatoire ;
 - [ ] mapping de claims externes vers rôles ;

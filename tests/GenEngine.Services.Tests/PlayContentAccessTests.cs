@@ -50,6 +50,18 @@ public sealed class PlayContentAccessTests
         Assert.NotNull(repository.Session);
     }
 
+    [Fact]
+    public void JourneyAssignmentGrantsAccessToScenariosInItsCategoriesOnly()
+    {
+        Guid journeyId = Guid.NewGuid();
+        Guid assignedCategory = Guid.NewGuid();
+        AssignedContentAccess[] assignments = [new("Journey", journeyId)];
+        JourneyCatalogAccess[] journeys = [new(journeyId, [assignedCategory])];
+
+        Assert.True(ContentAssignmentEvaluator.IsAssigned(Guid.NewGuid(), assignedCategory, assignments, journeys));
+        Assert.False(ContentAssignmentEvaluator.IsAssigned(Guid.NewGuid(), Guid.NewGuid(), assignments, journeys));
+    }
+
     private static readonly Guid VersionId = Guid.NewGuid();
 
     private static PlayService CreateService(

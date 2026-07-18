@@ -4,7 +4,7 @@ Dernière mise à jour : 18 juillet 2026.
 
 ## État vérifié
 
-- `main` contient le backend jouable distribué ; la branche `feat/organization-runtime-scale` porte la tranche d'exploitation multi-organisation en cours de revue.
+- `main` contient le backend jouable distribué et la PR `#40` d'exploitation multi-organisation ; la branche `codex/organization-operations` complète les périodes, imports de masse et parcours affectés.
 - Les six services `Authoring`, `Play`, `Identity`, `Configuration`, `PlayerExperience` et `Organization` sont autonomes et disposent chacun de leur PostgreSQL.
 - Le moteur `GenEngine.Narrative` est pur, déterministe et partagé comme bibliothèque embarquée.
 - Le parcours inscription → connexion → import → validation → analyse → prévisualisation → publication → session → choix → replay passe avec `scripts/smoke-test.sh`.
@@ -12,14 +12,14 @@ Dernière mise à jour : 18 juillet 2026.
 - Play expose une projection joueur stable regroupant synthèse, collection et journal.
 - Le moteur accepte une analyse d'entrée substituable mais validée contre la rubrique, et représente les effets externes par des événements ordonnés sans I/O.
 - Authoring expose l'analyse des boucles, sorties garanties, impasses conditionnelles et fins inatteignables, ainsi que la prévisualisation depuis un état injecté.
-- Les trois API exportent logs structurés, traces HTTP et métriques via OpenTelemetry.
+- Les six API exportent logs structurés, traces HTTP et métriques via OpenTelemetry.
 - La surcouche locale fournit Collector, Prometheus, Tempo, Loki et Grafana.
 - Le dashboard Grafana `GenEngine — Vue d’ensemble` est provisionné.
 - `HRD-003` livre des SLI/SLO provisoires : voir `specs/process/slo.md`, les règles Prometheus sous `deploy/observability/rules/` et le dashboard `GenEngine — SLO et budget d’erreur`.
 - `HRD-004` livre l’audit métier : primitive `IAuditLog` dans `GenEngine.Observability`, événements émis à la frontière Api des trois services, politique de non-fuite dans `specs/process/audit.md`.
 - `HRD-005` équipe l’appel `Play → Authoring` de résilience (timeouts, retry borné, circuit breaker) via `Microsoft.Extensions.Http.Resilience` : voir `specs/process/resilience.md`.
 - `HRD-006` livre la sauvegarde et la restauration chiffrées des trois PostgreSQL : scripts `scripts/backup-databases.sh`, `scripts/restore-database.sh` et `scripts/lib/age-crypto.sh` (chiffrement `age`, dumps `pg_dump -Fc`), procédure et test dans `specs/process/backup-restore.md`. Aucun code applicatif modifié.
-- La dernière PR fonctionnelle fusionnée est la PR GitHub `#33`, qui livre l'analyse d'entrée substituable et les contrats d'effets externes.
+- La dernière PR fonctionnelle fusionnée est la PR GitHub `#40`, qui livre Organization et les affectations runtime scoped.
 - Au moment du handoff, le dépôt était propre, synchronisé avec `origin/main`, la stack complète était active et tous ses conteneurs étaient sains.
 
 ## Démarrage rapide de reprise
@@ -84,7 +84,7 @@ La hiérarchie d'organisation est désormais opérationnelle dans un service aut
 - écrans d'exploitation Web/iOS séparés du studio, avec création, listes et suppressions utiles.
 - tests d'isolation croisée, validité temporelle, hiérarchie cyclique et contrôle du démarrage.
 
-Ce qui reste explicitement hors de cette tranche : périodes métier nommées, import/export de masse, historique des memberships, résolution d'une affectation de parcours complet, projection du catalogue filtré, héritage multi-portée global, snapshot de session de l'assistant, metering/quota IA et import Codex Pets.
+La tranche suivante complète les périodes métier nommées, l'import de masse prévalidé et idempotent, l'historique des memberships, la résolution d'une affectation de parcours complet et le catalogue filtré dans les clients. Restent l'export de masse, l'héritage multi-portée global, l'isolation systématique des services autres qu'Organization/Play, le snapshot de session de l'assistant, le metering/quota IA et l'import Codex Pets.
 
 Contexte livré au jalon 3 :
 

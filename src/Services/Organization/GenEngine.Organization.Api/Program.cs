@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -27,6 +28,8 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("front.manage", policy => policy.RequireClaim("permission", "front.manage"));
     options.AddPolicy("unit.read", policy => policy.RequireAssertion(context => HasPermission(context.User, "unit.read", "unit.manage")));
     options.AddPolicy("unit.manage", policy => policy.RequireClaim("permission", "unit.manage"));
+    options.AddPolicy("period.read", policy => policy.RequireAssertion(context => HasPermission(context.User, "period.read", "period.manage")));
+    options.AddPolicy("period.manage", policy => policy.RequireClaim("permission", "period.manage"));
     options.AddPolicy("membership.read", policy => policy.RequireAssertion(context => HasPermission(context.User, "membership.read", "membership.manage")));
     options.AddPolicy("membership.manage", policy => policy.RequireClaim("permission", "membership.manage"));
     options.AddPolicy("assignment.read", policy => policy.RequireAssertion(context => HasPermission(context.User, "assignment.read", "assignment.manage")));
@@ -66,6 +69,18 @@ admin.MapPut("/units/{id:guid}", async (string frontId, Guid id, UpsertUnitReque
     RecordAudit(audit, actor, "unit_upserted", "unit", id.ToString());
     return Results.Ok(result);
 }).RequireAuthorization("unit.manage");
+admin.MapGet("/periods", async (string frontId, ClaimsPrincipal actor, OrganizationService service, CancellationToken cancellationToken) =>
+{
+    EnsureFrontScope(actor, frontId);
+    return Results.Ok(await service.ListPeriodsAsync(frontId, cancellationToken).ConfigureAwait(false));
+}).RequireAuthorization("period.read");
+admin.MapPut("/periods/{id:guid}", async (string frontId, Guid id, UpsertPeriodRequest request, ClaimsPrincipal actor, OrganizationService service, IAuditLog audit, CancellationToken cancellationToken) =>
+{
+    EnsureFrontScope(actor, frontId);
+    PeriodView result = await service.UpsertPeriodAsync(frontId, id, request.Name, request.Code, request.StartsAt, request.EndsAt, request.IsActive, request.ExpectedRevision, cancellationToken).ConfigureAwait(false);
+    RecordAudit(audit, actor, "period_upserted", "operating_period", id.ToString());
+    return Results.Ok(result);
+}).RequireAuthorization("period.manage");
 admin.MapGet("/memberships", async (string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, int? page, int? pageSize, ClaimsPrincipal actor, OrganizationService service, CancellationToken cancellationToken) =>
 {
     EnsureFrontScope(actor, frontId);
@@ -74,8 +89,15 @@ admin.MapGet("/memberships", async (string frontId, Guid? unitId, Guid? userId, 
 admin.MapPut("/memberships/{id:guid}", async (string frontId, Guid id, UpsertMembershipRequest request, ClaimsPrincipal actor, OrganizationService service, IAuditLog audit, CancellationToken cancellationToken) =>
 {
     EnsureFrontScope(actor, frontId);
-    MembershipView result = await service.UpsertMembershipAsync(frontId, id, request.UnitId, request.UserId, request.Kind, request.StartsAt, request.EndsAt, request.IsActive, request.ExpectedRevision, cancellationToken).ConfigureAwait(false);
+    MembershipView result = await service.UpsertMembershipAsync(frontId, id, request.UnitId, request.UserId, request.PeriodId, request.Kind, request.StartsAt, request.EndsAt, request.IsActive, request.ExpectedRevision, cancellationToken).ConfigureAwait(false);
     RecordAudit(audit, actor, "membership_upserted", "membership", id.ToString());
+    return Results.Ok(result);
+}).RequireAuthorization("membership.manage");
+admin.MapPost("/memberships/import", async (string frontId, ImportMembershipsRequest request, ClaimsPrincipal actor, OrganizationService service, IAuditLog audit, CancellationToken cancellationToken) =>
+{
+    EnsureFrontScope(actor, frontId);
+    MembershipImportView result = await service.ImportMembershipsAsync(frontId, request.Rows, request.DryRun, cancellationToken).ConfigureAwait(false);
+    RecordAudit(audit, actor, request.DryRun ? "membership_import_previewed" : "membership_imported", "membership_batch", result.Received.ToString(CultureInfo.InvariantCulture));
     return Results.Ok(result);
 }).RequireAuthorization("membership.manage");
 admin.MapDelete("/memberships/{id:guid}", async (string frontId, Guid id, ClaimsPrincipal actor, OrganizationService service, IAuditLog audit, CancellationToken cancellationToken) =>
@@ -108,7 +130,8 @@ admin.MapDelete("/assignments/{id:guid}", async (string frontId, Guid id, Claims
 app.MapGet("/me/organization/{frontId}", async (string frontId, ClaimsPrincipal actor, OrganizationService service, CancellationToken cancellationToken) =>
 {
     Guid userId = GetUserId(actor);
-    return Results.Ok(await service.ResolvePlayerContextAsync(frontId, userId, cancellationToken).ConfigureAwait(false));
+    PlayerOrganizationContextView context = await service.ResolvePlayerContextAsync(frontId, userId, cancellationToken).ConfigureAwait(false);
+    return Results.Ok(context with { HasGlobalScope = actor.HasClaim("scope", "*") });
 }).RequireAuthorization();
 
 app.MapGet("/internal/access/{frontId}/users/{userId:guid}", async (string frontId, Guid userId, HttpRequest request, OrganizationService service, CancellationToken cancellationToken) =>
