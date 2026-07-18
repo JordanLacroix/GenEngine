@@ -20,7 +20,14 @@ builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.AddIdentityInfrastructure(builder.Configuration);
 AddAuthentication(builder.Services, builder.Configuration);
 builder.Services.AddAuthorization(options =>
-    options.AddPolicy("rbac.manage", policy => policy.RequireClaim("permission", "rbac.manage")));
+{
+    options.AddPolicy("rbac.read", policy => policy.RequireAssertion(context =>
+        context.User.HasClaim("permission", "rbac.read") || context.User.HasClaim("permission", "rbac.manage")));
+    options.AddPolicy("rbac.manage", policy => policy.RequireClaim("permission", "rbac.manage"));
+    options.AddPolicy("identity.user.read", policy => policy.RequireAssertion(context =>
+        context.User.HasClaim("permission", "identity.user.read") || context.User.HasClaim("permission", "identity.user.manage")));
+    options.AddPolicy("identity.user.manage", policy => policy.RequireClaim("permission", "identity.user.manage"));
+});
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -169,10 +176,10 @@ app.MapPost("/admin/access/bootstrap", async (
     return Results.NoContent();
 }).RequireAuthorization();
 
-RouteGroupBuilder access = app.MapGroup("/admin/access").RequireAuthorization("rbac.manage");
-access.MapGet("/permissions", () => Results.Ok(IdentityService.ListPermissions()));
+RouteGroupBuilder access = app.MapGroup("/admin/access");
+access.MapGet("/permissions", () => Results.Ok(IdentityService.ListPermissions())).RequireAuthorization("rbac.read");
 access.MapGet("/roles", async (IdentityService service, CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListRolesAsync(cancellationToken).ConfigureAwait(false)));
+    Results.Ok(await service.ListRolesAsync(cancellationToken).ConfigureAwait(false))).RequireAuthorization("rbac.read");
 access.MapPost("/roles", async (RoleRequest request, IdentityService service, CancellationToken cancellationToken) =>
 {
     RoleView role = await service.CreateRoleAsync(
@@ -181,7 +188,7 @@ access.MapPost("/roles", async (RoleRequest request, IdentityService service, Ca
         request.Permissions,
         cancellationToken).ConfigureAwait(false);
     return Results.Created($"/admin/access/roles/{role.Id}", role);
-});
+}).RequireAuthorization("rbac.manage");
 access.MapPut("/roles/{roleId:guid}", async (
     Guid roleId,
     RoleRequest request,
@@ -192,7 +199,17 @@ access.MapPut("/roles/{roleId:guid}", async (
         request.Name,
         request.Description,
         request.Permissions,
-        cancellationToken).ConfigureAwait(false)));
+        cancellationToken).ConfigureAwait(false))).RequireAuthorization("rbac.manage");
+access.MapDelete("/roles/{roleId:guid}", async (
+    Guid roleId,
+    IdentityService service,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    await service.DeleteRoleAsync(roleId, cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent { Action = "role_deleted", Outcome = AuditOutcome.Success, ResourceType = "role", ResourceId = roleId.ToString() });
+    return Results.NoContent();
+}).RequireAuthorization("rbac.manage");
 access.MapPost("/users/{userId:guid}/roles", async (
     Guid userId,
     AssignRoleRequest request,
@@ -206,9 +223,64 @@ access.MapPost("/users/{userId:guid}/roles", async (
         request.ExpiresAt,
         cancellationToken).ConfigureAwait(false);
     return Results.NoContent();
-});
+}).RequireAuthorization("rbac.manage");
+access.MapDelete("/users/{userId:guid}/roles/{roleId:guid}", async (
+    Guid userId,
+    Guid roleId,
+    string? scope,
+    IdentityService service,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    await service.RemoveRoleAssignmentAsync(userId, roleId, scope, cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent { Action = "role_assignment_removed", Outcome = AuditOutcome.Success, ResourceType = "user", ResourceId = userId.ToString() });
+    return Results.NoContent();
+}).RequireAuthorization("rbac.manage");
+
+RouteGroupBuilder users = app.MapGroup("/admin/users");
+users.MapGet("", async (
+    string? query,
+    bool? includeDeleted,
+    int? page,
+    int? pageSize,
+    IdentityService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListUsersAsync(query, includeDeleted ?? false, page ?? 1, pageSize ?? 25, cancellationToken).ConfigureAwait(false)))
+    .RequireAuthorization("identity.user.read");
+users.MapGet("/{userId:guid}", async (Guid userId, IdentityService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetAdminUserAsync(userId, cancellationToken).ConfigureAwait(false)))
+    .RequireAuthorization("identity.user.read");
+users.MapPatch("/{userId:guid}/status", async (
+    Guid userId,
+    UserStatusRequest request,
+    ClaimsPrincipal principal,
+    IdentityService service,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    AdminUserView result = await service.SetUserActiveAsync(userId, GetActorId(principal), request.IsActive, cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent { Action = request.IsActive ? "user_enabled" : "user_disabled", Outcome = AuditOutcome.Success, ActorId = GetActorId(principal).ToString(), ResourceType = "user", ResourceId = userId.ToString() });
+    return Results.Ok(result);
+}).RequireAuthorization("identity.user.manage");
+users.MapDelete("/{userId:guid}", async (
+    Guid userId,
+    ClaimsPrincipal principal,
+    IdentityService service,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    Guid actorId = GetActorId(principal);
+    await service.DeleteUserAsync(userId, actorId, cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent { Action = "user_deleted", Outcome = AuditOutcome.Success, ActorId = actorId.ToString(), ResourceType = "user", ResourceId = userId.ToString() });
+    return Results.NoContent();
+}).RequireAuthorization("identity.user.manage");
 
 app.Run();
+
+static Guid GetActorId(ClaimsPrincipal principal) => Guid.Parse(
+    principal.FindFirstValue(JwtRegisteredClaimNames.Sub)
+    ?? principal.FindFirstValue(ClaimTypes.NameIdentifier)
+    ?? throw new IdentityException("invalid_token", "The user identifier is missing."));
 
 static void AddAuthentication(IServiceCollection services, IConfiguration configuration)
 {

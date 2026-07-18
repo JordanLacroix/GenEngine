@@ -36,15 +36,15 @@ Objectif : rendre la plateforme administrable sans valeurs métier codées en du
 - [x] activation de modules par front sans contournement du RBAC ;
 - [x] rôles personnalisables par composition de permissions stables, affectations portées et temporisées, policies serveur et endpoint des capacités effectives ;
 - [ ] presets de départ adaptables : administrateur plateforme/organisation, auteur, publieur, enseignant/formateur/manager, participant, analyste, gestionnaire IA, magasin et modération ;
-- [ ] audit des changements de configuration, rôles, permissions et affectations ;
+- [x] audit des changements de configuration, rôles, permissions, affectations et cycle de vie des comptes ;
 - [ ] import/export d'une configuration portable, validée et versionnée ;
 - [x] modèle `Front` typé `School`, `Company`, `TrainingProvider`, `Community` ou `Custom` ;
 - [ ] profil d'organisation complet : identité, thème visuel, logo, typographies, calendrier et politiques par défaut ; la locale, le fuseau et la terminologie sont livrés ;
 - [x] unités génériques hiérarchiques : établissements/classes/groupes ou entreprises/départements/équipes/cohortes ;
 - [ ] memberships et liens encadrant–participant ;
 - [x] catégories de scénarios configurables et ordonnées ;
-- [ ] véritables parcours réutilisables au-dessus des catégories, avec relation N-N parcours↔catégories ;
-- [ ] affectation de scénarios ou parcours à une classe/groupe avec disponibilité et échéance ;
+- [x] parcours réutilisables au-dessus des catégories, avec relation N-N parcours↔catégories ;
+- [ ] affectation opérationnelle de scénarios ou parcours à une classe/groupe : le modèle configurable, les fenêtres et échéances sont livrés, les memberships et le contrôle d'accès runtime restent à faire ;
 - [ ] politiques pédagogiques configurables : tentatives, reprise, aide autorisée, seuil de réussite et visibilité des résultats ;
 - [x] authentification locale/Entra/cumulative configurable, sans rendre OIDC obligatoire ;
 - [ ] mapping de claims externes vers rôles ;
@@ -57,15 +57,15 @@ Premier incrément attendu : ADR des frontières, registre + résolution de conf
 
 Objectif : fournir une aide contextuelle utile avant de dépendre d'un LLM.
 
-- [ ] modèle neutre de familier : identité, apparence, références d'assets, licence, style d'écriture et capacités d'assistance ;
+- [x] modèle neutre de familier : identité, apparence, références d'assets HTTPS, licence, style d'écriture et capacités d'assistance ;
 - [ ] configuration par défaut au niveau plateforme/front, limites par rôle et préférences utilisateur autorisées ;
-- [ ] sélection et personnalisation persistées, avec fallback vers un familier système valide ;
+- [x] sélection et personnalisation persistées, avec fallback vers un familier système valide ;
 - [ ] snapshot de configuration de l'assistant figé dans la session pour préserver le replay ;
 - [ ] contexte minimal et non identifiant : parcours, catégorie, objectif, nœud, interaction, variables autorisées et historique récent borné ;
 - [ ] aide statique/règles/indices auteurs pleinement fonctionnelle en mode hors ligne ;
-- [ ] niveaux et fréquence d'intervention configurables ;
+- [x] niveaux et fréquence d'intervention configurables dans le profil ; leur exécution contextuelle en session reste à livrer ;
 - [ ] import de familiers tiers derrière un adaptateur anti-corruption, dont Codex Pets, avec contrôle de licence ;
-- [ ] permissions dédiées pour consulter, personnaliser, administrer et importer les familiers.
+- [x] permissions dédiées pour consulter, personnaliser et administrer les familiers ; l'import tiers garde sa permission à introduire avec l'adaptateur.
 
 Le moteur `Narrative` porte uniquement les données déterministes nécessaires à la session et aux décisions d'aide. Les fournisseurs, prompts, credentials, quotas et appels réseau restent hors du moteur.
 
@@ -112,7 +112,7 @@ Tout paiement en monnaie réelle nécessiterait un bounded context, un threat mo
 
 - [ ] dialogue contextuel du familier avec fallback déterministe ;
 - [ ] analyse de réponse libre par rubrique, explication et confirmation ;
-- [ ] copilote auteur : suggestions de nœuds, choix, indices et détection d'incohérences ;
+- [ ] copilote auteur : la génération de brouillon et l'édition low-code Web/iOS sont livrées ; suggestions ciblées, indices et régénération de branche restent à faire ;
 - [x] génération de scénario en brouillon contextualisée par jeu/histoire/catégorie, conforme au schéma et validée par le moteur ;
 - [ ] interactions document et photo avec workflow de validation ;
 - [ ] diff et restauration fonctionnelle de versions ;

@@ -46,6 +46,8 @@ public sealed class Scenario
     public string FrontId { get; private set; } = "default";
     public Guid? CategoryId { get; private set; }
     public string CreationBrief { get; private set; } = string.Empty;
+    public bool IsArchived { get; private set; }
+    public DateTimeOffset? ArchivedAt { get; private set; }
 
     public IReadOnlyList<ScenarioVersion> Versions => versions;
 
@@ -81,6 +83,20 @@ public sealed class Scenario
         Revision = checked(Revision + 1);
         UpdatedAt = now;
         return version;
+    }
+
+    public void Archive(int expectedRevision, DateTimeOffset now)
+    {
+        EnsureRevision(expectedRevision);
+        if (IsArchived)
+        {
+            return;
+        }
+
+        IsArchived = true;
+        ArchivedAt = now;
+        Revision = checked(Revision + 1);
+        UpdatedAt = now;
     }
 
     private void EnsureRevision(int expectedRevision)

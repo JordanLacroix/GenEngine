@@ -13,7 +13,18 @@ public static class PermissionCatalog
             ["config.read"] = "Consulter l'administration",
             ["config.write"] = "Modifier la configuration",
             ["config.publish"] = "Publier la configuration",
+            ["identity.user.read"] = "Consulter les utilisateurs",
+            ["identity.user.manage"] = "Activer, désactiver et supprimer les utilisateurs",
+            ["rbac.read"] = "Consulter les rôles et permissions",
             ["rbac.manage"] = "Gérer les rôles et affectations",
+            ["journey.read"] = "Consulter les parcours",
+            ["journey.manage"] = "Gérer les parcours",
+            ["category.read"] = "Consulter les catégories",
+            ["category.manage"] = "Gérer les catégories",
+            ["assignment.manage"] = "Gérer les affectations de contenu",
+            ["assistant.use"] = "Utiliser le familier",
+            ["assistant.customize"] = "Personnaliser son familier",
+            ["assistant.manage"] = "Gérer le catalogue de familiers",
             ["shop.read"] = "Consulter le magasin",
             ["shop.manage"] = "Gérer les offres du magasin",
             ["economy.credit"] = "Créditer une monnaie",
@@ -29,10 +40,15 @@ public interface IIdentityRepository
     Task<CustomRole?> FindRoleByNormalizedNameAsync(string normalizedName, CancellationToken cancellationToken);
     Task<CustomRole?> GetRoleAsync(Guid id, CancellationToken cancellationToken);
     Task<bool> HasAssignmentsAsync(Guid roleId, CancellationToken cancellationToken);
+    Task<int> CountActiveUsersWithPermissionAsync(string permissionCode, CancellationToken cancellationToken);
     Task<IReadOnlyList<CustomRole>> ListRolesAsync(CancellationToken cancellationToken);
+    Task<(IReadOnlyList<UserAccount> Items, int Total)> ListUsersAsync(string? query, bool includeDeleted, int offset, int limit, CancellationToken cancellationToken);
     Task AddAsync(UserAccount account, CancellationToken cancellationToken);
     Task AddRoleAsync(CustomRole role, CancellationToken cancellationToken);
     Task AssignRoleAsync(UserRoleAssignment assignment, CancellationToken cancellationToken);
+    Task RemoveRoleAssignmentAsync(Guid userId, Guid roleId, string scope, CancellationToken cancellationToken);
+    void RemoveRole(CustomRole role);
+    Task RemoveUserAssignmentsAsync(Guid userId, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
 }
 
@@ -48,10 +64,13 @@ public interface ITokenIssuer
 }
 
 public sealed record AccessToken(string Token, DateTimeOffset ExpiresAt, string TokenType = "Bearer");
-public sealed record UserView(Guid Id, string UserName, DateTimeOffset CreatedAt);
+public sealed record UserView(Guid Id, string UserName, DateTimeOffset CreatedAt, bool IsActive, DateTimeOffset? DeletedAt);
 public sealed record PermissionView(string Code, string Description);
 public sealed record RoleView(Guid Id, string Name, string Description, bool IsSystem, IReadOnlyList<string> Permissions);
 public sealed record UserAccessView(Guid Id, string UserName, IReadOnlyList<RoleView> Roles, IReadOnlyList<string> Permissions);
+public sealed record RoleAssignmentView(Guid RoleId, string RoleName, string Scope, DateTimeOffset? ExpiresAt, DateTimeOffset AssignedAt);
+public sealed record AdminUserView(Guid Id, string UserName, DateTimeOffset CreatedAt, bool IsActive, DateTimeOffset? DeletedAt, string? ExternalProvider, IReadOnlyList<RoleAssignmentView> RoleAssignments);
+public sealed record PagedUsersView(IReadOnlyList<AdminUserView> Items, int Page, int PageSize, int Total);
 
 public sealed class IdentityService(
     IIdentityRepository repository,
@@ -75,7 +94,7 @@ public sealed class IdentityService(
         await repository.AddAsync(account, cancellationToken).ConfigureAwait(false);
         await AssignDefaultRoleAsync(account.Id, cancellationToken).ConfigureAwait(false);
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return new UserView(account.Id, account.UserName, account.CreatedAt);
+        return MapUser(account);
     }
 
     public async Task<AccessToken> LoginAsync(string userName, string password, CancellationToken cancellationToken)
@@ -89,9 +108,14 @@ public sealed class IdentityService(
         UserAccount? account = await repository.FindByNormalizedUserNameAsync(
             userName.Trim().ToUpperInvariant(),
             cancellationToken).ConfigureAwait(false);
-        if (account is null || string.IsNullOrEmpty(account.PasswordHash) || !passwordService.Verify(account, password))
+        if (account is null || !account.IsActive || account.DeletedAt is not null || string.IsNullOrEmpty(account.PasswordHash) || !passwordService.Verify(account, password))
         {
             throw new IdentityException("invalid_credentials", "Invalid username or password.");
+        }
+
+        if (!account.IsActive || account.DeletedAt is not null)
+        {
+            throw new IdentityException("account_disabled", "This account is disabled.");
         }
 
         return Issue(account);
@@ -132,6 +156,28 @@ public sealed class IdentityService(
 
     public async Task<IReadOnlyList<RoleView>> ListRolesAsync(CancellationToken cancellationToken) =>
         (await repository.ListRolesAsync(cancellationToken).ConfigureAwait(false)).Select(Map).ToArray();
+
+    public async Task<PagedUsersView> ListUsersAsync(
+        string? query,
+        bool includeDeleted,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 10, 100);
+        (IReadOnlyList<UserAccount> items, int total) = await repository.ListUsersAsync(
+            string.IsNullOrWhiteSpace(query) ? null : query.Trim(),
+            includeDeleted,
+            (page - 1) * pageSize,
+            pageSize,
+            cancellationToken).ConfigureAwait(false);
+        return new PagedUsersView(items.Select(MapAdminUser).ToArray(), page, pageSize, total);
+    }
+
+    public async Task<AdminUserView> GetAdminUserAsync(Guid userId, CancellationToken cancellationToken) =>
+        MapAdminUser(await repository.GetUserAsync(userId, cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityException("user_not_found", "The user was not found."));
 
     public async Task<RoleView> CreateRoleAsync(
         string name,
@@ -183,6 +229,85 @@ public sealed class IdentityService(
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task RemoveRoleAssignmentAsync(
+        Guid userId,
+        Guid roleId,
+        string? scope,
+        CancellationToken cancellationToken)
+    {
+        UserAccount account = await repository.GetUserAsync(userId, cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityException("user_not_found", "The user was not found.");
+        UserRoleAssignment assignment = account.RoleAssignments.SingleOrDefault(item =>
+                item.RoleId == roleId && string.Equals(item.Scope, string.IsNullOrWhiteSpace(scope) ? "*" : scope.Trim(), StringComparison.Ordinal))
+            ?? throw new IdentityException("assignment_not_found", "The role assignment was not found.");
+        if (assignment.Role.Permissions.Any(static permission => permission.PermissionCode == "rbac.manage")
+            && await repository.CountActiveUsersWithPermissionAsync("rbac.manage", cancellationToken).ConfigureAwait(false) <= 1)
+        {
+            throw new IdentityException("last_administrator", "The last active access administrator cannot lose this role.");
+        }
+
+        await repository.RemoveRoleAssignmentAsync(userId, roleId, assignment.Scope, cancellationToken).ConfigureAwait(false);
+        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task DeleteRoleAsync(Guid roleId, CancellationToken cancellationToken)
+    {
+        CustomRole role = await repository.GetRoleAsync(roleId, cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityException("role_not_found", "The role was not found.");
+        role.Archive();
+        if (await repository.HasAssignmentsAsync(roleId, cancellationToken).ConfigureAwait(false))
+        {
+            throw new IdentityException("role_in_use", "Remove all assignments before deleting this role.");
+        }
+
+        repository.RemoveRole(role);
+        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<AdminUserView> SetUserActiveAsync(
+        Guid userId,
+        Guid actorId,
+        bool isActive,
+        CancellationToken cancellationToken)
+    {
+        if (userId == actorId && !isActive)
+        {
+            throw new IdentityException("self_lockout", "You cannot disable your own account.");
+        }
+
+        UserAccount account = await repository.GetUserAsync(userId, cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityException("user_not_found", "The user was not found.");
+        if (!isActive && HasPermission(account, "rbac.manage")
+            && await repository.CountActiveUsersWithPermissionAsync("rbac.manage", cancellationToken).ConfigureAwait(false) <= 1)
+        {
+            throw new IdentityException("last_administrator", "The last active access administrator cannot be disabled.");
+        }
+
+        account.SetActive(isActive);
+        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return MapAdminUser(account);
+    }
+
+    public async Task DeleteUserAsync(Guid userId, Guid actorId, CancellationToken cancellationToken)
+    {
+        if (userId == actorId)
+        {
+            throw new IdentityException("self_delete", "You cannot delete your own account.");
+        }
+
+        UserAccount account = await repository.GetUserAsync(userId, cancellationToken).ConfigureAwait(false)
+            ?? throw new IdentityException("user_not_found", "The user was not found.");
+        if (HasPermission(account, "rbac.manage")
+            && await repository.CountActiveUsersWithPermissionAsync("rbac.manage", cancellationToken).ConfigureAwait(false) <= 1)
+        {
+            throw new IdentityException("last_administrator", "The last active access administrator cannot be deleted.");
+        }
+
+        account.SoftDelete(timeProvider.GetUtcNow());
+        await repository.RemoveUserAssignmentsAsync(userId, cancellationToken).ConfigureAwait(false);
+        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task BootstrapAdministratorAsync(Guid userId, CancellationToken cancellationToken)
     {
         CustomRole role = await repository.FindRoleByNormalizedNameAsync("ADMINISTRATOR", cancellationToken)
@@ -227,6 +352,31 @@ public sealed class IdentityService(
 
     private static RoleView Map(CustomRole role) =>
         new(role.Id, role.Name, role.Description, role.IsSystem, role.Permissions.Select(static item => item.PermissionCode).Order().ToArray());
+
+    private static UserView MapUser(UserAccount account) =>
+        new(account.Id, account.UserName, account.CreatedAt, account.IsActive, account.DeletedAt);
+
+    private static AdminUserView MapAdminUser(UserAccount account) =>
+        new(
+            account.Id,
+            account.UserName,
+            account.CreatedAt,
+            account.IsActive,
+            account.DeletedAt,
+            account.ExternalProvider,
+            account.RoleAssignments
+                .OrderBy(static assignment => assignment.Role.Name)
+                .ThenBy(static assignment => assignment.Scope)
+                .Select(static assignment => new RoleAssignmentView(
+                    assignment.RoleId,
+                    assignment.Role.Name,
+                    assignment.Scope,
+                    assignment.ExpiresAt,
+                    assignment.AssignedAt))
+                .ToArray());
+
+    private static bool HasPermission(UserAccount account, string permission) =>
+        account.RoleAssignments.Any(assignment => assignment.Role.Permissions.Any(grant => grant.PermissionCode == permission));
 
     private static void ValidatePermissions(IEnumerable<string> permissions)
     {

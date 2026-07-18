@@ -9,7 +9,9 @@ public interface IAuthoringRepository
 
     Task<Scenario?> GetAsync(Guid id, string ownerId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<Scenario>> ListPublishedAsync(int limit, Guid? categoryId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Scenario>> ListPublishedAsync(int limit, Guid? categoryId, string? query, CancellationToken cancellationToken);
+
+    Task<(IReadOnlyList<Scenario> Items, int Total)> ListOwnedAsync(string ownerId, string? query, Guid? categoryId, bool includeArchived, int offset, int limit, CancellationToken cancellationToken);
 
     Task<ScenarioVersion?> GetVersionAsync(Guid versionId, CancellationToken cancellationToken);
 
@@ -25,7 +27,10 @@ public sealed record ScenarioView(
     string DraftJson,
     string FrontId,
     Guid? CategoryId,
-    string CreationBrief);
+    string CreationBrief,
+    bool IsArchived,
+    DateTimeOffset UpdatedAt);
+public sealed record PagedScenariosView(IReadOnlyList<ScenarioView> Items, int Page, int PageSize, int Total);
 
 public sealed record ScenarioVersionView(
     Guid Id,
@@ -152,6 +157,35 @@ public sealed class AuthoringService(
         return Map(scenario);
     }
 
+    public async Task<PagedScenariosView> ListOwnedAsync(
+        string ownerId,
+        string? query,
+        Guid? categoryId,
+        bool includeArchived,
+        int page,
+        int pageSize,
+        CancellationToken cancellationToken)
+    {
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 10, 100);
+        (IReadOnlyList<Scenario> items, int total) = await repository.ListOwnedAsync(
+            ownerId,
+            string.IsNullOrWhiteSpace(query) ? null : query.Trim(),
+            categoryId,
+            includeArchived,
+            (page - 1) * pageSize,
+            pageSize,
+            cancellationToken).ConfigureAwait(false);
+        return new PagedScenariosView(items.Select(Map).ToArray(), page, pageSize, total);
+    }
+
+    public async Task ArchiveAsync(Guid id, string ownerId, int expectedRevision, CancellationToken cancellationToken)
+    {
+        Scenario scenario = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
+        scenario.Archive(expectedRevision, GetUtcNow());
+        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
     public async Task<ScenarioView> UpdateDraftAsync(
         Guid id,
         string ownerId,
@@ -232,9 +266,10 @@ public sealed class AuthoringService(
     public async Task<IReadOnlyList<PublishedScenarioView>> ListPublishedAsync(
         int limit,
         Guid? categoryId,
+        string? query,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<Scenario> scenarios = await repository.ListPublishedAsync(limit, categoryId, cancellationToken)
+        IReadOnlyList<Scenario> scenarios = await repository.ListPublishedAsync(limit, categoryId, query, cancellationToken)
             .ConfigureAwait(false);
         return scenarios.Select(MapPublished).ToArray();
     }
@@ -291,7 +326,9 @@ public sealed class AuthoringService(
             scenario.DraftJson,
             scenario.FrontId,
             scenario.CategoryId,
-            scenario.CreationBrief);
+            scenario.CreationBrief,
+            scenario.IsArchived,
+            scenario.UpdatedAt);
 
     private static ScenarioVersionView Map(ScenarioVersion version) =>
         new(version.Id, version.ScenarioId, version.Number, version.SnapshotHash, version.PublishedAt);

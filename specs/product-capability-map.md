@@ -5,15 +5,15 @@ Cette carte recolle la réalisation au plan produit initial. Les statuts éviten
 | Domaine | Statut | Réellement disponible | Prochain incrément fonctionnel |
 |---|---|---|---|
 | Narrative | utilisable | moteur déterministe, conditions/effets, interactions typées, replay, migrations, pause/reprise, arbre | compléter les effets de déblocage, titres, compétences et médias |
-| Authoring / Studio | partiel | import, validation, analyse, aperçu, publication et génération contextualisée | édition graphique, diff/restauration, coédition et régénération de branche |
+| Authoring / Studio | utilisable | recherche paginée, génération contextualisée, édition graphique Web et édition de scène iOS, validation, aperçu, publication et archivage | édition de graphe native complète, diff/restauration, coédition et régénération de branche |
 | Configuration / Branding | partiel | jeu, histoire globale, locale, fuseau, catégories, modules, vocabulaire et copies arbitraires | couleurs, logos, typographies, assets et héritage par portée |
-| Identity / RBAC | partiel | comptes locaux, Entra, modes cumulatifs, rôles custom, permissions et scopes | gestion des utilisateurs, reset/confirmation, claims→rôles et audit complet |
+| Identity / RBAC | utilisable | recherche paginée des comptes, activation, suppression logique, Entra/local, rôles custom supprimables, permissions, scopes et garde-fou du dernier administrateur | reset/confirmation, claims→rôles, délégation avancée et audit consultable |
 | Tenancy / Organisations | partiel | types d’organisation et unités hiérarchiques | memberships, encadrants, isolation multi-front et politiques héritées |
-| Catalog | partiel | catalogue public et catégories | Journey/Parcours, N-N catégories, planification, optionnels et règles de déblocage |
-| Assistant / Familier | partiel | définitions, choix et personnalisation persistée | aide contextuelle réelle, fallback auteur, snapshot de session, assets et import Codex Pets |
+| Catalog | partiel | catalogue public, catégories, parcours N-N, rattachement de scénarios et progression de catégorie dans les clients | accès runtime par affectation, optionnels, prérequis et règles de déblocage |
+| Assistant / Familier | partiel | définitions, assets HTTPS avec licence, aperçu, choix et personnalisation persistée | aide contextuelle réelle, fallback auteur, snapshot de session et import Codex Pets |
 | Economy / Shop | partiel | monnaie, ledger, récompenses narratives, offres, achats et possessions | types extensibles, inventaire/équipement, stock, limites, bundles et compensation |
 | IA / Providers | partiel | Offline déterministe et premier Azure AI Foundry pour la génération | profils routables, double avis, assistant, analyse, garde-fous, quotas et coûts |
-| Groups / Assignments | absent | unités seulement | membres, encadrants, affectations, échéances, suivi et relances |
+| Groups / Assignments | fondation | unités et modèle d'affectation parcours/scénario avec fenêtres et échéances | membres, encadrants, contrôle d'accès runtime, suivi et relances |
 | Metering | absent | — | ledger tokens/coûts, pricing historisé, quotas et alertes |
 | Pedagogy / Journal | fondation | projection joueur et événements narratifs | dimensions, rubriques, événements notables et journal filtrable |
 | Insights | absent | — | événements de progression, KPI configurables, cohortes et exports |

@@ -63,16 +63,44 @@ internal sealed class AuthoringRepository(AuthoringDbContext dbContext) : IAutho
     public async Task<IReadOnlyList<Scenario>> ListPublishedAsync(
         int limit,
         Guid? categoryId,
+        string? query,
         CancellationToken cancellationToken) =>
         await dbContext.Scenarios
             .AsNoTracking()
-            .Where(static scenario => scenario.Versions.Count != 0)
+            .Where(static scenario => scenario.Versions.Count != 0 && !scenario.IsArchived)
             .Where(scenario => categoryId == null || scenario.CategoryId == categoryId)
+            .Where(scenario => string.IsNullOrWhiteSpace(query) || EF.Functions.ILike(scenario.Title, $"%{query}%"))
             .OrderByDescending(static scenario => scenario.Versions.Max(version => version.PublishedAt))
             .Include(static scenario => scenario.Versions)
             .Take(limit)
             .ToArrayAsync(cancellationToken)
             .ConfigureAwait(false);
+
+    public async Task<(IReadOnlyList<Scenario> Items, int Total)> ListOwnedAsync(
+        string ownerId,
+        string? query,
+        Guid? categoryId,
+        bool includeArchived,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<Scenario> filtered = dbContext.Scenarios.AsNoTracking()
+            .Include(static scenario => scenario.Versions)
+            .Where(scenario => scenario.OwnerId == ownerId)
+            .Where(scenario => includeArchived || !scenario.IsArchived)
+            .Where(scenario => categoryId == null || scenario.CategoryId == categoryId);
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            string pattern = $"%{query.Trim()}%";
+            filtered = filtered.Where(scenario => EF.Functions.ILike(scenario.Title, pattern) || EF.Functions.ILike(scenario.CreationBrief, pattern));
+        }
+
+        int total = await filtered.CountAsync(cancellationToken).ConfigureAwait(false);
+        Scenario[] items = await filtered.OrderByDescending(static scenario => scenario.UpdatedAt)
+            .Skip(offset).Take(limit).ToArrayAsync(cancellationToken).ConfigureAwait(false);
+        return (items, total);
+    }
 
     public Task<ScenarioVersion?> GetVersionAsync(Guid versionId, CancellationToken cancellationToken) =>
         dbContext.ScenarioVersions.SingleOrDefaultAsync(version => version.Id == versionId, cancellationToken);

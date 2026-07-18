@@ -3,6 +3,7 @@ using System;
 using GenEngine.Authoring.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GenEngine.Authoring.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AuthoringDbContext))]
-    partial class AuthoringDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260718104601_AddScenarioLifecycle")]
+    partial class AddScenarioLifecycle
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

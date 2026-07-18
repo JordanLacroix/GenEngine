@@ -29,3 +29,5 @@
 | ORG-007 | todo | Exposer une vue établissement → période → classe → membres sans données excessives |
 | ORG-008 | todo | Configurer tentatives, aide, réussite, reprise et visibilité des résultats par groupe |
 | ORG-009 | in-progress | Supporter départements/équipes/cohortes sans vocabulaire imposé ; managers à venir |
+| ORG-010 | done | Configurer parcours, relation N-N aux catégories et rattachement explicite de scénarios |
+| ORG-011 | in-progress | Configurer fenêtres et échéances d'affectation ; appliquer ensuite memberships et accès runtime |
