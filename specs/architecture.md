@@ -56,7 +56,7 @@ Le jalon 4 prévoit d'étendre la topologie par bounded contexts autonomes, sans
 | Service candidat | Ownership prévu | Statut |
 |---|---|---|
 | `Configuration` | Fronts, registre de settings, résolution hiérarchique, feature flags et modules | Implémenté, enrichissement P0 en cours |
-| `Organization` | Écoles/entreprises/formations, unités, memberships et affectations runtime | Implémenté par ADR 0005, enrichissement P0 en cours |
+| `Organization` | Écoles/entreprises/formations, unités, memberships et affectations runtime | Implémenté par ADR 0006, enrichissement P0 en cours |
 | `Assistant` | Familiers, politiques d'aide, adaptateurs IA, metering et quotas | ADR puis P1/P2 |
 | `Economy` | Devises, wallet/ledger, récompenses, inventaire, magasins et achats | ADR puis P3 |
 

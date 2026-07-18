@@ -78,7 +78,7 @@ La hiérarchie d'organisation est désormais opérationnelle dans un service aut
 
 ### Tranche `feat/organization-runtime-scale` — validation en cours le 18 juillet 2026
 
-- ADR 0005 et service `Organization` DDD/Clean avec PostgreSQL indépendant.
+- ADR 0006 et service `Organization` DDD/Clean avec PostgreSQL indépendant.
 - CRUD audité des unités, memberships et affectations, scopes de front signés et résolution `/me`/interservice.
 - contrôle allow/deny dans Play sur les affectations directes de scénario ou de catégorie ; front figé dans le snapshot et la session.
 - écrans d'exploitation Web/iOS séparés du studio, avec création, listes et suppressions utiles.
