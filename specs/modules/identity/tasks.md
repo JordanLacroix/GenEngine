@@ -14,3 +14,6 @@
 | IDN-010 | todo | Créer, cloner, versionner et archiver des rôles custom composés de permissions stables |
 | IDN-011 | in-progress | Gérer les affectations de rôles portées et temporisées avec provenance explicable |
 | IDN-012 | todo | Empêcher auto-élévation, délégation hors scope et suppression du dernier administrateur |
+| IDN-013 | done | Rechercher et paginer les utilisateurs, consulter leurs rôles et leur état |
+| IDN-014 | done | Activer, désactiver et supprimer logiquement un compte avec garde-fou du dernier détenteur de `rbac.manage` |
+| IDN-015 | done | Supprimer un rôle custom et retirer explicitement une affectation de rôle |

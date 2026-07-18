@@ -21,7 +21,7 @@ for endpoint in "$IDENTITY_URL/health/ready" "$AUTHORING_URL/health/ready" "$PLA
 done
 
 experience=$(curl --fail --silent --show-error "$CONFIGURATION_URL/experience/default")
-jq -e '.version == 1 and .document.game.name != "" and (.document.categories | length) > 0 and (.document.familiars | length) > 0 and .document.economy.currencyCode == "BRAISE" and (.document.aiProviders[] | select(.type == "AzureAiFoundry") | .secretReference) == null' <<<"$experience" >/dev/null
+jq -e '.version >= 1 and .document.game.name != "" and (.document.categories | length) > 0 and (.document.familiars | length) > 0 and .document.economy.currencyCode == "BRAISE" and (.document.aiProviders[] | select(.type == "AzureAiFoundry") | .secretReference) == null' <<<"$experience" >/dev/null
 
 credentials=$(jq -n --arg userName "$USER_NAME" --arg password "$PASSWORD" '{userName:$userName,password:$password}')
 echo "[1/11] Register"

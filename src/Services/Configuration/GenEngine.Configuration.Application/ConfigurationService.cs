@@ -15,8 +15,53 @@ public sealed record OrganizationUnitDefinition(Guid Id, Guid? ParentId, string 
 public sealed record OrganizationDefinition(string Name, string Description, IReadOnlyList<OrganizationUnitDefinition> Units);
 public sealed record AuthenticationDefinition(AuthenticationMode Mode, bool LocalEnabled, bool EntraEnabled, string? EntraTenantId, string? EntraClientId);
 public sealed record AiProviderDefinition(Guid Id, string Name, AiProviderType Type, bool Enabled, string Endpoint, string Deployment, string Authentication, string? SecretReference, IReadOnlyList<string> Capabilities);
-public sealed record CategoryDefinition(Guid Id, string Name, string Description, string Accent, int Order, bool IsVisible);
-public sealed record FamiliarDefinition(Guid Id, string Name, string Description, string Form, string WritingStyle, string Tone, string Accent, int HelpLevel, IReadOnlyList<string> Capabilities, IReadOnlyList<string> AvailableForms, IReadOnlyList<string> AvailableTones);
+public sealed record CategoryDefinition(
+    Guid Id,
+    string Name,
+    string Description,
+    string Accent,
+    int Order,
+    bool IsVisible,
+    string? ImageUrl = null,
+    IReadOnlyList<string>? Tags = null,
+    IReadOnlyList<Guid>? ScenarioIds = null);
+public sealed record JourneyDefinition(
+    Guid Id,
+    string Name,
+    string Description,
+    string Accent,
+    string? ImageUrl,
+    int Order,
+    bool IsVisible,
+    IReadOnlyList<Guid> CategoryIds,
+    IReadOnlyList<Guid> PrerequisiteJourneyIds,
+    IReadOnlyList<string> Tags);
+public sealed record CatalogAssignmentDefinition(
+    Guid Id,
+    Guid OrganizationUnitId,
+    string ContentType,
+    Guid ContentId,
+    string Name,
+    bool Required,
+    DateTimeOffset? AvailableFrom,
+    DateTimeOffset? DueAt);
+public sealed record FamiliarDefinition(
+    Guid Id,
+    string Name,
+    string Description,
+    string Form,
+    string WritingStyle,
+    string Tone,
+    string Accent,
+    int HelpLevel,
+    IReadOnlyList<string> Capabilities,
+    IReadOnlyList<string> AvailableForms,
+    IReadOnlyList<string> AvailableTones,
+    string? PortraitUrl = null,
+    string? AvatarUrl = null,
+    string? BackgroundUrl = null,
+    string? License = null,
+    string? Attribution = null);
 public sealed record RewardRuleDefinition(string Trigger, string ReferenceId, int Amount, string Description);
 public sealed record OfferDefinition(Guid Id, string Name, string Description, int Price, string RewardType, string RewardReference, bool Enabled);
 public sealed record EconomyDefinition(string CurrencyCode, string CurrencyName, string CurrencyIcon, int InitialBalance, IReadOnlyList<RewardRuleDefinition> RewardRules, IReadOnlyList<OfferDefinition> Offers);
@@ -33,7 +78,9 @@ public sealed record ExperienceDocument(
     IReadOnlyList<CategoryDefinition> Categories,
     IReadOnlyList<FamiliarDefinition> Familiars,
     EconomyDefinition Economy,
-    IReadOnlyList<ModuleDefinition> Modules);
+    IReadOnlyList<ModuleDefinition> Modules,
+    IReadOnlyList<JourneyDefinition>? Journeys = null,
+    IReadOnlyList<CatalogAssignmentDefinition>? Assignments = null);
 
 public sealed record ExperienceConfigurationView(Guid Id, int Revision, int PublishedVersion, DateTimeOffset UpdatedAt, DateTimeOffset? PublishedAt, ExperienceDocument Document);
 public sealed record PublishedExperienceView(int Version, DateTimeOffset PublishedAt, ExperienceDocument Document);
@@ -125,7 +172,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             new CategoryDefinition(Guid.Parse("00a575d4-9de8-47df-b713-35176969d410"), "Exploration", "Mondes inconnus et chemins alternatifs.", "verdigris", 2, true),
         ],
         [
-            new FamiliarDefinition(Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "Lueur", "Un éclat curieux qui pose les bonnes questions.", "spark", "Socratic", "Warm", "amber", 2, ["hint", "recap", "rephrase"], ["spark", "owl", "fox"], ["Warm", "Playful", "Direct", "Mysterious"]),
+            new FamiliarDefinition(Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "Lueur", "Un éclat curieux qui pose les bonnes questions.", "spark", "Socratic", "Warm", "amber", 2, ["hint", "recap", "rephrase"], ["spark", "owl", "fox"], ["Warm", "Playful", "Direct", "Mysterious"], "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=900&q=85", null, null, "Unsplash", "Photo de démonstration — remplacer avant production"),
         ],
         new EconomyDefinition("BRAISE", "Braises", "✦", 0,
             [
@@ -140,7 +187,21 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             new ModuleDefinition("studio", "Studio", "Créer, générer et publier des scénarios.", true, ["scenario.author"]),
             new ModuleDefinition("administration", "Administration", "Configurer le jeu, les accès et les providers.", true, ["config.read"]),
             new ModuleDefinition("shop", "Magasin", "Dépenser les monnaies narratives.", true, ["shop.read"]),
-        ]);
+        ],
+        [
+            new JourneyDefinition(
+                Guid.Parse("b1eeb069-dcca-4db1-a5fb-a787299d4958"),
+                "Les traces de la Brume",
+                "Un parcours progressif pour comprendre le royaume et retrouver ses souvenirs.",
+                "ember",
+                null,
+                1,
+                true,
+                [Guid.Parse("8dc4d13b-f6ca-4e16-bf52-a78cdf755f9e"), Guid.Parse("00a575d4-9de8-47df-b713-35176969d410")],
+                [],
+                ["découverte", "mystère"]),
+        ],
+        []);
 
     private async Task<ExperienceConfiguration> GetRequiredAsync(string frontId, CancellationToken cancellationToken) =>
         await repository.GetAsync(frontId, cancellationToken).ConfigureAwait(false)
@@ -197,9 +258,13 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             throw new ConfigurationException("invalid_entra_configuration", "Tenant and client identifiers are required when Entra ID is enabled.");
         }
 
+        IReadOnlyList<JourneyDefinition> journeys = document.Journeys ?? [];
+        IReadOnlyList<CatalogAssignmentDefinition> assignments = document.Assignments ?? [];
         if (document.Categories.Select(static category => category.Id).Distinct().Count() != document.Categories.Count
             || document.Familiars.Select(static familiar => familiar.Id).Distinct().Count() != document.Familiars.Count
-            || document.AiProviders.Select(static provider => provider.Id).Distinct().Count() != document.AiProviders.Count)
+            || document.AiProviders.Select(static provider => provider.Id).Distinct().Count() != document.AiProviders.Count
+            || journeys.Select(static journey => journey.Id).Distinct().Count() != journeys.Count
+            || assignments.Select(static assignment => assignment.Id).Distinct().Count() != assignments.Count)
         {
             throw new ConfigurationException("duplicate_identifier", "Category, familiar and provider identifiers must be unique.");
         }
@@ -213,6 +278,8 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         }
 
         HashSet<Guid> unitIds = organization.Units.Select(static unit => unit.Id).ToHashSet();
+        HashSet<Guid> categoryIds = document.Categories.Select(static category => category.Id).ToHashSet();
+        HashSet<Guid> journeyIds = journeys.Select(static journey => journey.Id).ToHashSet();
         if (organization.Units.Any(unit =>
                 string.IsNullOrWhiteSpace(unit.Name)
                 || string.IsNullOrWhiteSpace(unit.Type)
@@ -235,6 +302,33 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
 
                 current = organization.Units.Single(candidate => candidate.Id == parentId);
             }
+        }
+
+        if (journeys.Any(journey =>
+                string.IsNullOrWhiteSpace(journey.Name)
+                || journey.CategoryIds.Any(categoryId => !categoryIds.Contains(categoryId))
+                || journey.PrerequisiteJourneyIds.Any(prerequisiteId => prerequisiteId == journey.Id || !journeyIds.Contains(prerequisiteId))))
+        {
+            throw new ConfigurationException("invalid_journey", "Journeys must have a name and reference existing categories and prerequisites.");
+        }
+
+        if (assignments.Any(assignment =>
+                !unitIds.Contains(assignment.OrganizationUnitId)
+                || assignment.DueAt < assignment.AvailableFrom
+                || (assignment.ContentType.Equals("Journey", StringComparison.OrdinalIgnoreCase) && !journeyIds.Contains(assignment.ContentId))
+                || (assignment.ContentType.Equals("Category", StringComparison.OrdinalIgnoreCase) && !categoryIds.Contains(assignment.ContentId))))
+        {
+            throw new ConfigurationException("invalid_assignment", "Assignments must reference an existing unit and catalog item with a valid availability window.");
+        }
+
+        if (document.Familiars.Any(static familiar =>
+                string.IsNullOrWhiteSpace(familiar.Name)
+                || familiar.HelpLevel is < 0 or > 5
+                || !IsValidAssetUrl(familiar.PortraitUrl)
+                || !IsValidAssetUrl(familiar.AvatarUrl)
+                || !IsValidAssetUrl(familiar.BackgroundUrl)))
+        {
+            throw new ConfigurationException("invalid_familiar", "Familiars require a name, a valid help level and HTTPS asset URLs.");
         }
 
         if (document.Economy.InitialBalance < 0 || document.Economy.RewardRules.Any(static rule => rule.Amount <= 0) || document.Economy.Offers.Any(static offer => offer.Price < 0))
@@ -269,8 +363,19 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         {
             Organization = document.Organization ?? CreateOrganizationDefault(document.OrganizationType),
             Language = new GameLanguageDefinition(labels),
+            Categories = document.Categories.Select(static category => category with
+            {
+                Tags = category.Tags ?? [],
+                ScenarioIds = category.ScenarioIds ?? [],
+            }).ToArray(),
+            Journeys = document.Journeys ?? [],
+            Assignments = document.Assignments ?? [],
         };
     }
+
+    private static bool IsValidAssetUrl(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+        || (Uri.TryCreate(value, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps);
 
     private static Dictionary<string, string> CreateDefaultLabels() => new(StringComparer.Ordinal)
     {

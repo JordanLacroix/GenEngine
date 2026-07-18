@@ -13,3 +13,5 @@
 | AUT-009 | in-progress | Gérer parcours, catégories réutilisables, ordre et règles de visibilité par front |
 | AUT-010 | todo | Associer un scénario à plusieurs catégories sans dupliquer son contenu |
 | AUT-011 | done | Produire un brouillon assisté par IA, revalidé et jamais publié sans revue humaine |
+| AUT-012 | done | Rechercher et paginer les brouillons d'un auteur, puis les archiver par révision optimiste |
+| AUT-013 | done | Exposer les contrats utilisés par les éditeurs low-code Web et iOS sans déplacer les règles Narrative dans les clients |

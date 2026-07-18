@@ -25,6 +25,10 @@ public sealed class UserAccount
 
     public DateTimeOffset CreatedAt { get; private set; }
 
+    public bool IsActive { get; private set; } = true;
+
+    public DateTimeOffset? DeletedAt { get; private set; }
+
     public string? ExternalProvider { get; private set; }
 
     public string? ExternalSubject { get; private set; }
@@ -67,6 +71,32 @@ public sealed class UserAccount
         }
 
         PasswordHash = passwordHash;
+    }
+
+    public void SetActive(bool isActive)
+    {
+        if (DeletedAt is not null)
+        {
+            throw new IdentityDomainException("user_deleted", "A deleted account cannot be reactivated.");
+        }
+
+        IsActive = isActive;
+    }
+
+    public void SoftDelete(DateTimeOffset deletedAt)
+    {
+        if (DeletedAt is not null)
+        {
+            return;
+        }
+
+        UserName = $"deleted-{Id:N}";
+        NormalizedUserName = UserName.ToUpperInvariant();
+        PasswordHash = string.Empty;
+        ExternalProvider = null;
+        ExternalSubject = null;
+        IsActive = false;
+        DeletedAt = deletedAt;
     }
 }
 
@@ -129,6 +159,14 @@ public sealed class CustomRole
         ReplacePermissions(permissionCodes);
     }
 
+    public void Archive()
+    {
+        if (IsSystem)
+        {
+            throw new IdentityDomainException("system_role_immutable", "System roles cannot be archived.");
+        }
+    }
+
     private void ReplacePermissions(IEnumerable<string> permissionCodes)
     {
         string[] codes = permissionCodes
@@ -152,7 +190,7 @@ public sealed class RolePermissionGrant
     private RolePermissionGrant(Guid roleId, string permissionCode) { RoleId = roleId; PermissionCode = permissionCode; }
     public Guid RoleId { get; private set; }
     public string PermissionCode { get; private set; } = string.Empty;
-    internal static RolePermissionGrant Create(Guid roleId, string permissionCode) => new(roleId, permissionCode);
+    public static RolePermissionGrant Create(Guid roleId, string permissionCode) => new(roleId, permissionCode);
 }
 
 public sealed class UserRoleAssignment

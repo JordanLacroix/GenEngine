@@ -88,6 +88,41 @@ public sealed class ConfigurationServiceTests
         Assert.Equal("invalid_authentication", exception.Code);
     }
 
+    [Fact]
+    public async Task JourneyRejectsUnknownCategory()
+    {
+        var service = new ConfigurationService(new ConfigurationRepositoryStub(), TimeProvider.System);
+        ExperienceDocument baseline = ConfigurationService.CreateDefault("default");
+        ExperienceDocument document = baseline with
+        {
+            Journeys =
+            [
+                new JourneyDefinition(Guid.NewGuid(), "Parcours invalide", "", "ember", null, 1, true, [Guid.NewGuid()], [], []),
+            ],
+        };
+
+        ConfigurationException exception = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            service.UpsertAsync("default", null, document, CancellationToken.None));
+
+        Assert.Equal("invalid_journey", exception.Code);
+    }
+
+    [Fact]
+    public async Task FamiliarRejectsInsecureAssetUrl()
+    {
+        var service = new ConfigurationService(new ConfigurationRepositoryStub(), TimeProvider.System);
+        ExperienceDocument baseline = ConfigurationService.CreateDefault("default");
+        ExperienceDocument document = baseline with
+        {
+            Familiars = baseline.Familiars.Select(familiar => familiar with { PortraitUrl = "http://insecure.example/avatar.png" }).ToArray(),
+        };
+
+        ConfigurationException exception = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            service.UpsertAsync("default", null, document, CancellationToken.None));
+
+        Assert.Equal("invalid_familiar", exception.Code);
+    }
+
     private sealed class ConfigurationRepositoryStub : IConfigurationRepository
     {
         private ExperienceConfiguration? configuration;

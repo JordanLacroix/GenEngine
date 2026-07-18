@@ -3,10 +3,10 @@
 | ID | Statut | Tâche |
 |---|---|---|
 | AST-001 | todo | Décider par ADR la frontière du service Assistant et ses contrats avec Play/Authoring |
-| AST-002 | todo | Définir le modèle neutre de familier, assets, licence, style et capacités |
+| AST-002 | done | Définir le modèle neutre de familier, assets HTTPS, licence, style et capacités |
 | AST-003 | todo | Résoudre les politiques d'aide front/rôle/utilisateur et figer un snapshot de session |
 | AST-004 | todo | Fournir aide contextuelle et indices entièrement hors ligne |
-| AST-005 | todo | Persister sélection/personnalisation dans les limites configurées et autorisées |
+| AST-005 | done | Persister sélection/personnalisation dans les limites configurées et autorisées |
 | AST-006 | todo | Importer Codex Pets via une anti-corruption layer avec validation de licence |
 | AIX-001 | todo | Définir les ports métier assistant, analyse et génération sans type fournisseur |
 | AIX-002 | todo | Implémenter le profil Offline déterministe et le fallback explicite |

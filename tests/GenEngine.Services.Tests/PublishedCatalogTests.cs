@@ -46,7 +46,7 @@ public sealed class PublishedCatalogTests
         var service = new AuthoringService(repository, TimeProvider.System);
 
         PublishedScenarioView result = Assert.Single(
-            await service.ListPublishedAsync(12, null, CancellationToken.None));
+            await service.ListPublishedAsync(12, null, null, CancellationToken.None));
 
         Assert.Equal(12, repository.RequestedLimit);
         Assert.Equal(scenario.Id, result.ScenarioId);
@@ -55,6 +55,22 @@ public sealed class PublishedCatalogTests
         Assert.Equal("Latest opening text", result.Description);
         Assert.Equal(5, result.EstimatedMinutes);
         Assert.Equal(now.AddMinutes(2), result.PublishedAt);
+    }
+
+    [Fact]
+    public async Task ArchiveKeepsPublishedVersionsButMarksScenarioUnavailableForCatalogQueries()
+    {
+        DateTimeOffset now = new(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+        ScenarioDocument document = CreateDocument("Archive me", "Opening");
+        Scenario scenario = Scenario.Create("owner", document.Title, NarrativeJson.Serialize(document), now);
+        scenario.Publish(NarrativeJson.Serialize(document), CanonicalSnapshot.ComputeHash(document), 1, now);
+        var repository = new CatalogRepository(scenario);
+        var service = new AuthoringService(repository, TimeProvider.System);
+
+        await service.ArchiveAsync(scenario.Id, "owner", 2, CancellationToken.None);
+
+        Assert.True(scenario.IsArchived);
+        Assert.Single(scenario.Versions);
     }
 
     private static ScenarioDocument CreateDocument(string title, string openingText) =>
@@ -86,11 +102,15 @@ public sealed class PublishedCatalogTests
         public Task<IReadOnlyList<Scenario>> ListPublishedAsync(
             int limit,
             Guid? categoryId,
+            string? query,
             CancellationToken cancellationToken)
         {
             RequestedLimit = limit;
             return Task.FromResult<IReadOnlyList<Scenario>>(scenarios.Take(limit).ToArray());
         }
+
+        public Task<(IReadOnlyList<Scenario> Items, int Total)> ListOwnedAsync(string ownerId, string? query, Guid? categoryId, bool includeArchived, int offset, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult<(IReadOnlyList<Scenario>, int)>((scenarios, scenarios.Length));
 
         public Task<ScenarioVersion?> GetVersionAsync(Guid versionId, CancellationToken cancellationToken) =>
             Task.FromResult<ScenarioVersion?>(null);

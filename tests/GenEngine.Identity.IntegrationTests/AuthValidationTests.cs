@@ -31,4 +31,16 @@ public sealed class AuthValidationTests(WebApplicationFactory<Program> factory) 
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    [Theory]
+    [InlineData("/admin/users")]
+    [InlineData("/admin/access/roles")]
+    public async Task AdministrationEndpointsRejectAnonymousRequests(string path)
+    {
+        using var client = factory.CreateClient();
+
+        using var response = await client.GetAsync(path, CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

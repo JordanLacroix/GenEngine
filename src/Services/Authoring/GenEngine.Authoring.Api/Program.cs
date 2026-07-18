@@ -55,14 +55,34 @@ app.MapAuthoringHealthChecks();
 app.MapGet("/catalog", async (
     int? limit,
     Guid? categoryId,
+    string? query,
     AuthoringService service,
     CancellationToken cancellationToken) =>
     Results.Ok(await service.ListPublishedAsync(
         Math.Clamp(limit ?? 20, 1, 100),
         categoryId,
+        query,
         cancellationToken).ConfigureAwait(false)));
 
 RouteGroupBuilder scenarios = app.MapGroup("/scenarios").RequireAuthorization("scenario.author");
+
+scenarios.MapGet("", async (
+    string? query,
+    Guid? categoryId,
+    bool? includeArchived,
+    int? page,
+    int? pageSize,
+    ClaimsPrincipal user,
+    AuthoringService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.ListOwnedAsync(
+        GetUserId(user),
+        query,
+        categoryId,
+        includeArchived ?? false,
+        page ?? 1,
+        pageSize ?? 25,
+        cancellationToken).ConfigureAwait(false)));
 
 scenarios.MapPost("/generate", async (
     ScenarioGenerationRequest request,
@@ -213,6 +233,27 @@ scenarios.MapGet("/{id:guid}/versions", async (
     AuthoringService service,
     CancellationToken cancellationToken) =>
     Results.Ok(await service.ListVersionsAsync(id, GetUserId(user), cancellationToken).ConfigureAwait(false)));
+
+scenarios.MapDelete("/{id:guid}", async (
+    Guid id,
+    int expectedRevision,
+    ClaimsPrincipal user,
+    AuthoringService service,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    string actorId = GetUserId(user);
+    await service.ArchiveAsync(id, actorId, expectedRevision, cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent
+    {
+        Action = "scenario_archived",
+        Outcome = AuditOutcome.Success,
+        ActorId = actorId,
+        ResourceType = "scenario",
+        ResourceId = id.ToString(),
+    });
+    return Results.NoContent();
+});
 
 app.MapGet("/internal/scenario-versions/{versionId:guid}", async (
     Guid versionId,

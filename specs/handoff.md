@@ -64,6 +64,17 @@ Le control plane Configuration, les rôles custom, les permissions stables, les 
 
 La hiérarchie configurable d'organisation est livrée pour modéliser école/classes/groupes ou entreprise/départements/équipes/cohortes. La carte exhaustive [`specs/product-capability-map.md`](product-capability-map.md) distingue désormais les fonctions utilisables, partielles, fondées ou absentes. La prochaine unité cohérente reste la gestion des memberships et des encadrants, puis les vrais parcours et affectations.
 
+### Tranche `feat/product-operations` vérifiée le 18 juillet 2026
+
+- Identity expose une recherche paginée des utilisateurs, leur détail et leurs affectations ; activation, désactivation et suppression logique sont protégées contre l'auto-verrouillage et la suppression du dernier détenteur actif de `rbac.manage`.
+- Les rôles custom et affectations peuvent être supprimés ; les rôles système restent protégés. Le catalogue de permissions est synchronisé au démarrage.
+- Configuration porte désormais parcours, relation N-N aux catégories, rattachement de scénarios, modèle d'affectation avec fenêtre/échéance et assets familiers HTTPS avec licence/attribution.
+- Authoring recherche/pagine les brouillons et permet leur archivage optimiste ; le catalogue public ignore les scénarios archivés.
+- Migrations EF `AddUserLifecycle` et `AddScenarioLifecycle` ajoutées.
+- Validation locale : 87 tests backend réussis. Les clients Web et iOS ont aussi été construits sur leurs branches homologues.
+
+Ce qui reste explicitement hors de cette tranche : memberships/encadrants, application runtime des affectations, héritage multi-portée, aide contextuelle du familier, snapshot de session de l'assistant, metering/quota IA et import Codex Pets.
+
 Contexte livré au jalon 3 :
 
 - `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.

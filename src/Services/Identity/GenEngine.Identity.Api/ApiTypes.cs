@@ -9,6 +9,7 @@ namespace GenEngine.Identity.Api;
 public sealed record CredentialsRequest(string UserName, string Password);
 public sealed record RoleRequest(string Name, string Description, IReadOnlyList<string> Permissions);
 public sealed record AssignRoleRequest(Guid RoleId, string? Scope, DateTimeOffset? ExpiresAt);
+public sealed record UserStatusRequest(bool IsActive);
 public sealed record AuthenticationProvidersView(
     string Mode,
     bool LocalEnabled,

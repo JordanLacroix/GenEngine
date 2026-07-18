@@ -34,6 +34,7 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             entity.Property(static account => account.PasswordHash).HasMaxLength(500);
             entity.Property(static account => account.ExternalProvider).HasMaxLength(40);
             entity.Property(static account => account.ExternalSubject).HasMaxLength(200);
+            entity.Property(static account => account.IsActive).HasDefaultValue(true);
             entity.HasIndex(static account => account.NormalizedUserName).IsUnique();
             entity.HasIndex(static account => new { account.ExternalProvider, account.ExternalSubject }).IsUnique();
             entity.HasMany(static account => account.RoleAssignments)
@@ -109,10 +110,44 @@ internal sealed class IdentityRepository(IdentityDbContext dbContext) : IIdentit
             assignment => assignment.RoleId == roleId,
             cancellationToken);
 
+    public Task<int> CountActiveUsersWithPermissionAsync(string permissionCode, CancellationToken cancellationToken) =>
+        dbContext.Users.CountAsync(account =>
+            account.IsActive
+            && account.DeletedAt == null
+            && account.RoleAssignments.Any(assignment =>
+                assignment.Role.Permissions.Any(permission => permission.PermissionCode == permissionCode)),
+            cancellationToken);
+
     public async Task<IReadOnlyList<CustomRole>> ListRolesAsync(CancellationToken cancellationToken) =>
         await dbContext.Roles.Include(static role => role.Permissions)
             .OrderBy(static role => role.Name)
             .ToArrayAsync(cancellationToken).ConfigureAwait(false);
+
+    public async Task<(IReadOnlyList<UserAccount> Items, int Total)> ListUsersAsync(
+        string? query,
+        bool includeDeleted,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<UserAccount> filtered = UsersWithAccess()
+            .AsNoTracking()
+            .Where(account => includeDeleted || account.DeletedAt == null);
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            string pattern = $"%{query.Trim()}%";
+            filtered = filtered.Where(account => EF.Functions.ILike(account.UserName, pattern));
+        }
+
+        int total = await filtered.CountAsync(cancellationToken).ConfigureAwait(false);
+        UserAccount[] items = await filtered
+            .OrderBy(static account => account.UserName)
+            .Skip(offset)
+            .Take(limit)
+            .ToArrayAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return (items, total);
+    }
 
     public async Task AddAsync(UserAccount account, CancellationToken cancellationToken) =>
         await dbContext.Users.AddAsync(account, cancellationToken).ConfigureAwait(false);
@@ -122,6 +157,27 @@ internal sealed class IdentityRepository(IdentityDbContext dbContext) : IIdentit
 
     public async Task AssignRoleAsync(UserRoleAssignment assignment, CancellationToken cancellationToken) =>
         await dbContext.UserRoleAssignments.AddAsync(assignment, cancellationToken).ConfigureAwait(false);
+
+    public async Task RemoveRoleAssignmentAsync(Guid userId, Guid roleId, string scope, CancellationToken cancellationToken)
+    {
+        UserRoleAssignment? assignment = await dbContext.UserRoleAssignments.SingleOrDefaultAsync(
+            item => item.UserId == userId && item.RoleId == roleId && item.Scope == scope,
+            cancellationToken).ConfigureAwait(false);
+        if (assignment is not null)
+        {
+            dbContext.UserRoleAssignments.Remove(assignment);
+        }
+    }
+
+    public void RemoveRole(CustomRole role) => dbContext.Roles.Remove(role);
+
+    public async Task RemoveUserAssignmentsAsync(Guid userId, CancellationToken cancellationToken)
+    {
+        UserRoleAssignment[] assignments = await dbContext.UserRoleAssignments
+            .Where(assignment => assignment.UserId == userId)
+            .ToArrayAsync(cancellationToken).ConfigureAwait(false);
+        dbContext.UserRoleAssignments.RemoveRange(assignments);
+    }
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
@@ -225,6 +281,20 @@ public static class IdentityInfrastructureExtensions
                 CustomRole.Create("Player", "Joue et utilise le magasin.", ["session.play", "shop.read"], now, true),
                 CustomRole.Create("Creator", "Crée, prévisualise et publie des scénarios.", ["session.play", "shop.read", "scenario.author", "scenario.publish"], now, true),
                 CustomRole.Create("Administrator", "Administre l'expérience, les accès et les providers.", PermissionCatalog.All.Keys, now, true));
+            await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+
+        CustomRole? administrator = await dbContext.Roles.Include(static role => role.Permissions)
+            .SingleOrDefaultAsync(role => role.NormalizedName == "ADMINISTRATOR", cancellationToken)
+            .ConfigureAwait(false);
+        if (administrator is not null)
+        {
+            HashSet<string> existing = administrator.Permissions.Select(static permission => permission.PermissionCode).ToHashSet(StringComparer.Ordinal);
+            foreach (string permissionCode in PermissionCatalog.All.Keys.Where(code => !existing.Contains(code)))
+            {
+                dbContext.RolePermissions.Add(RolePermissionGrant.Create(administrator.Id, permissionCode));
+            }
+
             await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
     }
