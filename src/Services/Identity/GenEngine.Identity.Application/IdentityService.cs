@@ -17,10 +17,17 @@ public static class PermissionCatalog
             ["identity.user.manage"] = "Activer, désactiver et supprimer les utilisateurs",
             ["rbac.read"] = "Consulter les rôles et permissions",
             ["rbac.manage"] = "Gérer les rôles et affectations",
+            ["front.read"] = "Consulter les organisations autorisées",
+            ["front.manage"] = "Administrer un front d'organisation",
+            ["unit.read"] = "Consulter les unités d'organisation",
+            ["unit.manage"] = "Administrer les unités d'organisation",
+            ["membership.read"] = "Consulter les appartenances et encadrants",
+            ["membership.manage"] = "Administrer les appartenances et encadrants",
             ["journey.read"] = "Consulter les parcours",
             ["journey.manage"] = "Gérer les parcours",
             ["category.read"] = "Consulter les catégories",
             ["category.manage"] = "Gérer les catégories",
+            ["assignment.read"] = "Consulter les affectations de contenu",
             ["assignment.manage"] = "Gérer les affectations de contenu",
             ["assistant.use"] = "Utiliser le familier",
             ["assistant.customize"] = "Personnaliser son familier",
@@ -362,7 +369,7 @@ public sealed class IdentityService(
         CustomRole role = await repository.FindRoleByNormalizedNameAsync("PLAYER", cancellationToken).ConfigureAwait(false)
             ?? throw new IdentityException("role_not_found", "The default Player role is not configured.");
         await repository.AssignRoleAsync(
-            UserRoleAssignment.Create(userId, role.Id, "*", null, timeProvider.GetUtcNow()),
+            UserRoleAssignment.Create(userId, role.Id, "front:default", null, timeProvider.GetUtcNow()),
             cancellationToken).ConfigureAwait(false);
     }
 

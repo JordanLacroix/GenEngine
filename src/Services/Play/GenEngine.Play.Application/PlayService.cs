@@ -27,6 +27,8 @@ public interface IPlayRepository
 public sealed record PublishedSnapshotContract(
     Guid Id,
     Guid ScenarioId,
+    string FrontId,
+    Guid? CategoryId,
     int Number,
     string SnapshotJson,
     string SnapshotHash);
@@ -35,6 +37,7 @@ public sealed record SessionView(
     Guid Id,
     Guid ScenarioId,
     Guid ScenarioVersionId,
+    string FrontId,
     string SnapshotHash,
     SessionStatus Status,
     int Revision,
@@ -46,23 +49,44 @@ public sealed record InputResult(SessionView Session, CurrentStep CurrentStep, b
 
 public interface IRewardDispatcher
 {
-    Task DispatchAsync(string userId, IReadOnlyList<RewardDispatch> rewards, CancellationToken cancellationToken);
-    Task DispatchProgressAsync(string userId, ProgressDispatch progress, CancellationToken cancellationToken);
+    Task DispatchAsync(string userId, string frontId, IReadOnlyList<RewardDispatch> rewards, CancellationToken cancellationToken);
+    Task DispatchProgressAsync(string userId, string frontId, ProgressDispatch progress, CancellationToken cancellationToken);
+}
+
+public interface IContentAccessClient
+{
+    Task EnsureCanStartAsync(Guid userId, string frontId, Guid scenarioId, Guid? categoryId, CancellationToken cancellationToken);
 }
 
 public sealed class PlayService(
     IPlayRepository repository,
     IAuthoringSnapshotClient authoringClient,
+    IContentAccessClient contentAccessClient,
     TimeProvider timeProvider)
 {
     public async Task<SessionView> StartAsync(
         string ownerId,
         Guid scenarioVersionId,
         ulong seed,
+        bool bypassAssignments,
         CancellationToken cancellationToken)
     {
         PublishedSnapshotContract snapshot = await authoringClient.GetAsync(scenarioVersionId, cancellationToken)
             .ConfigureAwait(false);
+        if (!bypassAssignments)
+        {
+            if (!Guid.TryParse(ownerId, out Guid userId))
+            {
+                throw new PlayException("invalid_user_id", "The authenticated user identifier is invalid.");
+            }
+
+            await contentAccessClient.EnsureCanStartAsync(
+                userId,
+                snapshot.FrontId,
+                snapshot.ScenarioId,
+                snapshot.CategoryId,
+                cancellationToken).ConfigureAwait(false);
+        }
         ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(snapshot.SnapshotJson);
         string actualHash = CanonicalSnapshot.ComputeHash(scenario);
         if (!string.Equals(actualHash, snapshot.SnapshotHash, StringComparison.Ordinal))
@@ -75,6 +99,7 @@ public sealed class PlayService(
         GameSave save = GameSaveSerializer.Create(scenario.SchemaVersion, seed, now, state);
         GameSession session = GameSession.Create(
             ownerId,
+            snapshot.FrontId,
             snapshot.ScenarioId,
             snapshot.Id,
             snapshot.SnapshotHash,
@@ -329,6 +354,7 @@ public sealed class PlayService(
             session.Id,
             session.ScenarioId,
             session.ScenarioVersionId,
+            session.FrontId,
             session.SnapshotHash,
             state.Status,
             session.Revision,

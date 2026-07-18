@@ -42,6 +42,9 @@ L’ingress n’est pas une application métier et ne compose pas les services e
 | `Authoring` | Supporting | Import, brouillons, validation, versioning et publication | Auteurs, brouillons, versions publiées et métadonnées éditoriales |
 | `Play` | Core/Supporting | Sessions, commandes, idempotence, sauvegarde, pause et reprise | Sessions, états, historique de commandes et projections de jeu |
 | `Identity` | Generic | Authentification locale, acteurs et politiques d’autorisation | Comptes, credentials, rôles et clés de sécurité |
+| `Configuration` | Supporting | Configuration publiée du produit et du jeu | Fronts configurés, branding, catalogue, providers et politiques |
+| `PlayerExperience` | Supporting | Expérience et progression personnelles | Onboarding, familier, journal, progression, portefeuille et possessions |
+| `Organization` | Supporting | Exploitation des écoles, entreprises et organismes | Fronts opérationnels, unités, memberships, encadrement et affectations |
 | `Narrative` | Core Domain partagé sous forme de package | Modèle narratif, invariants, evaluator, reducer, runtime, PRNG et hash | Aucune donnée persistée |
 
 Un service ne lit ni la base, ni le `DbContext`, ni les assemblies internes d’un autre service.
@@ -52,8 +55,8 @@ Le jalon 4 prévoit d'étendre la topologie par bounded contexts autonomes, sans
 
 | Service candidat | Ownership prévu | Statut |
 |---|---|---|
-| `Configuration` | Fronts, registre de settings, résolution hiérarchique, feature flags et modules | ADR puis P0 |
-| `Organization` | Écoles/entreprises/formations, périodes, classes/équipes/groupes, memberships et affectations | ADR puis P0 |
+| `Configuration` | Fronts, registre de settings, résolution hiérarchique, feature flags et modules | Implémenté, enrichissement P0 en cours |
+| `Organization` | Écoles/entreprises/formations, unités, memberships et affectations runtime | Implémenté par ADR 0005, enrichissement P0 en cours |
 | `Assistant` | Familiers, politiques d'aide, adaptateurs IA, metering et quotas | ADR puis P1/P2 |
 | `Economy` | Devises, wallet/ledger, récompenses, inventaire, magasins et achats | ADR puis P3 |
 

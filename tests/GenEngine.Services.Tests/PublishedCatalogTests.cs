@@ -114,6 +114,8 @@ public sealed class PublishedCatalogTests
 
         public Task<ScenarioVersion?> GetVersionAsync(Guid versionId, CancellationToken cancellationToken) =>
             Task.FromResult<ScenarioVersion?>(null);
+        public Task<Scenario?> GetScenarioByIdAsync(Guid scenarioId, CancellationToken cancellationToken) =>
+            Task.FromResult<Scenario?>(null);
 
         public Task AddVersionAsync(ScenarioVersion version, CancellationToken cancellationToken) =>
             Task.CompletedTask;

@@ -228,6 +228,11 @@ internal sealed class JwtTokenIssuer(IConfiguration configuration, TimeProvider 
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         ];
         claims.AddRange(permissions.Select(static permission => new Claim("permission", permission)));
+        claims.AddRange(account.RoleAssignments
+            .Where(assignment => assignment.ExpiresAt is null || assignment.ExpiresAt > now)
+            .Select(static assignment => assignment.Scope)
+            .Distinct(StringComparer.Ordinal)
+            .Select(static scope => new Claim("scope", scope)));
         JwtSecurityToken token = new(
             issuer,
             audience,

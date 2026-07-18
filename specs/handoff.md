@@ -4,8 +4,8 @@ Dernière mise à jour : 18 juillet 2026.
 
 ## État vérifié
 
-- `main` contient le backend jouable distribué et le premier lot du jalon 3.
-- Les services `Authoring`, `Play` et `Identity` sont autonomes et disposent chacun de leur PostgreSQL.
+- `main` contient le backend jouable distribué ; la branche `feat/organization-runtime-scale` porte la tranche d'exploitation multi-organisation en cours de revue.
+- Les six services `Authoring`, `Play`, `Identity`, `Configuration`, `PlayerExperience` et `Organization` sont autonomes et disposent chacun de leur PostgreSQL.
 - Le moteur `GenEngine.Narrative` est pur, déterministe et partagé comme bibliothèque embarquée.
 - Le parcours inscription → connexion → import → validation → analyse → prévisualisation → publication → session → choix → replay passe avec `scripts/smoke-test.sh`.
 - Le moteur couvre l'état joueur riche, les interactions typées, les gates de caractéristiques, le texte libre confirmé, les sauvegardes versionnées avec migrations chaînées, les effets différés conditionnels avec date logique et l'arbre de session.
@@ -41,6 +41,9 @@ Endpoints locaux :
 | Authoring API | `http://localhost:5201` | API HTTP |
 | Play API | `http://localhost:5202` | API HTTP |
 | Identity API | `http://localhost:5203` | API HTTP |
+| Configuration API | `http://localhost:5204` | API HTTP |
+| Player Experience API | `http://localhost:5205` | API HTTP |
+| Organization API | `http://localhost:5206` | API HTTP |
 | Grafana | `http://localhost:3000` | Interface métriques, logs et traces |
 | Prometheus | `http://localhost:9090` | Interface et API métriques |
 | Loki | `http://localhost:3100` | API uniquement |
@@ -62,7 +65,7 @@ Le jalon 3 (durcissement) est **clos** : `HRD-001` à `HRD-007` sont traitées.
 
 Le control plane Configuration, les rôles custom, les permissions stables, les modes Local/Entra/cumulatif, Azure AI Foundry, les catégories, le familier personnalisable et la première économie/magasin sont livrés. Le vocabulaire et les copies du jeu sont désormais publiés dans un dictionnaire extensible et éditables depuis les deux clients ; « Mote » n’est plus un nom imposé. Authoring génère maintenant un scénario à partir du jeu global, de sa catégorie et du prompt auteur. Play relaie les événements `economy.reward` vers PlayerExperience avec une clé idempotente stable.
 
-La hiérarchie configurable d'organisation est livrée pour modéliser école/classes/groupes ou entreprise/départements/équipes/cohortes. La carte exhaustive [`specs/product-capability-map.md`](product-capability-map.md) distingue désormais les fonctions utilisables, partielles, fondées ou absentes. La prochaine unité cohérente reste la gestion des memberships et des encadrants, puis les vrais parcours et affectations.
+La hiérarchie d'organisation est désormais opérationnelle dans un service autonome : fronts, unités hiérarchiques, memberships participant/encadrant et affectations scénario/catégorie/parcours avec fenêtres et échéances. Play refuse le démarrage d'un scénario non affecté et conserve le front autoritatif du snapshot dans la session, le journal et les récompenses. Les clients Web et iOS exposent le workflow correspondant dans l'administration.
 
 ### Tranche `feat/product-operations` vérifiée le 18 juillet 2026
 
@@ -73,7 +76,15 @@ La hiérarchie configurable d'organisation est livrée pour modéliser école/cl
 - Migrations EF `AddUserLifecycle` et `AddScenarioLifecycle` ajoutées.
 - Validation locale : 87 tests backend réussis. Les clients Web et iOS ont aussi été construits sur leurs branches homologues.
 
-Ce qui reste explicitement hors de cette tranche : memberships/encadrants, application runtime des affectations, héritage multi-portée, aide contextuelle du familier, snapshot de session de l'assistant, metering/quota IA et import Codex Pets.
+### Tranche `feat/organization-runtime-scale` — validation en cours le 18 juillet 2026
+
+- ADR 0005 et service `Organization` DDD/Clean avec PostgreSQL indépendant.
+- CRUD audité des unités, memberships et affectations, scopes de front signés et résolution `/me`/interservice.
+- contrôle allow/deny dans Play sur les affectations directes de scénario ou de catégorie ; front figé dans le snapshot et la session.
+- écrans d'exploitation Web/iOS séparés du studio, avec création, listes et suppressions utiles.
+- tests d'isolation croisée, validité temporelle, hiérarchie cyclique et contrôle du démarrage.
+
+Ce qui reste explicitement hors de cette tranche : périodes métier nommées, import/export de masse, historique des memberships, résolution d'une affectation de parcours complet, projection du catalogue filtré, héritage multi-portée global, snapshot de session de l'assistant, metering/quota IA et import Codex Pets.
 
 Contexte livré au jalon 3 :
 

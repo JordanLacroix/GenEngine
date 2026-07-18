@@ -105,6 +105,9 @@ internal sealed class AuthoringRepository(AuthoringDbContext dbContext) : IAutho
     public Task<ScenarioVersion?> GetVersionAsync(Guid versionId, CancellationToken cancellationToken) =>
         dbContext.ScenarioVersions.SingleOrDefaultAsync(version => version.Id == versionId, cancellationToken);
 
+    public Task<Scenario?> GetScenarioByIdAsync(Guid scenarioId, CancellationToken cancellationToken) =>
+        dbContext.Scenarios.AsNoTracking().SingleOrDefaultAsync(scenario => scenario.Id == scenarioId, cancellationToken);
+
     public async Task AddVersionAsync(ScenarioVersion version, CancellationToken cancellationToken) =>
         await dbContext.ScenarioVersions.AddAsync(version, cancellationToken).ConfigureAwait(false);
 

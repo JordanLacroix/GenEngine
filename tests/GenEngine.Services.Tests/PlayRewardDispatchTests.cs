@@ -42,12 +42,15 @@ public sealed class PlayRewardDispatchTests
             new SnapshotClientStub(new PublishedSnapshotContract(
                 versionId,
                 Guid.NewGuid(),
+                "default",
+                null,
                 1,
                 snapshot,
                 CanonicalSnapshot.ComputeHash(scenario))),
+            new AccessClientStub(),
             TimeProvider.System);
 
-        SessionView session = await service.StartAsync("player-1", versionId, 42, CancellationToken.None);
+        SessionView session = await service.StartAsync("player-1", versionId, 42, true, CancellationToken.None);
         Guid commandId = Guid.NewGuid();
         InputResult first = await service.SubmitChoiceAsync(
             session.Id,
@@ -75,6 +78,12 @@ public sealed class PlayRewardDispatchTests
     private sealed class SnapshotClientStub(PublishedSnapshotContract snapshot) : IAuthoringSnapshotClient
     {
         public Task<PublishedSnapshotContract> GetAsync(Guid versionId, CancellationToken cancellationToken) => Task.FromResult(snapshot);
+    }
+
+    private sealed class AccessClientStub : IContentAccessClient
+    {
+        public Task EnsureCanStartAsync(Guid userId, string frontId, Guid scenarioId, Guid? categoryId, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     private sealed class RepositoryStub : IPlayRepository

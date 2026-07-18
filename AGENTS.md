@@ -18,7 +18,7 @@ Lis ce fichier avant toute modification, puis consulte dans cet ordre :
 
 ## Architecture non négociable
 
-- GenEngine n’est pas un monolithe : `Authoring`, `Play` et `Identity` sont trois services autonomes ; `Configuration`, `Organization`, `Assistant` et `Economy` sont des bounded contexts candidats qui exigent un ADR avant création.
+- GenEngine n’est pas un monolithe : `Authoring`, `Play`, `Identity`, `Configuration`, `PlayerExperience` et `Organization` sont des services autonomes ; tout nouveau bounded context exige un ADR avant création.
 - Chaque service possède ses projets `Domain`, `Application`, `Infrastructure`, `Api` et sa base PostgreSQL.
 - Aucun `ProjectReference`, accès SQL ou modèle de domaine ne traverse une frontière de service.
 - `GenEngine.Narrative` reste un moteur métier pur, déterministe, sans I/O, réseau, base ou horloge implicite.
@@ -75,4 +75,4 @@ docker compose -f compose.yaml -f compose.observability.yaml up --build --detach
 
 ## Prochaine tâche
 
-Le jalon 3 est clos. Le jalon 4 commence par P0 : décider les frontières distribuées de `Configuration` et `Organization`, puis livrer le registre typé/résolu, les permissions stables avec rôles custom et le premier modèle d'organisation école/entreprise/formation. P1 introduit l'assistant/familier hors ligne, P2 les providers IA interchangeables, et P3 l'économie/magasin. Suivre [`specs/functional-roadmap.md`](specs/functional-roadmap.md) et ne marquer une tâche `done` qu'après code, tests, contrats et documentation fusionnés.
+Le jalon 4 est actif. Les frontières distribuées de `Configuration` et `Organization`, les rôles custom, les unités, memberships et affectations runtime sont livrés. La prochaine tranche P0 doit compléter périodes, import de masse, parcours affectés et isolation systématique des autres services, avant d'approfondir l'assistant IA et l'économie. Suivre [`specs/functional-roadmap.md`](specs/functional-roadmap.md) et ne marquer une tâche `done` qu'après code, tests, contrats et documentation fusionnés.

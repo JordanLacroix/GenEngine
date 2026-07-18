@@ -29,6 +29,7 @@ public sealed class PlayDbContext(DbContextOptions<PlayDbContext> options) : DbC
             entity.ToTable("game_sessions");
             entity.HasKey(static session => session.Id);
             entity.Property(static session => session.OwnerId).HasMaxLength(100).IsRequired();
+            entity.Property(static session => session.FrontId).HasMaxLength(100).IsRequired();
             entity.Property(static session => session.SnapshotHash).HasMaxLength(64).IsRequired();
             entity.Property(static session => session.SnapshotJson).HasColumnType("jsonb").IsRequired();
             entity.Property(static session => session.StateJson).HasColumnType("jsonb").IsRequired();
@@ -49,6 +50,40 @@ public sealed class PlayDbContext(DbContextOptions<PlayDbContext> options) : DbC
                 .HasForeignKey(static command => command.SessionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+    }
+}
+
+internal sealed record OrganizationAssignmentContract(string ContentType, Guid ContentId);
+internal sealed record OrganizationAccessContract(bool IsMember, IReadOnlyList<OrganizationAssignmentContract> Assignments);
+
+internal sealed class OrganizationContentAccessClient(
+    HttpClient httpClient,
+    IConfiguration configuration) : IContentAccessClient
+{
+    public async Task EnsureCanStartAsync(
+        Guid userId,
+        string frontId,
+        Guid scenarioId,
+        Guid? categoryId,
+        CancellationToken cancellationToken)
+    {
+        string normalizedFrontId = Uri.EscapeDataString(frontId.Trim().ToLowerInvariant());
+        using HttpRequestMessage request = new(HttpMethod.Get, $"/internal/access/{normalizedFrontId}/users/{userId}");
+        request.Headers.Add("X-Internal-Key", configuration["InternalApi:Key"] ?? string.Empty);
+        using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        OrganizationAccessContract access = await response.Content.ReadFromJsonAsync<OrganizationAccessContract>(cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new PlayException("invalid_organization_response", "Organization returned an empty response.");
+        bool assigned = access.Assignments.Any(assignment =>
+            (string.Equals(assignment.ContentType, "Scenario", StringComparison.OrdinalIgnoreCase) && assignment.ContentId == scenarioId)
+            || (string.Equals(assignment.ContentType, "Category", StringComparison.OrdinalIgnoreCase)
+                && categoryId is Guid category
+                && assignment.ContentId == category));
+        if (!access.IsMember || !assigned)
+        {
+            throw new PlayException("content_not_assigned", "This scenario is not assigned to the authenticated player.");
+        }
     }
 }
 
@@ -119,6 +154,7 @@ internal sealed class PlayerExperienceRewardDispatcher(
 {
     public async Task DispatchAsync(
         string userId,
+        string frontId,
         IReadOnlyList<RewardDispatch> rewards,
         CancellationToken cancellationToken)
     {
@@ -128,7 +164,7 @@ internal sealed class PlayerExperienceRewardDispatcher(
             {
                 Content = JsonContent.Create(new
                 {
-                    FrontId = "default",
+                    FrontId = frontId,
                     UserId = userId,
                     reward.Trigger,
                     reward.ReferenceId,
@@ -141,13 +177,13 @@ internal sealed class PlayerExperienceRewardDispatcher(
         }
     }
 
-    public async Task DispatchProgressAsync(string userId, ProgressDispatch progress, CancellationToken cancellationToken)
+    public async Task DispatchProgressAsync(string userId, string frontId, ProgressDispatch progress, CancellationToken cancellationToken)
     {
         using HttpRequestMessage request = new(HttpMethod.Post, "/internal/progress-events")
         {
             Content = JsonContent.Create(new
             {
-                FrontId = "default",
+                FrontId = frontId,
                 UserId = userId,
                 progress.IdempotencyKey,
                 progress.Type,
@@ -199,6 +235,10 @@ public static class PlayInfrastructureExtensions
             client.BaseAddress = new Uri(configuration["Services:Authoring"] ?? "http://localhost:5201");
         })
         .AddStandardResilienceHandler(ConfigureAuthoringResilience);
+        services.AddHttpClient<IContentAccessClient, OrganizationContentAccessClient>(client =>
+        {
+            client.BaseAddress = new Uri(configuration["Services:Organization"] ?? "http://localhost:5206");
+        });
         services.AddHttpClient<IRewardDispatcher, PlayerExperienceRewardDispatcher>(client =>
         {
             client.BaseAddress = new Uri(configuration["Services:PlayerExperience"] ?? "http://localhost:5205");
