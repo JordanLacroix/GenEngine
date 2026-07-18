@@ -112,6 +112,35 @@ internal sealed class AuthoringSnapshotClient(
     }
 }
 
+internal sealed class PlayerExperienceRewardDispatcher(
+    HttpClient httpClient,
+    IConfiguration configuration) : IRewardDispatcher
+{
+    public async Task DispatchAsync(
+        string userId,
+        IReadOnlyList<RewardDispatch> rewards,
+        CancellationToken cancellationToken)
+    {
+        foreach (RewardDispatch reward in rewards)
+        {
+            using HttpRequestMessage request = new(HttpMethod.Post, "/internal/rewards")
+            {
+                Content = JsonContent.Create(new
+                {
+                    FrontId = "default",
+                    UserId = userId,
+                    reward.Trigger,
+                    reward.ReferenceId,
+                    reward.IdempotencyKey,
+                }),
+            };
+            request.Headers.Add("X-Internal-Key", configuration["InternalApi:Key"] ?? string.Empty);
+            using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+        }
+    }
+}
+
 internal sealed class PlayDatabaseHealthCheck(PlayDbContext dbContext) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
@@ -139,6 +168,10 @@ public static class PlayInfrastructureExtensions
             client.BaseAddress = new Uri(configuration["Services:Authoring"] ?? "http://localhost:5201");
         })
         .AddStandardResilienceHandler(ConfigureAuthoringResilience);
+        services.AddHttpClient<IRewardDispatcher, PlayerExperienceRewardDispatcher>(client =>
+        {
+            client.BaseAddress = new Uri(configuration["Services:PlayerExperience"] ?? "http://localhost:5205");
+        });
         services.AddHealthChecks().AddCheck<PlayDatabaseHealthCheck>("play-database");
         return services;
     }

@@ -121,6 +121,7 @@ services:
       <<: *api-environment
       ConnectionStrings__Play: Host=play-db;Database=genengine_play;Username=play;Password=${PLAY_DB_PASSWORD:-play-local-password}
       Services__Authoring: http://authoring:8080
+      Services__PlayerExperience: http://player-experience:8080
       InternalApi__Key: ${GENENGINE_INTERNAL_KEY:-local-internal-key-change-me}
     ports:
       - "5202:8080"
@@ -128,6 +129,8 @@ services:
       play-db:
         condition: service_healthy
       authoring:
+        condition: service_healthy
+      player-experience:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/ready >/dev/null || exit 1"]

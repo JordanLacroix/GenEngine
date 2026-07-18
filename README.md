@@ -57,7 +57,7 @@ Le projet vise un moteur :
 | Configuration moteur/plateforme, rôles custom et organisations | 🚧 Socle fonctionnel disponible |
 | Assistant/familier et aide hors ligne | 🚧 Profil familier personnalisable disponible |
 | IA provider-agnostic, metering et quotas | 🚧 Offline + Azure AI Foundry disponibles, quotas à venir |
-| Économie, récompenses et magasin configurable | 🚧 Portefeuille, règles et achats idempotents disponibles |
+| Économie, récompenses et magasin configurable | 🚧 Portefeuille, règles, achats et crédits narratifs idempotents disponibles |
 | Fonctionnalités de plateforme avancées | ⏸️ Après les fondations configurables |
 
 La progression détaillée est suivie dans [`specs/roadmap.md`](specs/roadmap.md) et dans les fichiers `tasks.md` de chaque module.

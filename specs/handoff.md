@@ -54,13 +54,15 @@ docker compose -f compose.yaml -f compose.observability.yaml down
 
 N’utilise `--volumes` que si la perte des données locales est explicitement souhaitée.
 
-## Prochaine unité de travail — jalon 4
+## État fonctionnel configurable — jalon 4
 
 Le jalon 3 (durcissement) est **clos** : `HRD-001` à `HRD-007` sont traitées.
 
 `HRD-007` (outbox) est résolue par une **décision documentée de ne rien ajouter** : aucun consommateur asynchrone n’existe (ni bus, ni file, ni worker), voir l’ADR [`specs/adr/0004-no-outbox-without-async-consumer.md`](adr/0004-no-outbox-without-async-consumer.md). Réévaluer uniquement quand un consommateur asynchrone réel apparaîtra.
 
-Le besoin produit a été repriorisé à partir de la cible historique. Les migrations, effets différés, projections joueur, analyses substituables et contrats d'effets externes sont livrés. Le prochain lot cohérent est désormais **P0 Configuration + RBAC custom + organisations** : ADR de frontières, registre typé et résolution hiérarchique, permissions stables/rôles custom, puis squelette front typé école/entreprise/formation, unités et catégories. L'assistant/familier hors ligne vient en P1, les providers IA avec routage/metering/quotas en P2 et l'économie/magasin en P3. Voir `specs/functional-roadmap.md`, `specs/platform-configuration.md` et `specs/configuration-catalog.md`.
+Le control plane Configuration, les rôles custom, les permissions stables, les modes Local/Entra/cumulatif, Azure AI Foundry, les catégories, le familier personnalisable et la première économie/magasin sont livrés. Authoring génère maintenant un scénario à partir du jeu global, de sa catégorie et du prompt auteur. Play relaie les événements `economy.reward` vers PlayerExperience avec une clé idempotente stable.
+
+La prochaine unité cohérente est la hiérarchie d'organisation et ses scopes : école/classes/groupes ou entreprise/départements/équipes, puis affectation des rôles custom à ces périmètres. Viennent ensuite quotas/metering IA, workflows éditoriaux et fonctions avancées du magasin.
 
 Contexte livré au jalon 3 :
 

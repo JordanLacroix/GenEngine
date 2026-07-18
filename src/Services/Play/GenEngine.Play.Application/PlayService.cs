@@ -39,7 +39,13 @@ public sealed record SessionView(
     int Revision,
     int Turn);
 
-public sealed record InputResult(SessionView Session, CurrentStep CurrentStep, bool Replayed);
+public sealed record RewardDispatch(string Trigger, string ReferenceId, string IdempotencyKey);
+public sealed record InputResult(SessionView Session, CurrentStep CurrentStep, bool Replayed, IReadOnlyList<RewardDispatch> Rewards);
+
+public interface IRewardDispatcher
+{
+    Task DispatchAsync(string userId, IReadOnlyList<RewardDispatch> rewards, CancellationToken cancellationToken);
+}
 
 public sealed class PlayService(
     IPlayRepository repository,
@@ -203,7 +209,8 @@ public sealed class PlayService(
         }
 
         ScenarioDocument scenario = DeserializeScenario(session);
-        GameState nextState = transition(scenario, DeserializeState(session));
+        GameState currentState = DeserializeState(session);
+        GameState nextState = transition(scenario, currentState);
         DateTimeOffset now = GetUtcNow();
         GameSave save = GameSaveSerializer.Create(scenario.SchemaVersion, session.Seed, now, nextState);
         session.ChangeState(
@@ -214,7 +221,16 @@ public sealed class PlayService(
         InputResult result = new(
             Map(session, nextState),
             NarrativeRuntime.GetCurrentStep(scenario, nextState),
-            false);
+            false,
+            nextState.World.ExternalEvents
+                .Skip(currentState.World.ExternalEvents.Count)
+                .Where(static item => string.Equals(item.EventName, "economy.reward", StringComparison.OrdinalIgnoreCase))
+                .Where(static item => item.Attributes.ContainsKey("trigger") && item.Attributes.ContainsKey("referenceId"))
+                .Select(item => new RewardDispatch(
+                    item.Attributes["trigger"],
+                    item.Attributes["referenceId"],
+                    $"session:{id}:external:{item.Sequence}"))
+                .ToArray());
         await repository.AddProcessedCommandAsync(
             ProcessedCommand.Create(commandId, id, NarrativeJson.Serialize(result), now),
             cancellationToken).ConfigureAwait(false);
