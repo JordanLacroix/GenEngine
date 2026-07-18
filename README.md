@@ -54,7 +54,7 @@ Le projet vise un moteur :
 | Catalogue public des versions publiées | ✅ Consommable par les clients Web et iOS |
 | Observabilité OpenTelemetry | 🚧 Logs, traces et métriques disponibles localement |
 | SLI/SLO et alertes | 🚧 Objectifs provisoires, règles Prometheus validées et budget d’erreur dans Grafana |
-| Configuration moteur/plateforme, rôles custom et organisations | 🚧 Socle fonctionnel disponible |
+| Configuration moteur/plateforme, vocabulaire, rôles custom et organisations | 🚧 Socle fonctionnel disponible |
 | Assistant/familier et aide hors ligne | 🚧 Profil familier personnalisable disponible |
 | IA provider-agnostic, metering et quotas | 🚧 Offline + Azure AI Foundry disponibles, quotas à venir |
 | Économie, récompenses et magasin configurable | 🚧 Portefeuille, règles, achats et crédits narratifs idempotents disponibles |
@@ -275,6 +275,7 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 | [`specs/README.md`](specs/README.md) | Index documentaire et sources de vérité |
 | [`specs/roadmap.md`](specs/roadmap.md) | Jalons et progression |
 | [`specs/functional-roadmap.md`](specs/functional-roadmap.md) | Priorités fonctionnelles P0 à P4 |
+| [`specs/product-capability-map.md`](specs/product-capability-map.md) | État honnête de chaque domaine du plan initial |
 | [`specs/platform-configuration.md`](specs/platform-configuration.md) | Configuration, organisations, RBAC, assistant et IA |
 | [`specs/configuration-catalog.md`](specs/configuration-catalog.md) | Catalogue exhaustif moteur, providers IA, économie et modules |
 | [`specs/handoff.md`](specs/handoff.md) | État vérifié et prochaine unité de travail |

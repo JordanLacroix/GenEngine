@@ -23,8 +23,32 @@ public sealed class ConfigurationServiceTests
         Assert.Equal(OrganizationType.Company, published.Document.OrganizationType);
         Assert.NotNull(published.Document.Organization);
         Assert.Equal(AuthenticationMode.Cumulative, published.Document.Authentication.Mode);
+        Assert.Equal("Studio", published.Document.Language?.Labels["nav.studio"]);
         Assert.All(published.Document.AiProviders, static provider => Assert.Null(provider.SecretReference));
         Assert.Contains(published.Document.Economy.RewardRules, static rule => rule.Trigger == "ScenarioCompleted");
+    }
+
+    [Fact]
+    public async Task CustomGameWordingIsPublishedAndDefaultsRemainAvailable()
+    {
+        var repository = new ConfigurationRepositoryStub();
+        var service = new ConfigurationService(repository, TimeProvider.System);
+        ExperienceDocument document = ConfigurationService.CreateDefault("academy") with
+        {
+            Language = new GameLanguageDefinition(new Dictionary<string, string>
+            {
+                ["nav.studio"] = "Forge des récits",
+                ["entity.scenario.plural"] = "Missions",
+            }),
+        };
+
+        ExperienceConfigurationView created = await service.UpsertAsync("academy", null, document, CancellationToken.None);
+        await service.PublishAsync("academy", created.Revision, CancellationToken.None);
+        PublishedExperienceView published = await service.GetPublishedAsync("academy", CancellationToken.None);
+
+        Assert.Equal("Forge des récits", published.Document.Language?.Labels["nav.studio"]);
+        Assert.Equal("Missions", published.Document.Language?.Labels["entity.scenario.plural"]);
+        Assert.Equal("Accueil", published.Document.Language?.Labels["nav.home"]);
     }
 
     [Fact]

@@ -10,6 +10,7 @@ public enum AuthenticationMode { LocalOnly, EntraOnly, Cumulative }
 public enum AiProviderType { Offline, AzureAiFoundry }
 
 public sealed record GameDefinition(string Name, string Description, string GlobalStory, string Locale, string TimeZone);
+public sealed record GameLanguageDefinition(IReadOnlyDictionary<string, string> Labels);
 public sealed record OrganizationUnitDefinition(Guid Id, Guid? ParentId, string Type, string Name, string Code, string Description, int Order, bool Enabled);
 public sealed record OrganizationDefinition(string Name, string Description, IReadOnlyList<OrganizationUnitDefinition> Units);
 public sealed record AuthenticationDefinition(AuthenticationMode Mode, bool LocalEnabled, bool EntraEnabled, string? EntraTenantId, string? EntraClientId);
@@ -26,6 +27,7 @@ public sealed record ExperienceDocument(
     OrganizationType OrganizationType,
     OrganizationDefinition? Organization,
     GameDefinition Game,
+    GameLanguageDefinition? Language,
     AuthenticationDefinition Authentication,
     IReadOnlyList<AiProviderDefinition> AiProviders,
     IReadOnlyList<CategoryDefinition> Categories,
@@ -72,6 +74,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
 
     public async Task<ExperienceConfigurationView> UpsertAsync(string frontId, int? expectedRevision, ExperienceDocument document, CancellationToken cancellationToken)
     {
+        document = Normalize(document);
         Validate(frontId, document);
         string json = JsonSerializer.Serialize(document, JsonOptions);
         ExperienceConfiguration? configuration = await repository.GetAsync(frontId, cancellationToken).ConfigureAwait(false);
@@ -111,6 +114,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             new OrganizationUnitDefinition(Guid.Parse("efc447ef-fdd6-42e6-b3d8-5de6841d9bce"), null, "Organization", "Structure principale", "ROOT", "Racine des classes, équipes ou groupes.", 1, true),
         ]),
         new GameDefinition("Les Chroniques de la Brume", "Une expérience narrative où chaque décision transforme le monde.", "La Brume efface les souvenirs du royaume. Les joueurs restaurent son histoire, fragment après fragment.", "fr-FR", "Europe/Paris"),
+        new GameLanguageDefinition(CreateDefaultLabels()),
         new AuthenticationDefinition(AuthenticationMode.LocalOnly, true, false, null, null),
         [
             new AiProviderDefinition(Guid.Parse("3e6f6554-9b55-49ca-bd24-19e2f57e672a"), "Hors ligne", AiProviderType.Offline, true, string.Empty, "deterministic", "None", null, ["chat", "scenario-generation"]),
@@ -121,7 +125,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             new CategoryDefinition(Guid.Parse("00a575d4-9de8-47df-b713-35176969d410"), "Exploration", "Mondes inconnus et chemins alternatifs.", "verdigris", 2, true),
         ],
         [
-            new FamiliarDefinition(Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "Mote", "Un éclat curieux qui pose les bonnes questions.", "spark", "Socratic", "Warm", "amber", 2, ["hint", "recap", "rephrase"], ["spark", "owl", "fox"], ["Warm", "Playful", "Direct", "Mysterious"]),
+            new FamiliarDefinition(Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "Lueur", "Un éclat curieux qui pose les bonnes questions.", "spark", "Socratic", "Warm", "amber", 2, ["hint", "recap", "rephrase"], ["spark", "owl", "fox"], ["Warm", "Playful", "Direct", "Mysterious"]),
         ],
         new EconomyDefinition("BRAISE", "Braises", "✦", 0,
             [
@@ -151,9 +155,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         {
             ExperienceDocument document = JsonSerializer.Deserialize<ExperienceDocument>(json, JsonOptions)
                 ?? throw new ConfigurationException("invalid_configuration", "The configuration document is empty.");
-            return document.Organization is null
-                ? document with { Organization = CreateOrganizationDefault(document.OrganizationType) }
-                : document;
+            return Normalize(document);
         }
         catch (JsonException exception)
         {
@@ -171,6 +173,18 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         if (string.IsNullOrWhiteSpace(document.Game.Name) || string.IsNullOrWhiteSpace(document.Game.GlobalStory))
         {
             throw new ConfigurationException("invalid_game", "The game name and global story are required.");
+        }
+
+        GameLanguageDefinition language = document.Language
+            ?? throw new ConfigurationException("invalid_language", "The game language definition is required.");
+        if (language.Labels.Count is 0 or > 250
+            || language.Labels.Any(static label =>
+                string.IsNullOrWhiteSpace(label.Key)
+                || label.Key.Length > 80
+                || string.IsNullOrWhiteSpace(label.Value)
+                || label.Value.Length > 500))
+        {
+            throw new ConfigurationException("invalid_language", "Game wording keys and values must be non-empty and within their size limits.");
         }
 
         if (!document.Authentication.LocalEnabled && !document.Authentication.EntraEnabled)
@@ -239,6 +253,92 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         },
         "Structure configurable du jeu.",
         []);
+
+    private static ExperienceDocument Normalize(ExperienceDocument document)
+    {
+        Dictionary<string, string> labels = CreateDefaultLabels();
+        if (document.Language is not null)
+        {
+            foreach (KeyValuePair<string, string> label in document.Language.Labels)
+            {
+                labels[label.Key] = label.Value;
+            }
+        }
+
+        return document with
+        {
+            Organization = document.Organization ?? CreateOrganizationDefault(document.OrganizationType),
+            Language = new GameLanguageDefinition(labels),
+        };
+    }
+
+    private static Dictionary<string, string> CreateDefaultLabels() => new(StringComparer.Ordinal)
+    {
+        ["welcome.eyebrow"] = "Vos choix. Votre histoire.",
+        ["welcome.title"] = "Entrez dans des mondes qui se souviennent de vous.",
+        ["welcome.subtitle"] = "Une nouvelle génération de récits interactifs.",
+        ["auth.username"] = "Identifiant",
+        ["auth.password"] = "Mot de passe",
+        ["auth.login"] = "Se connecter",
+        ["auth.register"] = "Créer un compte",
+        ["auth.microsoft"] = "Continuer avec Microsoft",
+        ["auth.existingAccount"] = "J’ai déjà un compte",
+        ["demo.explore"] = "Explorer la démo",
+        ["nav.home"] = "Accueil",
+        ["nav.library"] = "Bibliothèque",
+        ["nav.experience"] = "Mon univers",
+        ["nav.studio"] = "Studio",
+        ["nav.administration"] = "Administration",
+        ["home.discover"] = "À découvrir",
+        ["library.resume"] = "Reprendre le fil",
+        ["action.start"] = "Commencer",
+        ["action.continue"] = "Continuer",
+        ["action.close"] = "Fermer",
+        ["entity.journey.singular"] = "Parcours",
+        ["entity.journey.plural"] = "Parcours",
+        ["entity.category.singular"] = "Catégorie",
+        ["entity.category.plural"] = "Catégories",
+        ["entity.scenario.singular"] = "Scénario",
+        ["entity.scenario.plural"] = "Scénarios",
+        ["entity.story.singular"] = "Histoire",
+        ["entity.story.plural"] = "Histoires",
+        ["entity.familiar.singular"] = "Familier",
+        ["entity.familiar.plural"] = "Familiers",
+        ["experience.title"] = "Mon univers",
+        ["experience.familiar.title"] = "Mon familier",
+        ["experience.familiar.configuration"] = "Configuration personnelle",
+        ["experience.familiar.subtitle"] = "Une présence qui vous ressemble",
+        ["experience.familiar.form"] = "Forme",
+        ["experience.familiar.tone"] = "Ton",
+        ["experience.familiar.helpLevel"] = "Niveau d’aide",
+        ["experience.familiar.helpLow"] = "Discret",
+        ["experience.familiar.helpHigh"] = "Très présent",
+        ["experience.familiar.apply"] = "Appliquer cette personnalité",
+        ["experience.familiar.saved"] = "Votre familier s’adaptera dès la prochaine scène.",
+        ["experience.wallet.title"] = "Portefeuille",
+        ["experience.wallet.empty"] = "Vos choix écriront ici les premières lignes de votre progression.",
+        ["experience.shop.title"] = "Magasin",
+        ["experience.shop.subtitle"] = "Des objets qui racontent qui vous êtes",
+        ["experience.shop.owned"] = "Acquis",
+        ["experience.shop.purchased"] = "Objet ajouté à votre collection.",
+        ["experience.loading"] = "Connexion à votre univers…",
+        ["studio.eyebrow"] = "Atelier narratif",
+        ["studio.title"] = "Créer une nouvelle histoire",
+        ["studio.generate"] = "Générer le scénario",
+        ["studio.copilot.eyebrow"] = "Copilote narratif",
+        ["studio.copilot.title"] = "Du monde global au premier brouillon",
+        ["studio.copilot.subtitle"] = "Le moteur combine l’histoire globale, la catégorie et votre intention. Le résultat reste un brouillon, jamais publié automatiquement.",
+        ["studio.prompt.label"] = "Votre intention",
+        ["studio.category.label"] = "Catégorie",
+        ["studio.duration.label"] = "Durée cible",
+        ["studio.tone.label"] = "Ton",
+        ["studio.provider.label"] = "Provider",
+        ["studio.generateDraft"] = "Générer le brouillon",
+        ["administration.eyebrow"] = "Centre de contrôle",
+        ["administration.title"] = "Piloter l’expérience",
+        ["administration.subtitle"] = "Le paramétrage du jeu et des accès reste séparé du Studio éditorial.",
+        ["status.soon"] = "Bientôt",
+    };
 }
 
 public sealed class ConfigurationException : InvalidOperationException
