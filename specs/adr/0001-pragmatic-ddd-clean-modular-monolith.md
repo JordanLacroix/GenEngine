@@ -9,7 +9,7 @@
 
 Le squelette initial séparait les bounded contexts, un `SharedKernel` et une infrastructure globale. Bien qu’aucune logique métier ne soit encore implémentée, cette direction rendait probable un couplage transversal : l’infrastructure connaissait tous les modules et le Shared Kernel pouvait devenir un fourre-tout.
 
-Une Clean Architecture constituée de quatre projets par module donnerait des frontières de compilation fortes, mais créerait immédiatement de nombreux assemblies vides et une charge disproportionnée pour le POC.
+Une Clean Architecture constituée de quatre projets par module donnerait des frontières de compilation fortes, mais créerait immédiatement de nombreux assemblies vides et une charge disproportionnée avant l’implémentation des domaines correspondants.
 
 ## Décision
 
@@ -47,7 +47,7 @@ Rejetée : elle centralise les adaptateurs de tous les modules et encourage le p
 
 ### Un projet par couche et par module
 
-Différée : excellente isolation, mais trop de structure vide pour le POC. Elle reste une trajectoire possible module par module.
+Différée : excellente isolation, mais trop de structure vide au stade de ce cadrage. Elle reste une trajectoire possible module par module.
 
 ### Microservices dès le départ
 

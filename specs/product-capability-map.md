@@ -2,24 +2,26 @@
 
 Cette carte recolle la réalisation au plan produit initial. Les statuts évitent de confondre fondation technique, contrat partiel et fonctionnalité réellement exploitable.
 
+Les blocages transverses, critères de sortie et lots recommandés sont détaillés dans la [`revue fonctionnelle de préparation à l’échelle`](scale-readiness-review.md).
+
 | Domaine | Statut | Réellement disponible | Prochain incrément fonctionnel |
 |---|---|---|---|
 | Narrative | utilisable | moteur déterministe, conditions/effets, interactions typées, replay, migrations, pause/reprise, arbre | compléter les effets de déblocage, titres, compétences et médias |
 | Authoring / Studio | utilisable | recherche paginée, génération contextualisée, édition graphique Web et édition de scène iOS, validation, aperçu, publication et archivage | édition de graphe native complète, diff/restauration, coédition et régénération de branche |
 | Configuration / Branding | partiel | jeu, histoire globale, locale, fuseau, catégories, modules, vocabulaire et copies arbitraires | couleurs, logos, typographies, assets et héritage par portée |
-| Identity / RBAC | utilisable | recherche paginée des comptes, activation, suppression logique, Entra/local, rôles custom supprimables, permissions, scopes et garde-fou du dernier administrateur | reset/confirmation, claims→rôles, délégation avancée et audit consultable |
-| Tenancy / Organisations | partiel | types d’organisation et unités hiérarchiques | memberships, encadrants, isolation multi-front et politiques héritées |
+| Identity / RBAC | utilisable en mono-front | recherche paginée des comptes, activation, suppression logique, Entra/local, rôles custom supprimables, permissions, scopes et garde-fou du dernier administrateur | reset/confirmation/MFA, révocation de sessions, claims→rôles, contrôle de portée sur chaque ressource et audit consultable |
+| Tenancy / Organisations | fondation | types d’organisation et unités hiérarchiques configurables | contexte de front autoritatif, memberships, encadrants, isolation multi-front et politiques héritées |
 | Catalog | partiel | catalogue public, catégories, parcours N-N, rattachement de scénarios et progression de catégorie dans les clients | accès runtime par affectation, optionnels, prérequis et règles de déblocage |
-| Assistant / Familier | partiel | définitions, assets HTTPS avec licence, aperçu, choix et personnalisation persistée | aide contextuelle réelle, fallback auteur, snapshot de session et import Codex Pets |
+| Assistant / Familier | partiel | définitions, assets HTTPS avec licence, aperçu, choix et personnalisation persistée, aide contextuelle déterministe à la demande | interventions réellement déclenchées pendant une session, snapshot de session, indices auteurs complets, conversation IA et import Codex Pets |
 | Economy / Shop | partiel | monnaie, ledger, récompenses narratives, offres, achats et possessions | types extensibles, inventaire/équipement, stock, limites, bundles et compensation |
 | IA / Providers | partiel | Offline déterministe et premier Azure AI Foundry pour la génération | profils routables, double avis, assistant, analyse, garde-fous, quotas et coûts |
-| Groups / Assignments | fondation | unités et modèle d'affectation parcours/scénario avec fenêtres et échéances | membres, encadrants, contrôle d'accès runtime, suivi et relances |
+| Groups / Assignments | fondation de configuration | unités et modèle d'affectation parcours/scénario avec fenêtres et échéances | persistance métier dédiée, membres, encadrants, contrôle d'accès runtime, suivi et relances |
 | Metering | absent | — | ledger tokens/coûts, pricing historisé, quotas et alertes |
-| Pedagogy / Journal | fondation | projection joueur et événements narratifs | dimensions, rubriques, événements notables et journal filtrable |
+| Pedagogy / Journal | partiel | projection joueur persistante, événements de jeu, maîtrise cross-session et API de journal filtrable | filtres dans les clients, export, conséquences visibles, dimensions, rubriques et événements notables auteur |
 | Insights | absent | — | événements de progression, KPI configurables, cohortes et exports |
 | Media | absent | — | photos, documents, stockage local et validation |
 | Packs | absent | — | manifeste ouvert, import, validation, aperçu, application et export |
-| Help / Onboarding | absent | — | centre d’aide, glossaire et tutoriel déclaratif persistant |
+| Help / Onboarding | utilisable | centre d’aide, glossaire, aide contextuelle déterministe et tutoriel déclaratif/versionné persistant | recherche plein texte, ciblage écran/nœud/step, analytics d’usage, localisation complète et aide conversationnelle optionnelle |
 | Builder | absent | — | espace utilisateur, widgets et défauts par rôle/front |
 | Competency | absent | — | référentiels, maîtrise, hauts faits et certificats |
 | Notifications / Realtime | absent | — | notifications, préférences et présence agrégée SignalR |
