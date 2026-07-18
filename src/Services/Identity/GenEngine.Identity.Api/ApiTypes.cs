@@ -7,6 +7,14 @@ using Microsoft.AspNetCore.Mvc;
 namespace GenEngine.Identity.Api;
 
 public sealed record CredentialsRequest(string UserName, string Password);
+public sealed record RoleRequest(string Name, string Description, IReadOnlyList<string> Permissions);
+public sealed record AssignRoleRequest(Guid RoleId, string? Scope, DateTimeOffset? ExpiresAt);
+public sealed record AuthenticationProvidersView(
+    string Mode,
+    bool LocalEnabled,
+    bool EntraEnabled,
+    string? EntraAuthority,
+    string? EntraClientId);
 
 public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
 {

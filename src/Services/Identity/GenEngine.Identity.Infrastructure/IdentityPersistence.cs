@@ -19,6 +19,9 @@ namespace GenEngine.Identity.Infrastructure;
 public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> options) : DbContext(options)
 {
     public DbSet<UserAccount> Users => Set<UserAccount>();
+    public DbSet<CustomRole> Roles => Set<CustomRole>();
+    public DbSet<RolePermissionGrant> RolePermissions => Set<RolePermissionGrant>();
+    public DbSet<UserRoleAssignment> UserRoleAssignments => Set<UserRoleAssignment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,8 +31,47 @@ public sealed class IdentityDbContext(DbContextOptions<IdentityDbContext> option
             entity.HasKey(static account => account.Id);
             entity.Property(static account => account.UserName).HasMaxLength(80).IsRequired();
             entity.Property(static account => account.NormalizedUserName).HasMaxLength(80).IsRequired();
-            entity.Property(static account => account.PasswordHash).HasMaxLength(500).IsRequired();
+            entity.Property(static account => account.PasswordHash).HasMaxLength(500);
+            entity.Property(static account => account.ExternalProvider).HasMaxLength(40);
+            entity.Property(static account => account.ExternalSubject).HasMaxLength(200);
             entity.HasIndex(static account => account.NormalizedUserName).IsUnique();
+            entity.HasIndex(static account => new { account.ExternalProvider, account.ExternalSubject }).IsUnique();
+            entity.HasMany(static account => account.RoleAssignments)
+                .WithOne()
+                .HasForeignKey(static assignment => assignment.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CustomRole>(entity =>
+        {
+            entity.ToTable("roles");
+            entity.HasKey(static role => role.Id);
+            entity.Property(static role => role.Name).HasMaxLength(80).IsRequired();
+            entity.Property(static role => role.NormalizedName).HasMaxLength(80).IsRequired();
+            entity.Property(static role => role.Description).HasMaxLength(500).IsRequired();
+            entity.HasIndex(static role => role.NormalizedName).IsUnique();
+            entity.HasMany(static role => role.Permissions)
+                .WithOne()
+                .HasForeignKey(static permission => permission.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RolePermissionGrant>(entity =>
+        {
+            entity.ToTable("role_permissions");
+            entity.HasKey(static permission => new { permission.RoleId, permission.PermissionCode });
+            entity.Property(static permission => permission.PermissionCode).HasMaxLength(80);
+        });
+
+        modelBuilder.Entity<UserRoleAssignment>(entity =>
+        {
+            entity.ToTable("user_role_assignments");
+            entity.HasKey(static assignment => new { assignment.UserId, assignment.RoleId, assignment.Scope });
+            entity.Property(static assignment => assignment.Scope).HasMaxLength(120);
+            entity.HasOne(static assignment => assignment.Role)
+                .WithMany()
+                .HasForeignKey(static assignment => assignment.RoleId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
@@ -39,12 +81,47 @@ internal sealed class IdentityRepository(IdentityDbContext dbContext) : IIdentit
     public Task<UserAccount?> FindByNormalizedUserNameAsync(
         string normalizedUserName,
         CancellationToken cancellationToken) =>
-        dbContext.Users.SingleOrDefaultAsync(
-            account => account.NormalizedUserName == normalizedUserName,
+        UsersWithAccess().SingleOrDefaultAsync(account => account.NormalizedUserName == normalizedUserName, cancellationToken);
+
+    public Task<UserAccount?> FindByExternalSubjectAsync(
+        string provider,
+        string subject,
+        CancellationToken cancellationToken) =>
+        UsersWithAccess().SingleOrDefaultAsync(
+            account => account.ExternalProvider == provider && account.ExternalSubject == subject,
             cancellationToken);
+
+    public Task<UserAccount?> GetUserAsync(Guid id, CancellationToken cancellationToken) =>
+        UsersWithAccess().SingleOrDefaultAsync(account => account.Id == id, cancellationToken);
+
+    public Task<CustomRole?> FindRoleByNormalizedNameAsync(
+        string normalizedName,
+        CancellationToken cancellationToken) =>
+        dbContext.Roles.Include(static role => role.Permissions)
+            .SingleOrDefaultAsync(role => role.NormalizedName == normalizedName, cancellationToken);
+
+    public Task<CustomRole?> GetRoleAsync(Guid id, CancellationToken cancellationToken) =>
+        dbContext.Roles.Include(static role => role.Permissions)
+            .SingleOrDefaultAsync(role => role.Id == id, cancellationToken);
+
+    public Task<bool> HasAssignmentsAsync(Guid roleId, CancellationToken cancellationToken) =>
+        dbContext.UserRoleAssignments.AnyAsync(
+            assignment => assignment.RoleId == roleId,
+            cancellationToken);
+
+    public async Task<IReadOnlyList<CustomRole>> ListRolesAsync(CancellationToken cancellationToken) =>
+        await dbContext.Roles.Include(static role => role.Permissions)
+            .OrderBy(static role => role.Name)
+            .ToArrayAsync(cancellationToken).ConfigureAwait(false);
 
     public async Task AddAsync(UserAccount account, CancellationToken cancellationToken) =>
         await dbContext.Users.AddAsync(account, cancellationToken).ConfigureAwait(false);
+
+    public async Task AddRoleAsync(CustomRole role, CancellationToken cancellationToken) =>
+        await dbContext.Roles.AddAsync(role, cancellationToken).ConfigureAwait(false);
+
+    public async Task AssignRoleAsync(UserRoleAssignment assignment, CancellationToken cancellationToken) =>
+        await dbContext.UserRoleAssignments.AddAsync(assignment, cancellationToken).ConfigureAwait(false);
 
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
@@ -57,6 +134,12 @@ internal sealed class IdentityRepository(IdentityDbContext dbContext) : IIdentit
             throw new IdentityException("registration_failed", "Registration could not be completed.", exception);
         }
     }
+
+    private IQueryable<UserAccount> UsersWithAccess() =>
+        dbContext.Users
+            .Include(static account => account.RoleAssignments)
+            .ThenInclude(static assignment => assignment.Role)
+            .ThenInclude(static role => role.Permissions);
 }
 
 internal sealed class PasswordService : IPasswordService
@@ -72,7 +155,7 @@ internal sealed class PasswordService : IPasswordService
 
 internal sealed class JwtTokenIssuer(IConfiguration configuration, TimeProvider timeProvider) : ITokenIssuer
 {
-    public AccessToken Issue(UserAccount account)
+    public AccessToken Issue(UserAccount account, IReadOnlyCollection<string> permissions)
     {
         DateTimeOffset now = timeProvider.GetUtcNow();
         DateTimeOffset expiresAt = now.AddHours(1);
@@ -82,12 +165,13 @@ internal sealed class JwtTokenIssuer(IConfiguration configuration, TimeProvider 
         SigningCredentials credentials = new(
             new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret)),
             SecurityAlgorithms.HmacSha256);
-        Claim[] claims =
+        List<Claim> claims =
         [
             new(JwtRegisteredClaimNames.Sub, account.Id.ToString()),
             new(JwtRegisteredClaimNames.UniqueName, account.UserName),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
         ];
+        claims.AddRange(permissions.Select(static permission => new Claim("permission", permission)));
         JwtSecurityToken token = new(
             issuer,
             audience,
@@ -134,6 +218,15 @@ public static class IdentityInfrastructureExtensions
         await using AsyncServiceScope scope = services.CreateAsyncScope();
         IdentityDbContext dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
         await dbContext.Database.MigrateAsync(cancellationToken).ConfigureAwait(false);
+        if (!await dbContext.Roles.AnyAsync(cancellationToken).ConfigureAwait(false))
+        {
+            DateTimeOffset now = TimeProvider.System.GetUtcNow();
+            dbContext.Roles.AddRange(
+                CustomRole.Create("Player", "Joue et utilise le magasin.", ["session.play", "shop.read"], now, true),
+                CustomRole.Create("Creator", "Crée, prévisualise et publie des scénarios.", ["session.play", "shop.read", "scenario.author", "scenario.publish"], now, true),
+                CustomRole.Create("Administrator", "Administre l'expérience, les accès et les providers.", PermissionCatalog.All.Keys, now, true));
+            await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
     }
 
     public static void MapIdentityHealthChecks(this WebApplication app)

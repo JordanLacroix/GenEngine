@@ -25,8 +25,11 @@ public sealed class AuthoringDbContext(DbContextOptions<AuthoringDbContext> opti
             entity.Property(static scenario => scenario.OwnerId).HasMaxLength(100).IsRequired();
             entity.Property(static scenario => scenario.Title).HasMaxLength(200).IsRequired();
             entity.Property(static scenario => scenario.DraftJson).HasColumnType("jsonb").IsRequired();
+            entity.Property(static scenario => scenario.FrontId).HasMaxLength(80).IsRequired();
+            entity.Property(static scenario => scenario.CreationBrief).HasMaxLength(4000).IsRequired();
             entity.Property(static scenario => scenario.Revision).IsConcurrencyToken();
             entity.HasIndex(static scenario => scenario.OwnerId);
+            entity.HasIndex(static scenario => new { scenario.FrontId, scenario.CategoryId });
             entity.HasMany(static scenario => scenario.Versions)
                 .WithOne()
                 .HasForeignKey(static version => version.ScenarioId)
@@ -59,10 +62,12 @@ internal sealed class AuthoringRepository(AuthoringDbContext dbContext) : IAutho
 
     public async Task<IReadOnlyList<Scenario>> ListPublishedAsync(
         int limit,
+        Guid? categoryId,
         CancellationToken cancellationToken) =>
         await dbContext.Scenarios
             .AsNoTracking()
             .Where(static scenario => scenario.Versions.Count != 0)
+            .Where(scenario => categoryId == null || scenario.CategoryId == categoryId)
             .OrderByDescending(static scenario => scenario.Versions.Max(version => version.PublishedAt))
             .Include(static scenario => scenario.Versions)
             .Take(limit)
@@ -108,6 +113,7 @@ public static class AuthoringInfrastructureExtensions
             ?? "Host=localhost;Port=5432;Database=genengine_authoring;Username=postgres;Password=postgres";
         services.AddDbContext<AuthoringDbContext>(options => options.UseNpgsql(connectionString));
         services.AddScoped<IAuthoringRepository, AuthoringRepository>();
+        services.AddScenarioGeneration(configuration);
         services.AddScoped<AuthoringService>();
         services.AddSingleton(TimeProvider.System);
         services.AddHealthChecks().AddCheck<AuthoringDatabaseHealthCheck>("authoring-database");

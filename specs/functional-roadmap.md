@@ -29,21 +29,23 @@ Les références transverses sont [`platform-configuration.md`](platform-configu
 
 Objectif : rendre la plateforme administrable sans valeurs métier codées en dur et établir le garde-fou d'autorisation utilisé par tous les lots suivants.
 
-- [ ] registre de paramètres typés, versionnés et auditables avec défauts sûrs ;
+- [x] registre documentaire typé, versionné et publiable avec défauts sûrs par front ;
 - [ ] résolution hiérarchique documentée : plateforme → front/établissement → catégorie ou parcours → groupe/classe → utilisateur ;
-- [ ] séparation stricte entre paramètres publiables et secrets d'infrastructure ;
-- [ ] feature flags et activation de modules par front avec dépendances validées ;
-- [ ] rôles entièrement personnalisables par composition de permissions stables, affectations portées et temporisées, policies serveur et endpoint des capacités effectives ;
+- [x] séparation stricte entre paramètres publiables et références de secrets d'infrastructure ;
+- [x] activation de modules par front sans contournement du RBAC ;
+- [x] rôles personnalisables par composition de permissions stables, affectations portées et temporisées, policies serveur et endpoint des capacités effectives ;
 - [ ] presets de départ adaptables : administrateur plateforme/organisation, auteur, publieur, enseignant/formateur/manager, participant, analyste, gestionnaire IA, magasin et modération ;
 - [ ] audit des changements de configuration, rôles, permissions et affectations ;
 - [ ] import/export d'une configuration portable, validée et versionnée ;
-- [ ] modèle `Front` typé `School`, `Company`, `TrainingProvider`, `Community` ou `Custom` ;
+- [x] modèle `Front` typé `School`, `Company`, `TrainingProvider`, `Community` ou `Custom` ;
 - [ ] profil d'organisation : identité, branding, locale, fuseau horaire, terminologie, calendrier et politiques par défaut ;
-- [ ] unités génériques : classes/promotions ou départements/équipes/cohortes, memberships et liens encadrant–participant ;
-- [ ] parcours et catégories de scénarios configurables, ordonnés et réutilisables ;
+- [x] unités génériques hiérarchiques : établissements/classes/groupes ou entreprises/départements/équipes/cohortes ;
+- [ ] memberships et liens encadrant–participant ;
+- [x] parcours globaux et catégories de scénarios configurables, ordonnés et réutilisables ;
 - [ ] affectation de scénarios ou parcours à une classe/groupe avec disponibilité et échéance ;
 - [ ] politiques pédagogiques configurables : tentatives, reprise, aide autorisée, seuil de réussite et visibilité des résultats ;
-- [ ] authentification configurable par front et mapping de claims externes vers rôles, sans rendre un OIDC obligatoire ;
+- [x] authentification locale/Entra/cumulative configurable, sans rendre OIDC obligatoire ;
+- [ ] mapping de claims externes vers rôles ;
 - [ ] règles d'accès combinant front, rôle, groupe, catégorie, publication et feature flags ;
 - [ ] tests d'isolation garantissant qu'un acteur d'un établissement ne lit ni ne modifie celui d'un autre.
 
@@ -87,14 +89,18 @@ L'adoption éventuelle de `Microsoft.Extensions.AI` et de `IChatClient` dans l'i
 
 Objectif : fournir une économie virtuelle entièrement pilotée par configuration et intégrée aux règles de déblocage, sans paiement réel implicite.
 
-- [ ] devises, précision, plafonds et règles de gain/dépense par front ;
-- [ ] wallet et ledger append-only, ajustements administratifs audités et idempotence ;
+- [x] devise, solde initial et règles de gain par événement narratif configurables par front ;
+- [x] wallet, ledger de gains/dépenses et idempotence des commandes ;
+- [x] relais `Play -> PlayerExperience` des événements `economy.reward`, avec clés stables par session et séquence ;
+- [ ] précision, plafonds et ajustements administratifs audités ;
 - [ ] typologies de récompense extensibles : monnaie, titre, badge, cosmétique, familier, assistance, asset, collection, parcours ou scénario ;
-- [ ] magasins, rayons, items/offres, prix, disponibilité, ordre et ciblage configurables ;
+- [x] premier catalogue d'offres, prix, activation et possessions configurables ;
+- [ ] rayons, ordre et ciblage avancé ;
 - [ ] stock, limites par joueur/groupe/période, conditions d'achat et règles de déblocage ;
 - [ ] inventaire, entitlements, équipement et customisation du familier ;
 - [ ] promotions virtuelles, bundles et événements saisonniers versionnés ;
-- [ ] historique d'achat, annulation/compensation métier et garde-fous anti-double dépense ;
+- [x] historique wallet, garde-fous anti-double dépense et anti-double acquisition ;
+- [ ] annulation et compensation métier ;
 - [ ] permissions séparées pour consulter, acheter, gérer catalogue/prix/stock, ajuster un wallet et lire le ledger ;
 - [ ] packs capables d'importer/exporter devises, récompenses, cosmétiques et boutiques.
 
@@ -105,7 +111,7 @@ Tout paiement en monnaie réelle nécessiterait un bounded context, un threat mo
 - [ ] dialogue contextuel du familier avec fallback déterministe ;
 - [ ] analyse de réponse libre par rubrique, explication et confirmation ;
 - [ ] copilote auteur : suggestions de nœuds, choix, indices et détection d'incohérences ;
-- [ ] génération de quête en brouillon conforme au schéma, validée par le moteur et soumise à revue humaine ;
+- [x] génération de scénario en brouillon contextualisée par jeu/histoire/catégorie, conforme au schéma et validée par le moteur ;
 - [ ] interactions document et photo avec workflow de validation ;
 - [ ] diff et restauration fonctionnelle de versions ;
 - [ ] reporting d'usage de l'aide et de l'IA par organisation, unité, catégorie et période, agrégé et pseudonymisé.

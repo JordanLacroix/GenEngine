@@ -39,7 +39,7 @@ Le projet vise un moteur :
 
 | Élément | État |
 |---|---|
-| Solution .NET 10 et services autonomes | ✅ Initialisé |
+| Solution .NET 10 et services autonomes | ✅ Authoring, Play, Identity, Configuration et PlayerExperience |
 | Build sans warning | ✅ Vérifié |
 | Frontières de dépendance automatisées | ✅ Vérifiées en CI |
 | Health checks API | ✅ Disponibles |
@@ -54,10 +54,10 @@ Le projet vise un moteur :
 | Catalogue public des versions publiées | ✅ Consommable par les clients Web et iOS |
 | Observabilité OpenTelemetry | 🚧 Logs, traces et métriques disponibles localement |
 | SLI/SLO et alertes | 🚧 Objectifs provisoires, règles Prometheus validées et budget d’erreur dans Grafana |
-| Configuration moteur/plateforme, rôles custom et organisations | 🚧 Priorité active |
-| Assistant/familier et aide hors ligne | 📋 Prochain lot |
-| IA provider-agnostic, metering et quotas | 📋 Prioritaire après le fallback hors ligne |
-| Économie, récompenses et magasin configurable | 📋 Lot prioritaire P3 |
+| Configuration moteur/plateforme, rôles custom et organisations | 🚧 Socle fonctionnel disponible |
+| Assistant/familier et aide hors ligne | 🚧 Profil familier personnalisable disponible |
+| IA provider-agnostic, metering et quotas | 🚧 Offline + Azure AI Foundry disponibles, quotas à venir |
+| Économie, récompenses et magasin configurable | 🚧 Portefeuille, règles, achats et crédits narratifs idempotents disponibles |
 | Fonctionnalités de plateforme avancées | ⏸️ Après les fondations configurables |
 
 La progression détaillée est suivie dans [`specs/roadmap.md`](specs/roadmap.md) et dans les fichiers `tasks.md` de chaque module.
@@ -95,7 +95,7 @@ docker compose up --build --detach --wait
 docker compose down
 ```
 
-Compose démarre trois API et trois PostgreSQL isolés. Les quatre parcours vérifient le jeu classique, les interactions typées, le texte libre confirmé, puis les effets différés et la projection joueur. Les valeurs par défaut sont réservées au développement local ; copiez `.env.example` vers `.env` et remplacez-les dès que l’environnement est partagé.
+Compose démarre cinq API et cinq PostgreSQL isolés. Le smoke vérifie aussi l'expérience publiée par Configuration : jeu global, catégories, familiers, économie et provider Foundry sans fuite de secret. Les quatre parcours narratifs vérifient le jeu classique, les interactions typées, le texte libre confirmé, puis les effets différés et la projection joueur. Les valeurs par défaut sont réservées au développement local ; copiez `.env.example` vers `.env`, configurez notamment une clé de bootstrap aléatoire, puis remplacez tous les secrets dès que l’environnement est partagé.
 
 ### Lancer l’observabilité locale
 
@@ -123,6 +123,8 @@ L’accès anonyme en lecture à Grafana est strictement réservé au développe
 dotnet run --project src/Services/Authoring/GenEngine.Authoring.Api --launch-profile http
 dotnet run --project src/Services/Play/GenEngine.Play.Api --launch-profile http
 dotnet run --project src/Services/Identity/GenEngine.Identity.Api --launch-profile http
+dotnet run --project src/Services/Configuration/GenEngine.Configuration.Api
+dotnet run --project src/Services/PlayerExperience/GenEngine.PlayerExperience.Api
 ```
 
 Chaque commande utilise un terminal distinct. Vérifier ensuite les health checks :
@@ -131,6 +133,8 @@ Chaque commande utilise un terminal distinct. Vérifier ensuite les health check
 curl http://localhost:5201/health/live
 curl http://localhost:5202/health/live
 curl http://localhost:5203/health/live
+curl http://localhost:5204/health/live
+curl http://localhost:5205/health/live
 ```
 
 | Endpoint | Rôle |
@@ -140,7 +144,7 @@ curl http://localhost:5203/health/live
 
 ## Architecture
 
-GenEngine est un **backend distribué DDD/Clean** : trois services indépendamment déployables et un moteur narratif pur, embarqué sous forme de package versionné.
+GenEngine est un **backend distribué DDD/Clean** : cinq services indépendamment déployables et un moteur narratif pur, embarqué sous forme de package versionné.
 
 ```mermaid
 flowchart LR
@@ -148,9 +152,13 @@ flowchart LR
     EDGE --> AUTHORING["Authoring API<br/>déployable autonome"]
     EDGE --> PLAY["Play API<br/>déployable autonome"]
     EDGE --> IDENTITY["Identity API<br/>déployable autonome"]
+    EDGE --> CONFIG["Configuration API<br/>déployable autonome"]
+    EDGE --> PLAYER["PlayerExperience API<br/>déployable autonome"]
     AUTHORING --> AUTHORDB[("Authoring DB")]
     PLAY --> PLAYDB[("Play DB")]
     IDENTITY --> IDENTITYDB[("Identity DB")]
+    CONFIG --> CONFIGDB[("Configuration DB")]
+    PLAYER --> PLAYERDB[("PlayerExperience DB")]
     AUTHORING -. embarque .-> NARRATIVE["Narrative Engine<br/>package pur"]
     PLAY -. embarque .-> NARRATIVE
 ```
@@ -163,6 +171,8 @@ flowchart LR
 | `GenEngine.Authoring.*` | Service autonome d’import, validation, brouillons, versioning et publication |
 | `GenEngine.Play.*` | Service autonome de sessions, commandes, idempotence, pause et reprise |
 | `GenEngine.Identity.*` | Service autonome d’authentification locale et d’autorisation |
+| `GenEngine.Configuration.*` | Service autonome de configuration versionnée du jeu, des providers, familiers, modules et économie |
+| `GenEngine.PlayerExperience.*` | Service autonome du familier joueur, portefeuille, récompenses et possessions |
 
 ### Règles de dépendance
 
@@ -185,7 +195,9 @@ GenEngine/
 │   └── Services/
 │       ├── Authoring/         # Domain · Application · Infrastructure · Api
 │       ├── Play/              # Domain · Application · Infrastructure · Api
-│       └── Identity/          # Domain · Application · Infrastructure · Api
+│       ├── Identity/          # Domain · Application · Infrastructure · Api
+│       ├── Configuration/     # Domain · Application · Infrastructure · Api
+│       └── PlayerExperience/  # Domain · Application · Infrastructure · Api
 ├── tests/
 │   ├── GenEngine.Narrative.Tests/
 │   ├── GenEngine.Services.Tests/

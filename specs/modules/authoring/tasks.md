@@ -10,6 +10,6 @@
 | AUT-006 | done | Exposer un catalogue public borné des dernières versions publiées |
 | AUT-007 | done | Exposer l'analyse structurelle et la prévisualisation d'un brouillon |
 | AUT-008 | done | Migrer les brouillons entrants vers le schéma courant avant stockage |
-| AUT-009 | todo | Gérer parcours, catégories réutilisables, ordre et règles de visibilité par front |
+| AUT-009 | in-progress | Gérer parcours, catégories réutilisables, ordre et règles de visibilité par front |
 | AUT-010 | todo | Associer un scénario à plusieurs catégories sans dupliquer son contenu |
-| AUT-011 | todo | Produire un brouillon assisté par IA, revalidé et jamais publié sans revue humaine |
+| AUT-011 | done | Produire un brouillon assisté par IA, revalidé et jamais publié sans revue humaine |

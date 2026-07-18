@@ -7,10 +7,15 @@ PLAY_URL="${PLAY_URL:-http://localhost:5202}"
 SCENARIO_FILE="${SCENARIO_FILE:-specs/domain/examples/critical-reflection-free-text.json}"
 USER_NAME="free-text-smoke-$(date +%s)"
 PASSWORD="LocalSmokePassword!2026"
+TOKEN_FILE="${GENENGINE_SMOKE_TOKEN_FILE:-/tmp/genengine-smoke-token}"
 
-credentials=$(jq -n --arg userName "$USER_NAME" --arg password "$PASSWORD" '{userName:$userName,password:$password}')
-curl --fail --silent --show-error -H 'Content-Type: application/json' -d "$credentials" "$IDENTITY_URL/auth/register" >/dev/null
-token=$(curl --fail --silent --show-error -H 'Content-Type: application/json' -d "$credentials" "$IDENTITY_URL/auth/login" | jq -er '.token')
+if [[ -s "$TOKEN_FILE" ]]; then
+  token=$(<"$TOKEN_FILE")
+else
+  credentials=$(jq -n --arg userName "$USER_NAME" --arg password "$PASSWORD" '{userName:$userName,password:$password}')
+  curl --fail --silent --show-error -H 'Content-Type: application/json' -d "$credentials" "$IDENTITY_URL/auth/register" >/dev/null
+  token=$(curl --fail --silent --show-error -H 'Content-Type: application/json' -d "$credentials" "$IDENTITY_URL/auth/login" | jq -er '.token')
+fi
 
 scenario=$(curl --fail-with-body --silent --show-error -H "Authorization: Bearer $token" -H 'Content-Type: application/json' --data-binary "@$SCENARIO_FILE" "$AUTHORING_URL/scenarios/import")
 scenario_id=$(jq -er '.id' <<<"$scenario")

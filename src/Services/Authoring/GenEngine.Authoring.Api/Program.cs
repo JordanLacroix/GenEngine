@@ -29,7 +29,11 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 });
 builder.Services.AddAuthoringInfrastructure(builder.Configuration);
 AddJwtAuthentication(builder.Services, builder.Configuration);
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("scenario.author", policy => policy.RequireClaim("permission", "scenario.author"));
+    options.AddPolicy("scenario.publish", policy => policy.RequireClaim("permission", "scenario.publish"));
+});
 
 WebApplication app = builder.Build();
 
@@ -50,13 +54,41 @@ app.MapAuthoringHealthChecks();
 
 app.MapGet("/catalog", async (
     int? limit,
+    Guid? categoryId,
     AuthoringService service,
     CancellationToken cancellationToken) =>
     Results.Ok(await service.ListPublishedAsync(
         Math.Clamp(limit ?? 20, 1, 100),
+        categoryId,
         cancellationToken).ConfigureAwait(false)));
 
-RouteGroupBuilder scenarios = app.MapGroup("/scenarios").RequireAuthorization();
+RouteGroupBuilder scenarios = app.MapGroup("/scenarios").RequireAuthorization("scenario.author");
+
+scenarios.MapPost("/generate", async (
+    ScenarioGenerationRequest request,
+    ClaimsPrincipal user,
+    AuthoringService service,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    string actorId = GetUserId(user);
+    ScenarioView result = await service.GenerateAsync(actorId, request, cancellationToken).ConfigureAwait(false);
+    auditLog.Record(new AuditEvent
+    {
+        Action = "scenario_generated",
+        Outcome = AuditOutcome.Success,
+        ActorId = actorId,
+        ResourceType = "scenario",
+        ResourceId = result.Id.ToString(),
+        Properties = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["provider"] = request.Provider,
+            ["front_id"] = request.FrontId,
+            ["category_id"] = request.CategoryId.ToString(),
+        },
+    });
+    return Results.Created($"/scenarios/{result.Id}", result);
+});
 
 scenarios.MapPost("/import", async (
     JsonElement document,
@@ -173,7 +205,7 @@ scenarios.MapPost("/{id:guid}/publish", async (
         },
     });
     return Results.Ok(version);
-});
+}).RequireAuthorization("scenario.publish");
 
 scenarios.MapGet("/{id:guid}/versions", async (
     Guid id,

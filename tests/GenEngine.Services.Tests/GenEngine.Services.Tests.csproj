@@ -17,5 +17,7 @@
     <ProjectReference Include="..\..\src\Services\Authoring\GenEngine.Authoring.Application\GenEngine.Authoring.Application.csproj" />
     <ProjectReference Include="..\..\src\Services\Play\GenEngine.Play.Application\GenEngine.Play.Application.csproj" />
     <ProjectReference Include="..\..\src\Services\Identity\GenEngine.Identity.Application\GenEngine.Identity.Application.csproj" />
+    <ProjectReference Include="..\..\src\Services\Configuration\GenEngine.Configuration.Application\GenEngine.Configuration.Application.csproj" />
+    <ProjectReference Include="..\..\src\Services\PlayerExperience\GenEngine.PlayerExperience.Application\GenEngine.PlayerExperience.Application.csproj" />
   </ItemGroup>
 </Project>
