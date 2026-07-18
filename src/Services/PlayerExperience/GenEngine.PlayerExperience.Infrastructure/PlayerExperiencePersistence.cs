@@ -27,6 +27,7 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
         {
             entity.ToTable("player_profiles");
             entity.HasKey(static profile => profile.Id);
+            entity.Property(static profile => profile.Id).ValueGeneratedNever();
             entity.Property(static profile => profile.UserId).HasMaxLength(100).IsRequired();
             entity.Property(static profile => profile.FrontId).HasMaxLength(80).IsRequired();
             entity.Property(static profile => profile.FamiliarForm).HasMaxLength(80);
@@ -46,6 +47,7 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
         {
             entity.ToTable("wallet_entries");
             entity.HasKey(static entry => entry.Id);
+            entity.Property(static entry => entry.Id).ValueGeneratedNever();
             entity.Property(static entry => entry.IdempotencyKey).HasMaxLength(160).IsRequired();
             entity.Property(static entry => entry.Reason).HasMaxLength(300).IsRequired();
             entity.HasIndex(static entry => new { entry.ProfileId, entry.IdempotencyKey }).IsUnique();
@@ -68,6 +70,7 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
         {
             entity.ToTable("player_journal_entries");
             entity.HasKey(static entry => entry.Id);
+            entity.Property(static entry => entry.Id).ValueGeneratedNever();
             entity.Property(static entry => entry.IdempotencyKey).HasMaxLength(160).IsRequired();
             entity.Property(static entry => entry.Type).HasMaxLength(80).IsRequired();
             entity.Property(static entry => entry.Title).HasMaxLength(200).IsRequired();
