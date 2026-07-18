@@ -29,21 +29,23 @@ Les références transverses sont [`platform-configuration.md`](platform-configu
 
 Objectif : rendre la plateforme administrable sans valeurs métier codées en dur et établir le garde-fou d'autorisation utilisé par tous les lots suivants.
 
-- [ ] registre de paramètres typés, versionnés et auditables avec défauts sûrs ;
+- [x] registre documentaire typé, versionné et publiable avec défauts sûrs par front ;
 - [ ] résolution hiérarchique documentée : plateforme → front/établissement → catégorie ou parcours → groupe/classe → utilisateur ;
-- [ ] séparation stricte entre paramètres publiables et secrets d'infrastructure ;
-- [ ] feature flags et activation de modules par front avec dépendances validées ;
-- [ ] rôles entièrement personnalisables par composition de permissions stables, affectations portées et temporisées, policies serveur et endpoint des capacités effectives ;
+- [x] séparation stricte entre paramètres publiables et références de secrets d'infrastructure ;
+- [x] activation de modules par front sans contournement du RBAC ;
+- [x] rôles personnalisables par composition de permissions stables, affectations portées et temporisées, policies serveur et endpoint des capacités effectives ;
 - [ ] presets de départ adaptables : administrateur plateforme/organisation, auteur, publieur, enseignant/formateur/manager, participant, analyste, gestionnaire IA, magasin et modération ;
 - [ ] audit des changements de configuration, rôles, permissions et affectations ;
 - [ ] import/export d'une configuration portable, validée et versionnée ;
-- [ ] modèle `Front` typé `School`, `Company`, `TrainingProvider`, `Community` ou `Custom` ;
+- [x] modèle `Front` typé `School`, `Company`, `TrainingProvider`, `Community` ou `Custom` ;
 - [ ] profil d'organisation : identité, branding, locale, fuseau horaire, terminologie, calendrier et politiques par défaut ;
-- [ ] unités génériques : classes/promotions ou départements/équipes/cohortes, memberships et liens encadrant–participant ;
-- [ ] parcours et catégories de scénarios configurables, ordonnés et réutilisables ;
+- [x] unités génériques hiérarchiques : établissements/classes/groupes ou entreprises/départements/équipes/cohortes ;
+- [ ] memberships et liens encadrant–participant ;
+- [x] parcours globaux et catégories de scénarios configurables, ordonnés et réutilisables ;
 - [ ] affectation de scénarios ou parcours à une classe/groupe avec disponibilité et échéance ;
 - [ ] politiques pédagogiques configurables : tentatives, reprise, aide autorisée, seuil de réussite et visibilité des résultats ;
-- [ ] authentification configurable par front et mapping de claims externes vers rôles, sans rendre un OIDC obligatoire ;
+- [x] authentification locale/Entra/cumulative configurable, sans rendre OIDC obligatoire ;
+- [ ] mapping de claims externes vers rôles ;
 - [ ] règles d'accès combinant front, rôle, groupe, catégorie, publication et feature flags ;
 - [ ] tests d'isolation garantissant qu'un acteur d'un établissement ne lit ni ne modifie celui d'un autre.
 

@@ -21,9 +21,32 @@ public sealed class ConfigurationServiceTests
         PublishedExperienceView published = await service.GetPublishedAsync("company-demo", CancellationToken.None);
 
         Assert.Equal(OrganizationType.Company, published.Document.OrganizationType);
+        Assert.NotNull(published.Document.Organization);
         Assert.Equal(AuthenticationMode.Cumulative, published.Document.Authentication.Mode);
         Assert.All(published.Document.AiProviders, static provider => Assert.Null(provider.SecretReference));
         Assert.Contains(published.Document.Economy.RewardRules, static rule => rule.Trigger == "ScenarioCompleted");
+    }
+
+    [Fact]
+    public async Task OrganizationHierarchyRejectsCycles()
+    {
+        var service = new ConfigurationService(new ConfigurationRepositoryStub(), TimeProvider.System);
+        Guid first = Guid.NewGuid();
+        Guid second = Guid.NewGuid();
+        ExperienceDocument document = ConfigurationService.CreateDefault("school-demo") with
+        {
+            OrganizationType = OrganizationType.School,
+            Organization = new OrganizationDefinition("Collège", "Structure pédagogique",
+            [
+                new OrganizationUnitDefinition(first, second, "Class", "6e A", "6A", "", 1, true),
+                new OrganizationUnitDefinition(second, first, "Group", "Groupe 1", "G1", "", 2, true),
+            ]),
+        };
+
+        ConfigurationException exception = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            service.UpsertAsync("school-demo", null, document, CancellationToken.None));
+
+        Assert.Equal("organization_cycle", exception.Code);
     }
 
     [Fact]

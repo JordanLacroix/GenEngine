@@ -62,7 +62,7 @@ Le jalon 3 (durcissement) est **clos** : `HRD-001` à `HRD-007` sont traitées.
 
 Le control plane Configuration, les rôles custom, les permissions stables, les modes Local/Entra/cumulatif, Azure AI Foundry, les catégories, le familier personnalisable et la première économie/magasin sont livrés. Authoring génère maintenant un scénario à partir du jeu global, de sa catégorie et du prompt auteur. Play relaie les événements `economy.reward` vers PlayerExperience avec une clé idempotente stable.
 
-La prochaine unité cohérente est la hiérarchie d'organisation et ses scopes : école/classes/groupes ou entreprise/départements/équipes, puis affectation des rôles custom à ces périmètres. Viennent ensuite quotas/metering IA, workflows éditoriaux et fonctions avancées du magasin.
+La hiérarchie configurable d'organisation est livrée pour modéliser école/classes/groupes ou entreprise/départements/équipes/cohortes. La prochaine unité cohérente est la gestion des memberships et des encadrants dans ces unités, puis l'application des scopes RBAC à leurs données. Viennent ensuite quotas/metering IA, workflows éditoriaux et fonctions avancées du magasin.
 
 Contexte livré au jalon 3 :
 

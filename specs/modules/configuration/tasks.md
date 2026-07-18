@@ -22,10 +22,10 @@
 |---|---|---|
 | ORG-001 | done | Rattacher un profil School/Company/Training/Community/Custom au front |
 | ORG-002 | todo | Gérer années, semestres ou périodes configurables |
-| ORG-003 | todo | Gérer classes/groupes hiérarchiques et encadrants |
+| ORG-003 | in-progress | Gérer classes/groupes hiérarchiques ; encadrants à venir |
 | ORG-004 | todo | Inscrire les utilisateurs dans un groupe pour une période |
 | ORG-005 | todo | Affecter scénario ou parcours à une classe avec fenêtre et échéance |
 | ORG-006 | todo | Tester l'isolation stricte entre fronts et les scopes enseignant/apprenant |
 | ORG-007 | todo | Exposer une vue établissement → période → classe → membres sans données excessives |
 | ORG-008 | todo | Configurer tentatives, aide, réussite, reprise et visibilité des résultats par groupe |
-| ORG-009 | todo | Supporter départements, équipes et managers sans vocabulaire scolaire imposé |
+| ORG-009 | in-progress | Supporter départements/équipes/cohortes sans vocabulaire imposé ; managers à venir |

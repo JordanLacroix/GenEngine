@@ -10,6 +10,8 @@ public enum AuthenticationMode { LocalOnly, EntraOnly, Cumulative }
 public enum AiProviderType { Offline, AzureAiFoundry }
 
 public sealed record GameDefinition(string Name, string Description, string GlobalStory, string Locale, string TimeZone);
+public sealed record OrganizationUnitDefinition(Guid Id, Guid? ParentId, string Type, string Name, string Code, string Description, int Order, bool Enabled);
+public sealed record OrganizationDefinition(string Name, string Description, IReadOnlyList<OrganizationUnitDefinition> Units);
 public sealed record AuthenticationDefinition(AuthenticationMode Mode, bool LocalEnabled, bool EntraEnabled, string? EntraTenantId, string? EntraClientId);
 public sealed record AiProviderDefinition(Guid Id, string Name, AiProviderType Type, bool Enabled, string Endpoint, string Deployment, string Authentication, string? SecretReference, IReadOnlyList<string> Capabilities);
 public sealed record CategoryDefinition(Guid Id, string Name, string Description, string Accent, int Order, bool IsVisible);
@@ -22,6 +24,7 @@ public sealed record ModuleDefinition(string Id, string Name, string Description
 public sealed record ExperienceDocument(
     string FrontId,
     OrganizationType OrganizationType,
+    OrganizationDefinition? Organization,
     GameDefinition Game,
     AuthenticationDefinition Authentication,
     IReadOnlyList<AiProviderDefinition> AiProviders,
@@ -103,6 +106,10 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
     public static ExperienceDocument CreateDefault(string frontId) => new(
         frontId,
         OrganizationType.Custom,
+        new OrganizationDefinition("Organisation principale", "Structure configurable du jeu.",
+        [
+            new OrganizationUnitDefinition(Guid.Parse("efc447ef-fdd6-42e6-b3d8-5de6841d9bce"), null, "Organization", "Structure principale", "ROOT", "Racine des classes, équipes ou groupes.", 1, true),
+        ]),
         new GameDefinition("Les Chroniques de la Brume", "Une expérience narrative où chaque décision transforme le monde.", "La Brume efface les souvenirs du royaume. Les joueurs restaurent son histoire, fragment après fragment.", "fr-FR", "Europe/Paris"),
         new AuthenticationDefinition(AuthenticationMode.LocalOnly, true, false, null, null),
         [
@@ -142,8 +149,11 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
     {
         try
         {
-            return JsonSerializer.Deserialize<ExperienceDocument>(json, JsonOptions)
+            ExperienceDocument document = JsonSerializer.Deserialize<ExperienceDocument>(json, JsonOptions)
                 ?? throw new ConfigurationException("invalid_configuration", "The configuration document is empty.");
+            return document.Organization is null
+                ? document with { Organization = CreateOrganizationDefault(document.OrganizationType) }
+                : document;
         }
         catch (JsonException exception)
         {
@@ -180,11 +190,55 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             throw new ConfigurationException("duplicate_identifier", "Category, familiar and provider identifiers must be unique.");
         }
 
+        OrganizationDefinition organization = document.Organization
+            ?? throw new ConfigurationException("invalid_organization", "The organization definition is required.");
+        if (string.IsNullOrWhiteSpace(organization.Name)
+            || organization.Units.Select(static unit => unit.Id).Distinct().Count() != organization.Units.Count)
+        {
+            throw new ConfigurationException("invalid_organization", "The organization name and unique unit identifiers are required.");
+        }
+
+        HashSet<Guid> unitIds = organization.Units.Select(static unit => unit.Id).ToHashSet();
+        if (organization.Units.Any(unit =>
+                string.IsNullOrWhiteSpace(unit.Name)
+                || string.IsNullOrWhiteSpace(unit.Type)
+                || unit.ParentId == unit.Id
+                || (unit.ParentId is not null && !unitIds.Contains(unit.ParentId.Value))))
+        {
+            throw new ConfigurationException("invalid_organization_hierarchy", "Organization units must have a name, type and a valid parent.");
+        }
+
+        foreach (OrganizationUnitDefinition unit in organization.Units)
+        {
+            HashSet<Guid> ancestors = [];
+            OrganizationUnitDefinition current = unit;
+            while (current.ParentId is Guid parentId)
+            {
+                if (!ancestors.Add(parentId))
+                {
+                    throw new ConfigurationException("organization_cycle", "The organization hierarchy cannot contain a cycle.");
+                }
+
+                current = organization.Units.Single(candidate => candidate.Id == parentId);
+            }
+        }
+
         if (document.Economy.InitialBalance < 0 || document.Economy.RewardRules.Any(static rule => rule.Amount <= 0) || document.Economy.Offers.Any(static offer => offer.Price < 0))
         {
             throw new ConfigurationException("invalid_economy", "Economy amounts and prices must be valid positive values.");
         }
     }
+
+    private static OrganizationDefinition CreateOrganizationDefault(OrganizationType type) => new(
+        type switch
+        {
+            OrganizationType.School => "Établissement",
+            OrganizationType.Company => "Entreprise",
+            OrganizationType.TrainingProvider => "Organisme de formation",
+            _ => "Organisation principale",
+        },
+        "Structure configurable du jeu.",
+        []);
 }
 
 public sealed class ConfigurationException : InvalidOperationException
