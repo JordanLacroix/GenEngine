@@ -1,4 +1,4 @@
-# ADR 0005 — Service Organization autonome
+# ADR 0006 — Service Organization autonome
 
 - Statut : accepté
 - Date : 18 juillet 2026
