@@ -30,6 +30,7 @@ Les références transverses sont [`platform-configuration.md`](platform-configu
 Objectif : rendre la plateforme administrable sans valeurs métier codées en dur et établir le garde-fou d'autorisation utilisé par tous les lots suivants.
 
 - [x] registre documentaire typé, versionné et publiable avec défauts sûrs par front ;
+- [x] dictionnaire extensible de libellés et vocabulaire du jeu, versionné, administrable et consommé par Web/iOS ;
 - [ ] résolution hiérarchique documentée : plateforme → front/établissement → catégorie ou parcours → groupe/classe → utilisateur ;
 - [x] séparation stricte entre paramètres publiables et références de secrets d'infrastructure ;
 - [x] activation de modules par front sans contournement du RBAC ;
@@ -38,10 +39,11 @@ Objectif : rendre la plateforme administrable sans valeurs métier codées en du
 - [ ] audit des changements de configuration, rôles, permissions et affectations ;
 - [ ] import/export d'une configuration portable, validée et versionnée ;
 - [x] modèle `Front` typé `School`, `Company`, `TrainingProvider`, `Community` ou `Custom` ;
-- [ ] profil d'organisation : identité, branding, locale, fuseau horaire, terminologie, calendrier et politiques par défaut ;
+- [ ] profil d'organisation complet : identité, thème visuel, logo, typographies, calendrier et politiques par défaut ; la locale, le fuseau et la terminologie sont livrés ;
 - [x] unités génériques hiérarchiques : établissements/classes/groupes ou entreprises/départements/équipes/cohortes ;
 - [ ] memberships et liens encadrant–participant ;
-- [x] parcours globaux et catégories de scénarios configurables, ordonnés et réutilisables ;
+- [x] catégories de scénarios configurables et ordonnées ;
+- [ ] véritables parcours réutilisables au-dessus des catégories, avec relation N-N parcours↔catégories ;
 - [ ] affectation de scénarios ou parcours à une classe/groupe avec disponibilité et échéance ;
 - [ ] politiques pédagogiques configurables : tentatives, reprise, aide autorisée, seuil de réussite et visibilité des résultats ;
 - [x] authentification locale/Entra/cumulative configurable, sans rendre OIDC obligatoire ;
@@ -126,3 +128,5 @@ Tout paiement en monnaie réelle nécessiterait un bounded context, un threat mo
 - [ ] intégrations OIDC, LMS/LTI/xAPI, stockage, e-mail et webhooks derrière adaptateurs.
 
 Ces lots ne doivent ni réimplémenter les règles narratives dans les clients, ni contourner le registre de configuration ou les policies RBAC.
+
+La matrice exhaustive et honnête par domaine du plan initial est tenue dans [`product-capability-map.md`](product-capability-map.md). Une case livrée signifie qu’un parcours fonctionnel serveur et client est réellement utilisable, pas seulement qu’un modèle ou un écran existe.

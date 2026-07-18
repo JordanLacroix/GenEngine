@@ -60,9 +60,9 @@ Le jalon 3 (durcissement) est **clos** : `HRD-001` à `HRD-007` sont traitées.
 
 `HRD-007` (outbox) est résolue par une **décision documentée de ne rien ajouter** : aucun consommateur asynchrone n’existe (ni bus, ni file, ni worker), voir l’ADR [`specs/adr/0004-no-outbox-without-async-consumer.md`](adr/0004-no-outbox-without-async-consumer.md). Réévaluer uniquement quand un consommateur asynchrone réel apparaîtra.
 
-Le control plane Configuration, les rôles custom, les permissions stables, les modes Local/Entra/cumulatif, Azure AI Foundry, les catégories, le familier personnalisable et la première économie/magasin sont livrés. Authoring génère maintenant un scénario à partir du jeu global, de sa catégorie et du prompt auteur. Play relaie les événements `economy.reward` vers PlayerExperience avec une clé idempotente stable.
+Le control plane Configuration, les rôles custom, les permissions stables, les modes Local/Entra/cumulatif, Azure AI Foundry, les catégories, le familier personnalisable et la première économie/magasin sont livrés. Le vocabulaire et les copies du jeu sont désormais publiés dans un dictionnaire extensible et éditables depuis les deux clients ; « Mote » n’est plus un nom imposé. Authoring génère maintenant un scénario à partir du jeu global, de sa catégorie et du prompt auteur. Play relaie les événements `economy.reward` vers PlayerExperience avec une clé idempotente stable.
 
-La hiérarchie configurable d'organisation est livrée pour modéliser école/classes/groupes ou entreprise/départements/équipes/cohortes. La prochaine unité cohérente est la gestion des memberships et des encadrants dans ces unités, puis l'application des scopes RBAC à leurs données. Viennent ensuite quotas/metering IA, workflows éditoriaux et fonctions avancées du magasin.
+La hiérarchie configurable d'organisation est livrée pour modéliser école/classes/groupes ou entreprise/départements/équipes/cohortes. La carte exhaustive [`specs/product-capability-map.md`](product-capability-map.md) distingue désormais les fonctions utilisables, partielles, fondées ou absentes. La prochaine unité cohérente reste la gestion des memberships et des encadrants, puis les vrais parcours et affectations.
 
 Contexte livré au jalon 3 :
 
