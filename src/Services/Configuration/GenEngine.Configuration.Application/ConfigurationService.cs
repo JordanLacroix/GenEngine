@@ -8,6 +8,7 @@ namespace GenEngine.Configuration.Application;
 public enum OrganizationType { School, Company, TrainingProvider, Community, Custom }
 public enum AuthenticationMode { LocalOnly, EntraOnly, Cumulative }
 public enum AiProviderType { Offline, AzureAiFoundry }
+public enum IntroDisplayPolicy { EveryLaunch, OncePerVersion, FirstInstall }
 
 public sealed record GameDefinition(string Name, string Description, string GlobalStory, string Locale, string TimeZone);
 public sealed record GameLanguageDefinition(IReadOnlyDictionary<string, string> Labels);
@@ -66,6 +67,18 @@ public sealed record RewardRuleDefinition(string Trigger, string ReferenceId, in
 public sealed record OfferDefinition(Guid Id, string Name, string Description, int Price, string RewardType, string RewardReference, bool Enabled);
 public sealed record EconomyDefinition(string CurrencyCode, string CurrencyName, string CurrencyIcon, int InitialBalance, IReadOnlyList<RewardRuleDefinition> RewardRules, IReadOnlyList<OfferDefinition> Offers);
 public sealed record ModuleDefinition(string Id, string Name, string Description, bool Enabled, IReadOnlyList<string> RequiredPermissions);
+public sealed record IntroSceneDefinition(Guid Id, string Eyebrow, string Title, string Body, string? ImageUrl, int Order);
+public sealed record IntroDefinition(bool Enabled, IntroDisplayPolicy DisplayPolicy, bool AllowSkip, int MinimumDisplaySeconds, IReadOnlyList<IntroSceneDefinition> Scenes);
+public sealed record NavigationItemDefinition(string Destination, string LabelKey, string Icon, int Order, bool Enabled, string? RequiredModule = null);
+public sealed record PlayerShellDefinition(IReadOnlyList<NavigationItemDefinition> Navigation);
+public sealed record DemoExperienceDefinition(bool Enabled, string ScenarioSlug, int TargetMinutes, Guid? FamiliarId, string CallToActionLabelKey);
+public sealed record HelpArticleDefinition(Guid Id, string Slug, string Title, string Summary, string Body, IReadOnlyList<string> Contexts, IReadOnlyList<string> Tags, int Order, bool Published);
+public sealed record GlossaryEntryDefinition(string Term, string Definition);
+public sealed record HelpCenterDefinition(bool Enabled, IReadOnlyList<HelpArticleDefinition> Articles, IReadOnlyList<GlossaryEntryDefinition> Glossary);
+public sealed record OnboardingStepDefinition(Guid Id, string Title, string Body, string Target, string Action, int Order, bool Required);
+public sealed record OnboardingDefinition(Guid Id, int Version, bool Enabled, bool AllowSkip, bool RequiredAfterUpgrade, IReadOnlyList<OnboardingStepDefinition> Steps);
+public sealed record AssistantPolicyDefinition(bool Enabled, bool RequireFirstRunConfiguration, bool Proactive, bool WarnOnKnownPath, int DefaultFrequency, IReadOnlyList<string> OfflineCapabilities);
+public sealed record JournalPolicyDefinition(bool Enabled, bool AllowExport, int RetentionDays, bool ShowStoryTimeline);
 
 public sealed record ExperienceDocument(
     string FrontId,
@@ -80,7 +93,14 @@ public sealed record ExperienceDocument(
     EconomyDefinition Economy,
     IReadOnlyList<ModuleDefinition> Modules,
     IReadOnlyList<JourneyDefinition>? Journeys = null,
-    IReadOnlyList<CatalogAssignmentDefinition>? Assignments = null);
+    IReadOnlyList<CatalogAssignmentDefinition>? Assignments = null,
+    IntroDefinition? Intro = null,
+    PlayerShellDefinition? PlayerShell = null,
+    DemoExperienceDefinition? Demo = null,
+    HelpCenterDefinition? Help = null,
+    OnboardingDefinition? Onboarding = null,
+    AssistantPolicyDefinition? AssistantPolicy = null,
+    JournalPolicyDefinition? Journal = null);
 
 public sealed record ExperienceConfigurationView(Guid Id, int Revision, int PublishedVersion, DateTimeOffset UpdatedAt, DateTimeOffset? PublishedAt, ExperienceDocument Document);
 public sealed record PublishedExperienceView(int Version, DateTimeOffset PublishedAt, ExperienceDocument Document);
@@ -201,7 +221,14 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
                 [],
                 ["découverte", "mystère"]),
         ],
-        []);
+        [],
+        CreateDefaultIntro(),
+        CreateDefaultPlayerShell(),
+        new DemoExperienceDefinition(true, "les-braises-sous-la-brume", 15, Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "demo.createAccount"),
+        CreateDefaultHelp(),
+        CreateDefaultOnboarding(),
+        CreateDefaultAssistantPolicy(),
+        new JournalPolicyDefinition(true, true, 0, true));
 
     private async Task<ExperienceConfiguration> GetRequiredAsync(string frontId, CancellationToken cancellationToken) =>
         await repository.GetAsync(frontId, cancellationToken).ConfigureAwait(false)
@@ -335,6 +362,37 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         {
             throw new ConfigurationException("invalid_economy", "Economy amounts and prices must be valid positive values.");
         }
+
+        IntroDefinition intro = document.Intro ?? CreateDefaultIntro();
+        if (intro.MinimumDisplaySeconds is < 0 or > 60
+            || intro.Scenes.Count is 0 or > 12
+            || intro.Scenes.Select(static scene => scene.Id).Distinct().Count() != intro.Scenes.Count
+            || intro.Scenes.Any(static scene => string.IsNullOrWhiteSpace(scene.Title) || !IsValidAssetUrl(scene.ImageUrl)))
+        {
+            throw new ConfigurationException("invalid_intro", "The introduction requires unique titled scenes, valid timing and HTTPS assets.");
+        }
+
+        OnboardingDefinition onboarding = document.Onboarding ?? CreateDefaultOnboarding();
+        if (onboarding.Version < 1
+            || onboarding.Steps.Select(static step => step.Id).Distinct().Count() != onboarding.Steps.Count
+            || onboarding.Steps.Any(static step => string.IsNullOrWhiteSpace(step.Title) || string.IsNullOrWhiteSpace(step.Target)))
+        {
+            throw new ConfigurationException("invalid_onboarding", "The onboarding requires a positive version and unique valid steps.");
+        }
+
+        HelpCenterDefinition help = document.Help ?? CreateDefaultHelp();
+        if (help.Articles.Select(static article => article.Id).Distinct().Count() != help.Articles.Count
+            || help.Articles.Select(static article => article.Slug).Distinct(StringComparer.OrdinalIgnoreCase).Count() != help.Articles.Count
+            || help.Articles.Any(static article => string.IsNullOrWhiteSpace(article.Slug) || string.IsNullOrWhiteSpace(article.Title)))
+        {
+            throw new ConfigurationException("invalid_help", "Help articles require unique identifiers, slugs and titles.");
+        }
+
+        AssistantPolicyDefinition assistant = document.AssistantPolicy ?? CreateDefaultAssistantPolicy();
+        if (assistant.DefaultFrequency is < 0 or > 5)
+        {
+            throw new ConfigurationException("invalid_assistant_policy", "The assistant frequency must be between 0 and 5.");
+        }
     }
 
     private static OrganizationDefinition CreateOrganizationDefault(OrganizationType type) => new(
@@ -370,8 +428,66 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             }).ToArray(),
             Journeys = document.Journeys ?? [],
             Assignments = document.Assignments ?? [],
+            Intro = document.Intro ?? CreateDefaultIntro(),
+            PlayerShell = document.PlayerShell ?? CreateDefaultPlayerShell(),
+            Demo = document.Demo ?? new DemoExperienceDefinition(true, "les-braises-sous-la-brume", 15, document.Familiars.Count > 0 ? document.Familiars[0].Id : null, "demo.createAccount"),
+            Help = document.Help ?? CreateDefaultHelp(),
+            Onboarding = document.Onboarding ?? CreateDefaultOnboarding(),
+            AssistantPolicy = document.AssistantPolicy ?? CreateDefaultAssistantPolicy(),
+            Journal = document.Journal ?? new JournalPolicyDefinition(true, true, 0, true),
         };
     }
+
+    private static IntroDefinition CreateDefaultIntro() => new(
+        true,
+        IntroDisplayPolicy.OncePerVersion,
+        true,
+        0,
+        [
+            new IntroSceneDefinition(
+                Guid.Parse("59ee8932-281f-4fbc-a02b-90221d0a0ad4"),
+                "Les Chroniques de la Brume",
+                "Le monde se souvient de chacun de vos choix.",
+                "Traversez la Brume, retrouvez les fragments oubliés et écrivez une histoire qui vous appartient.",
+                "https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=1800&q=85",
+                1),
+        ]);
+
+    private static PlayerShellDefinition CreateDefaultPlayerShell() => new(
+        [
+            new NavigationItemDefinition("map", "nav.map", "map", 1, true, "play"),
+            new NavigationItemDefinition("progress", "nav.progress", "chart", 2, true, "play"),
+            new NavigationItemDefinition("companion", "nav.companion", "sparkles", 3, true, "assistant"),
+            new NavigationItemDefinition("shop", "nav.shop", "bag", 4, true, "shop"),
+            new NavigationItemDefinition("help", "nav.help", "help", 5, true),
+            new NavigationItemDefinition("account", "nav.account", "account", 6, true),
+        ]);
+
+    private static HelpCenterDefinition CreateDefaultHelp() => new(
+        true,
+        [
+            new HelpArticleDefinition(Guid.Parse("b01faeca-c3a6-4e44-9374-bf1f5f23a948"), "premiers-pas", "Premiers pas", "Comprendre la carte, les scénarios et votre progression.", "Votre carte rassemble les parcours et catégories accessibles. Ouvrez une catégorie pour découvrir ses scénarios.", ["map", "onboarding"], ["débuter", "carte"], 1, true),
+            new HelpArticleDefinition(Guid.Parse("b6adb4dc-a161-45db-989d-5a34786b54fe"), "rejouer", "Explorer d’autres chemins", "Rejouez sans perdre vos découvertes.", "Chaque nouvelle branche enrichit votre arbre et votre journal. Votre compagnon peut vous prévenir avant un chemin déjà parcouru.", ["player", "completion", "progress"], ["rejeu", "arbre"], 2, true),
+        ],
+        [
+            new GlossaryEntryDefinition("Parcours", "Un ensemble ordonné de catégories qui compose une aventure globale."),
+            new GlossaryEntryDefinition("Maîtrise", "La part des fins, branches et jalons d’exploration que vous avez découverts."),
+        ]);
+
+    private static OnboardingDefinition CreateDefaultOnboarding() => new(
+        Guid.Parse("9cccf7f7-fba6-45ff-a3be-42d8993bb8cc"),
+        1,
+        true,
+        true,
+        false,
+        [
+            new OnboardingStepDefinition(Guid.Parse("7b28af3a-e075-420f-9a60-c42cae6fdfea"), "Votre compagnon", "Je resterai à vos côtés et vous aiderai sans choisir à votre place.", "companion", "open", 1, true),
+            new OnboardingStepDefinition(Guid.Parse("eea6be3b-1810-45ea-8428-9fc4adb42aa2"), "Votre carte", "Explorez les catégories pour retrouver les scénarios accessibles.", "map", "open", 2, true),
+            new OnboardingStepDefinition(Guid.Parse("17664c57-f8b0-4106-897b-a55e4d918429"), "Votre progression", "Chaque fin et chaque branche découverte enrichissent votre journal.", "progress", "open", 3, true),
+        ]);
+
+    private static AssistantPolicyDefinition CreateDefaultAssistantPolicy() =>
+        new(true, true, true, true, 2, ["hint", "recap", "rephrase", "known-path-warning"]);
 
     private static bool IsValidAssetUrl(string? value) =>
         string.IsNullOrWhiteSpace(value)
@@ -389,8 +505,16 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         ["auth.microsoft"] = "Continuer avec Microsoft",
         ["auth.existingAccount"] = "J’ai déjà un compte",
         ["demo.explore"] = "Explorer la démo",
+        ["demo.createAccount"] = "Continuer mon aventure",
         ["nav.home"] = "Accueil",
         ["nav.library"] = "Bibliothèque",
+        ["nav.map"] = "Carte",
+        ["nav.progress"] = "Progression",
+        ["nav.companion"] = "Compagnon",
+        ["nav.shop"] = "Magasin",
+        ["nav.help"] = "Aide",
+        ["nav.account"] = "Compte",
+        ["nav.menu"] = "Menu",
         ["nav.experience"] = "Mon univers",
         ["nav.studio"] = "Studio",
         ["nav.administration"] = "Administration",

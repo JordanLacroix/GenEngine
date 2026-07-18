@@ -52,6 +52,17 @@ jq -e '(.permissions | index("scenario.author")) != null and (.permissions | ind
 wallet=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$PLAYER_EXPERIENCE_URL/me/experience?frontId=default")
 jq -e '.currencyCode == "BRAISE" and .balance >= 0' <<<"$wallet" >/dev/null
 
+bootstrap=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$PLAYER_EXPERIENCE_URL/me/experience/bootstrap?frontId=default")
+jq -e '.nextAction != null and .experience.onboarding.status != null and .tutorial.steps != null and .assistant.offlineCapabilities != null' <<<"$bootstrap" >/dev/null
+journal=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$PLAYER_EXPERIENCE_URL/me/experience/journal?frontId=default&limit=10")
+jq -e '.items != null and .total >= 0 and .totalsByType != null' <<<"$journal" >/dev/null
+help=$(curl --fail --silent --show-error \
+  -H "Authorization: Bearer $token" \
+  -H 'Content-Type: application/json' \
+  -d '{"context":"map","scenarioVersionId":null,"choiceId":null,"alreadyExplored":false,"authorHint":null}' \
+  "$PLAYER_EXPERIENCE_URL/me/experience/assistant/contextual-help?frontId=default")
+jq -e '.source != null and .message != "" and .familiarName != ""' <<<"$help" >/dev/null
+
 echo "[3/11] Import scenario"
 scenario=$(curl --fail-with-body --silent --show-error \
   -H "Authorization: Bearer $token" \
@@ -146,4 +157,4 @@ replayed=$(curl --fail-with-body --silent --show-error \
   "$PLAY_URL/sessions/$session_id/inputs")
 jq -e '.replayed == true' <<<"$replayed" >/dev/null
 
-echo "Smoke test passed: register → login → import → validate → analyze → preview → publish → start → pause → resume → complete → replay"
+echo "Smoke test passed: register → login → player bootstrap → journal → help → import → validate → analyze → preview → publish → start → pause → resume → complete → replay"

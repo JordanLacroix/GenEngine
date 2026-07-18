@@ -55,7 +55,9 @@ Le projet vise un moteur :
 | Observabilité OpenTelemetry | 🚧 Logs, traces et métriques disponibles localement |
 | SLI/SLO et alertes | 🚧 Objectifs provisoires, règles Prometheus validées et budget d’erreur dans Grafana |
 | Configuration moteur/plateforme, vocabulaire, rôles custom et organisations | 🚧 Socle fonctionnel disponible |
-| Assistant/familier et aide hors ligne | 🚧 Profil familier personnalisable disponible |
+| Assistant/familier et aide hors ligne | 🚧 Profil illustré, nom, ton, aide, fréquence et fallback contextuel disponibles ; provider IA assistant restant |
+| Introduction, tutoriel et shell joueur configurables | ✅ Publiés par Configuration et consommés par Web/iOS |
+| Progression cross-session et journal joueur | ✅ Alimentés automatiquement par Play, persistés par PlayerExperience |
 | IA provider-agnostic, metering et quotas | 🚧 Offline + Azure AI Foundry disponibles, quotas à venir |
 | Économie, récompenses et magasin configurable | 🚧 Portefeuille, règles, achats et crédits narratifs idempotents disponibles |
 | Fonctionnalités de plateforme avancées | ⏸️ Après les fondations configurables |
@@ -95,7 +97,7 @@ docker compose up --build --detach --wait
 docker compose down
 ```
 
-Compose démarre cinq API et cinq PostgreSQL isolés. Le smoke vérifie aussi l'expérience publiée par Configuration : jeu global, catégories, familiers, économie et provider Foundry sans fuite de secret. Les quatre parcours narratifs vérifient le jeu classique, les interactions typées, le texte libre confirmé, puis les effets différés et la projection joueur. Les valeurs par défaut sont réservées au développement local ; copiez `.env.example` vers `.env`, configurez notamment une clé de bootstrap aléatoire, puis remplacez tous les secrets dès que l’environnement est partagé.
+Compose démarre cinq API et cinq PostgreSQL isolés. Le smoke vérifie aussi l'expérience publiée par Configuration, le bootstrap joueur, l'onboarding persistant, le journal et l'aide contextuelle, puis couvre le jeu global, les catégories, les familiers, l'économie et le provider Foundry sans fuite de secret. Les quatre parcours narratifs vérifient le jeu classique, les interactions typées, le texte libre confirmé, puis les effets différés et la projection joueur. Le smoke administratif complet est conçu pour une base Identity vierge : dès qu'un premier administrateur existe, l'API refuse volontairement un second bootstrap. Les valeurs par défaut sont réservées au développement local ; copiez `.env.example` vers `.env`, configurez notamment une clé de bootstrap aléatoire, puis remplacez tous les secrets dès que l’environnement est partagé.
 
 ### Lancer l’observabilité locale
 
@@ -172,7 +174,7 @@ flowchart LR
 | `GenEngine.Play.*` | Service autonome de sessions, commandes, idempotence, pause et reprise |
 | `GenEngine.Identity.*` | Service autonome d’authentification locale et d’autorisation |
 | `GenEngine.Configuration.*` | Service autonome de configuration versionnée du jeu, des providers, familiers, modules et économie |
-| `GenEngine.PlayerExperience.*` | Service autonome du familier joueur, portefeuille, récompenses et possessions |
+| `GenEngine.PlayerExperience.*` | Service autonome du bootstrap joueur, onboarding, familier, progression, journal, portefeuille, récompenses et possessions |
 
 ### Règles de dépendance
 

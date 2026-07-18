@@ -114,6 +114,7 @@ sessions.MapPost("/{id:guid}/inputs", async (
         request.ChoiceId,
         cancellationToken).ConfigureAwait(false);
     await rewards.DispatchAsync(actorId, result.Rewards, cancellationToken).ConfigureAwait(false);
+    await rewards.DispatchProgressAsync(actorId, result.Progress, cancellationToken).ConfigureAwait(false);
     auditLog.Record(new AuditEvent
     {
         Action = result.Replayed ? "choice_replayed" : "choice_submitted",
@@ -146,6 +147,7 @@ sessions.MapPost("/{id:guid}/continue", async (
         request.ExpectedRevision,
         cancellationToken).ConfigureAwait(false);
     await rewards.DispatchAsync(actorId, result.Rewards, cancellationToken).ConfigureAwait(false);
+    await rewards.DispatchProgressAsync(actorId, result.Progress, cancellationToken).ConfigureAwait(false);
     RecordInputAudit(auditLog, actorId, id, request.CommandId, result.Replayed, "narration_continued");
     return Results.Ok(result);
 });
@@ -168,6 +170,7 @@ sessions.MapPost("/{id:guid}/answers", async (
         request.AnswerId,
         cancellationToken).ConfigureAwait(false);
     await rewards.DispatchAsync(actorId, result.Rewards, cancellationToken).ConfigureAwait(false);
+    await rewards.DispatchProgressAsync(actorId, result.Progress, cancellationToken).ConfigureAwait(false);
     RecordInputAudit(auditLog, actorId, id, request.CommandId, result.Replayed, "quiz_answered");
     return Results.Ok(result);
 });
@@ -190,6 +193,7 @@ sessions.MapPost("/{id:guid}/text-inputs", async (
         request.Text,
         cancellationToken).ConfigureAwait(false);
     await rewards.DispatchAsync(actorId, result.Rewards, cancellationToken).ConfigureAwait(false);
+    await rewards.DispatchProgressAsync(actorId, result.Progress, cancellationToken).ConfigureAwait(false);
     RecordInputAudit(auditLog, actorId, id, request.CommandId, result.Replayed, "text_submitted");
     return Results.Ok(result);
 });
@@ -212,6 +216,7 @@ sessions.MapPost("/{id:guid}/text-inputs/confirm", async (
         request.Confirmed,
         cancellationToken).ConfigureAwait(false);
     await rewards.DispatchAsync(actorId, result.Rewards, cancellationToken).ConfigureAwait(false);
+    await rewards.DispatchProgressAsync(actorId, result.Progress, cancellationToken).ConfigureAwait(false);
     RecordInputAudit(auditLog, actorId, id, request.CommandId, result.Replayed, "text_analysis_confirmed");
     return Results.Ok(result);
 });

@@ -17,6 +17,9 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
     public DbSet<PlayerProfile> Profiles => Set<PlayerProfile>();
     public DbSet<WalletEntry> WalletEntries => Set<WalletEntry>();
     public DbSet<OwnedItem> OwnedItems => Set<OwnedItem>();
+    public DbSet<OnboardingState> OnboardingStates => Set<OnboardingState>();
+    public DbSet<PlayerJournalEntry> JournalEntries => Set<PlayerJournalEntry>();
+    public DbSet<ScenarioMastery> ScenarioMasteries => Set<ScenarioMastery>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -24,21 +27,27 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
         {
             entity.ToTable("player_profiles");
             entity.HasKey(static profile => profile.Id);
+            entity.Property(static profile => profile.Id).ValueGeneratedNever();
             entity.Property(static profile => profile.UserId).HasMaxLength(100).IsRequired();
             entity.Property(static profile => profile.FrontId).HasMaxLength(80).IsRequired();
             entity.Property(static profile => profile.FamiliarForm).HasMaxLength(80);
             entity.Property(static profile => profile.FamiliarTone).HasMaxLength(80);
             entity.Property(static profile => profile.FamiliarWritingStyle).HasMaxLength(120);
             entity.Property(static profile => profile.FamiliarAccent).HasMaxLength(80);
+            entity.Property(static profile => profile.FamiliarCustomName).HasMaxLength(80);
             entity.Property(static profile => profile.Revision).IsConcurrencyToken();
             entity.HasIndex(static profile => new { profile.UserId, profile.FrontId }).IsUnique();
             entity.HasMany(static profile => profile.WalletEntries).WithOne().HasForeignKey(static entry => entry.ProfileId).OnDelete(DeleteBehavior.Cascade);
             entity.HasMany(static profile => profile.OwnedItems).WithOne().HasForeignKey(static item => item.ProfileId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(static profile => profile.OnboardingStates).WithOne().HasForeignKey(static state => state.ProfileId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(static profile => profile.JournalEntries).WithOne().HasForeignKey(static entry => entry.ProfileId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(static profile => profile.ScenarioMasteries).WithOne().HasForeignKey(static mastery => mastery.ProfileId).OnDelete(DeleteBehavior.Cascade);
         });
         modelBuilder.Entity<WalletEntry>(entity =>
         {
             entity.ToTable("wallet_entries");
             entity.HasKey(static entry => entry.Id);
+            entity.Property(static entry => entry.Id).ValueGeneratedNever();
             entity.Property(static entry => entry.IdempotencyKey).HasMaxLength(160).IsRequired();
             entity.Property(static entry => entry.Reason).HasMaxLength(300).IsRequired();
             entity.HasIndex(static entry => new { entry.ProfileId, entry.IdempotencyKey }).IsUnique();
@@ -48,13 +57,51 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
             entity.ToTable("owned_items");
             entity.HasKey(static item => new { item.ProfileId, item.OfferId });
         });
+        modelBuilder.Entity<OnboardingState>(entity =>
+        {
+            entity.ToTable("onboarding_states");
+            entity.HasKey(static state => new { state.ProfileId, state.TutorialId, state.Version });
+            entity.Property(static state => state.Status).HasConversion<string>().HasMaxLength(32);
+            entity.Property(static state => state.CompletedStepIdsJson).HasColumnType("jsonb");
+            entity.Property(static state => state.ProcessedCommandIdsJson).HasColumnType("jsonb");
+            entity.Property(static state => state.Revision).IsConcurrencyToken();
+        });
+        modelBuilder.Entity<PlayerJournalEntry>(entity =>
+        {
+            entity.ToTable("player_journal_entries");
+            entity.HasKey(static entry => entry.Id);
+            entity.Property(static entry => entry.Id).ValueGeneratedNever();
+            entity.Property(static entry => entry.IdempotencyKey).HasMaxLength(160).IsRequired();
+            entity.Property(static entry => entry.Type).HasMaxLength(80).IsRequired();
+            entity.Property(static entry => entry.Title).HasMaxLength(200).IsRequired();
+            entity.Property(static entry => entry.Summary).HasMaxLength(1200).IsRequired();
+            entity.Property(static entry => entry.ReferenceId).HasMaxLength(160);
+            entity.HasIndex(static entry => new { entry.ProfileId, entry.IdempotencyKey }).IsUnique();
+            entity.HasIndex(static entry => new { entry.ProfileId, entry.OccurredAt });
+        });
+        modelBuilder.Entity<ScenarioMastery>(entity =>
+        {
+            entity.ToTable("scenario_masteries");
+            entity.HasKey(static mastery => new { mastery.ProfileId, mastery.ScenarioVersionId });
+            entity.Property(static mastery => mastery.ChoiceIdsJson).HasColumnType("jsonb");
+            entity.Property(static mastery => mastery.NodeIdsJson).HasColumnType("jsonb");
+            entity.Property(static mastery => mastery.EndingIdsJson).HasColumnType("jsonb");
+            entity.Property(static mastery => mastery.SessionIdsJson).HasColumnType("jsonb");
+            entity.Property(static mastery => mastery.ProcessedCommandIdsJson).HasColumnType("jsonb");
+            entity.HasIndex(static mastery => new { mastery.ProfileId, mastery.ScenarioId });
+        });
     }
 }
 
 internal sealed class PlayerExperienceRepository(PlayerExperienceDbContext dbContext) : IPlayerExperienceRepository
 {
     public Task<PlayerProfile?> GetAsync(string userId, string frontId, CancellationToken cancellationToken) =>
-        dbContext.Profiles.Include(static profile => profile.WalletEntries).Include(static profile => profile.OwnedItems)
+        dbContext.Profiles
+            .Include(static profile => profile.WalletEntries)
+            .Include(static profile => profile.OwnedItems)
+            .Include(static profile => profile.OnboardingStates)
+            .Include(static profile => profile.JournalEntries)
+            .Include(static profile => profile.ScenarioMasteries)
             .SingleOrDefaultAsync(profile => profile.UserId == userId && profile.FrontId == frontId, cancellationToken);
     public async Task AddAsync(PlayerProfile profile, CancellationToken cancellationToken) =>
         await dbContext.Profiles.AddAsync(profile, cancellationToken).ConfigureAwait(false);
@@ -79,17 +126,47 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
             new FamiliarOption(
                 item.GetProperty("id").GetGuid(),
                 item.GetProperty("name").GetString() ?? string.Empty,
+                GetString(item, "description"),
                 item.GetProperty("form").GetString() ?? string.Empty,
                 item.GetProperty("tone").GetString() ?? string.Empty,
                 item.GetProperty("writingStyle").GetString() ?? string.Empty,
                 item.GetProperty("accent").GetString() ?? string.Empty,
                 item.GetProperty("helpLevel").GetInt32(),
+                GetStrings(item, "capabilities"),
                 item.GetProperty("availableForms").EnumerateArray().Select(static value => value.GetString() ?? string.Empty).ToArray(),
-                item.GetProperty("availableTones").EnumerateArray().Select(static value => value.GetString() ?? string.Empty).ToArray())).ToArray();
+                item.GetProperty("availableTones").EnumerateArray().Select(static value => value.GetString() ?? string.Empty).ToArray(),
+                GetNullableString(item, "portraitUrl"),
+                GetNullableString(item, "avatarUrl"),
+                GetNullableString(item, "backgroundUrl"),
+                GetNullableString(item, "license"),
+                GetNullableString(item, "attribution"))).ToArray();
         RewardRule[] rewards = economy.GetProperty("rewardRules").EnumerateArray().Select(static item =>
             new RewardRule(item.GetProperty("trigger").GetString() ?? string.Empty, item.GetProperty("referenceId").GetString() ?? string.Empty, item.GetProperty("amount").GetInt32(), item.GetProperty("description").GetString() ?? string.Empty)).ToArray();
         ShopOffer[] offers = economy.GetProperty("offers").EnumerateArray().Select(static item =>
             new ShopOffer(item.GetProperty("id").GetGuid(), item.GetProperty("name").GetString() ?? string.Empty, item.GetProperty("description").GetString() ?? string.Empty, item.GetProperty("price").GetInt32(), item.GetProperty("rewardType").GetString() ?? string.Empty, item.GetProperty("rewardReference").GetString() ?? string.Empty, item.GetProperty("enabled").GetBoolean())).ToArray();
+        JsonElement onboarding = document.GetProperty("onboarding");
+        OnboardingTutorial tutorial = new(
+            onboarding.GetProperty("id").GetGuid(),
+            onboarding.GetProperty("version").GetInt32(),
+            onboarding.GetProperty("enabled").GetBoolean(),
+            onboarding.GetProperty("allowSkip").GetBoolean(),
+            onboarding.GetProperty("requiredAfterUpgrade").GetBoolean(),
+            onboarding.GetProperty("steps").EnumerateArray().Select(static step => new OnboardingStep(
+                step.GetProperty("id").GetGuid(),
+                GetString(step, "title"),
+                GetString(step, "body"),
+                GetString(step, "target"),
+                GetString(step, "action"),
+                step.GetProperty("order").GetInt32(),
+                step.GetProperty("required").GetBoolean())).OrderBy(static step => step.Order).ToArray());
+        JsonElement assistant = document.GetProperty("assistantPolicy");
+        AssistantPolicy assistantPolicy = new(
+            assistant.GetProperty("enabled").GetBoolean(),
+            assistant.GetProperty("requireFirstRunConfiguration").GetBoolean(),
+            assistant.GetProperty("proactive").GetBoolean(),
+            assistant.GetProperty("warnOnKnownPath").GetBoolean(),
+            assistant.GetProperty("defaultFrequency").GetInt32(),
+            GetStrings(assistant, "offlineCapabilities"));
         return new PlayerExperienceCatalog(
             economy.GetProperty("currencyCode").GetString() ?? string.Empty,
             economy.GetProperty("currencyName").GetString() ?? string.Empty,
@@ -97,8 +174,19 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
             economy.GetProperty("initialBalance").GetInt32(),
             familiars,
             rewards,
-            offers);
+            offers,
+            tutorial,
+            assistantPolicy);
     }
+
+    private static string GetString(JsonElement element, string property) =>
+        element.TryGetProperty(property, out JsonElement value) ? value.GetString() ?? string.Empty : string.Empty;
+    private static string? GetNullableString(JsonElement element, string property) =>
+        element.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+    private static string[] GetStrings(JsonElement element, string property) =>
+        element.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.Array
+            ? value.EnumerateArray().Select(static item => item.GetString() ?? string.Empty).ToArray()
+            : [];
 }
 
 internal sealed class PlayerExperienceDatabaseHealthCheck(PlayerExperienceDbContext dbContext) : IHealthCheck

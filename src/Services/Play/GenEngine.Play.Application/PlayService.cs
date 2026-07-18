@@ -33,6 +33,7 @@ public sealed record PublishedSnapshotContract(
 
 public sealed record SessionView(
     Guid Id,
+    Guid ScenarioId,
     Guid ScenarioVersionId,
     string SnapshotHash,
     SessionStatus Status,
@@ -40,11 +41,13 @@ public sealed record SessionView(
     int Turn);
 
 public sealed record RewardDispatch(string Trigger, string ReferenceId, string IdempotencyKey);
-public sealed record InputResult(SessionView Session, CurrentStep CurrentStep, bool Replayed, IReadOnlyList<RewardDispatch> Rewards);
+public sealed record ProgressDispatch(string IdempotencyKey, string Type, string Title, string Summary, Guid ScenarioId, Guid ScenarioVersionId, Guid SessionId, string ReferenceId, string? ChoiceId, string TargetNodeId, string? EndingId, bool Completed, int TotalObjectives);
+public sealed record InputResult(SessionView Session, CurrentStep CurrentStep, bool Replayed, IReadOnlyList<RewardDispatch> Rewards, ProgressDispatch Progress);
 
 public interface IRewardDispatcher
 {
     Task DispatchAsync(string userId, IReadOnlyList<RewardDispatch> rewards, CancellationToken cancellationToken);
+    Task DispatchProgressAsync(string userId, ProgressDispatch progress, CancellationToken cancellationToken);
 }
 
 public sealed class PlayService(
@@ -72,6 +75,7 @@ public sealed class PlayService(
         GameSave save = GameSaveSerializer.Create(scenario.SchemaVersion, seed, now, state);
         GameSession session = GameSession.Create(
             ownerId,
+            snapshot.ScenarioId,
             snapshot.Id,
             snapshot.SnapshotHash,
             snapshot.SnapshotJson,
@@ -129,6 +133,8 @@ public sealed class PlayService(
             ownerId,
             commandId,
             expectedRevision,
+            choiceId,
+            "ChoiceSelected",
             (scenario, state) => NarrativeRuntime.SubmitChoice(scenario, state, choiceId),
             cancellationToken).ConfigureAwait(false);
 
@@ -143,6 +149,8 @@ public sealed class PlayService(
             ownerId,
             commandId,
             expectedRevision,
+            "continue",
+            "NarrationContinued",
             NarrativeRuntime.Continue,
             cancellationToken).ConfigureAwait(false);
 
@@ -158,6 +166,8 @@ public sealed class PlayService(
             ownerId,
             commandId,
             expectedRevision,
+            answerId,
+            "QuizAnswered",
             (scenario, state) => NarrativeRuntime.SubmitAnswer(scenario, state, answerId),
             cancellationToken).ConfigureAwait(false);
 
@@ -173,6 +183,8 @@ public sealed class PlayService(
             ownerId,
             commandId,
             expectedRevision,
+            "free-text",
+            "TextSubmitted",
             (scenario, state) => NarrativeRuntime.SubmitText(scenario, state, text),
             cancellationToken).ConfigureAwait(false);
 
@@ -188,6 +200,8 @@ public sealed class PlayService(
             ownerId,
             commandId,
             expectedRevision,
+            confirmed ? "confirm" : "retry",
+            "TextAnalysisConfirmed",
             (scenario, state) => NarrativeRuntime.ConfirmTextAnalysis(scenario, state, confirmed),
             cancellationToken).ConfigureAwait(false);
 
@@ -196,6 +210,8 @@ public sealed class PlayService(
         string ownerId,
         Guid commandId,
         int expectedRevision,
+        string inputId,
+        string eventType,
         Func<ScenarioDocument, GameState, GameState> transition,
         CancellationToken cancellationToken)
     {
@@ -218,6 +234,13 @@ public sealed class PlayService(
             nextState.Status.ToString(),
             expectedRevision,
             now);
+        bool completed = nextState.Status == SessionStatus.Completed;
+        string? endingId = completed ? nextState.CurrentNodeId : null;
+        int totalObjectives = scenario.Nodes.Sum(static node =>
+            node.Choices.Count
+            + (node.Interactions?.OfType<ChoiceSetInteraction>().Sum(static interaction => interaction.Choices.Count) ?? 0)
+            + (node.Interactions?.OfType<QuizInteraction>().Sum(static interaction => interaction.Answers.Count) ?? 0))
+            + scenario.Nodes.Count(static node => node.IsEnding);
         InputResult result = new(
             Map(session, nextState),
             NarrativeRuntime.GetCurrentStep(scenario, nextState),
@@ -230,7 +253,21 @@ public sealed class PlayService(
                     item.Attributes["trigger"],
                     item.Attributes["referenceId"],
                     $"session:{id}:external:{item.Sequence}"))
-                .ToArray());
+                .ToArray(),
+            new ProgressDispatch(
+                $"session:{id}:command:{commandId}",
+                completed ? "ScenarioCompleted" : eventType,
+                completed ? $"{scenario.Title} terminé" : scenario.Title,
+                completed ? "Vous avez atteint une fin. Votre chemin est conservé dans le journal." : "Votre choix a ouvert une nouvelle branche de l'histoire.",
+                session.ScenarioId,
+                session.ScenarioVersionId,
+                session.Id,
+                inputId,
+                eventType == "ChoiceSelected" ? inputId : null,
+                nextState.CurrentNodeId,
+                endingId,
+                completed,
+                Math.Max(1, totalObjectives)));
         await repository.AddProcessedCommandAsync(
             ProcessedCommand.Create(commandId, id, NarrativeJson.Serialize(result), now),
             cancellationToken).ConfigureAwait(false);
@@ -290,6 +327,7 @@ public sealed class PlayService(
     private static SessionView Map(GameSession session, GameState state) =>
         new(
             session.Id,
+            session.ScenarioId,
             session.ScenarioVersionId,
             session.SnapshotHash,
             state.Status,

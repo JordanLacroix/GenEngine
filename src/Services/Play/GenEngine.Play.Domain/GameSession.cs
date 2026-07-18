@@ -9,6 +9,7 @@ public sealed class GameSession
     private GameSession(
         Guid id,
         string ownerId,
+        Guid scenarioId,
         Guid scenarioVersionId,
         string snapshotHash,
         string snapshotJson,
@@ -19,6 +20,7 @@ public sealed class GameSession
     {
         Id = id;
         OwnerId = ownerId;
+        ScenarioId = scenarioId;
         ScenarioVersionId = scenarioVersionId;
         SnapshotHash = snapshotHash;
         SnapshotJson = snapshotJson;
@@ -35,6 +37,8 @@ public sealed class GameSession
     public string OwnerId { get; private set; } = string.Empty;
 
     public Guid ScenarioVersionId { get; private set; }
+
+    public Guid ScenarioId { get; private set; }
 
     public string SnapshotHash { get; private set; } = string.Empty;
 
@@ -54,6 +58,7 @@ public sealed class GameSession
 
     public static GameSession Create(
         string ownerId,
+        Guid scenarioId,
         Guid scenarioVersionId,
         string snapshotHash,
         string snapshotJson,
@@ -61,7 +66,7 @@ public sealed class GameSession
         string status,
         ulong seed,
         DateTimeOffset now) =>
-        new(Guid.NewGuid(), ownerId, scenarioVersionId, snapshotHash, snapshotJson, stateJson, status, seed, now);
+        new(Guid.NewGuid(), ownerId, scenarioId, scenarioVersionId, snapshotHash, snapshotJson, stateJson, status, seed, now);
 
     public void ChangeState(string stateJson, string status, int expectedRevision, DateTimeOffset now)
     {

@@ -36,6 +36,7 @@ public sealed class PlayDbContext(DbContextOptions<PlayDbContext> options) : DbC
             entity.Property(static session => session.Revision).IsConcurrencyToken();
             entity.HasIndex(static session => session.OwnerId);
             entity.HasIndex(static session => session.ScenarioVersionId);
+            entity.HasIndex(static session => session.ScenarioId);
         });
 
         modelBuilder.Entity<ProcessedCommand>(entity =>
@@ -138,6 +139,36 @@ internal sealed class PlayerExperienceRewardDispatcher(
             using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
         }
+    }
+
+    public async Task DispatchProgressAsync(string userId, ProgressDispatch progress, CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage request = new(HttpMethod.Post, "/internal/progress-events")
+        {
+            Content = JsonContent.Create(new
+            {
+                FrontId = "default",
+                UserId = userId,
+                progress.IdempotencyKey,
+                progress.Type,
+                progress.Title,
+                progress.Summary,
+                JourneyId = (Guid?)null,
+                CategoryId = (Guid?)null,
+                progress.ScenarioId,
+                progress.ScenarioVersionId,
+                progress.SessionId,
+                progress.ReferenceId,
+                progress.ChoiceId,
+                progress.TargetNodeId,
+                progress.EndingId,
+                progress.Completed,
+                progress.TotalObjectives,
+            }),
+        };
+        request.Headers.Add("X-Internal-Key", configuration["InternalApi:Key"] ?? string.Empty);
+        using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
     }
 }
 

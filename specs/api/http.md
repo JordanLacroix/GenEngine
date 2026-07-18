@@ -7,7 +7,7 @@
 - `PUT /admin/configuration/{frontId}` exige `config.write` et un `expectedRevision` pour une mise à jour.
 - `POST /admin/configuration/{frontId}/publish` exige `config.publish` et publie une nouvelle version immuable.
 
-La vue contient le jeu global, son histoire, les catégories, la politique d'authentification, les providers IA, les familiers, l'économie et les modules avec leurs permissions nécessaires.
+La vue contient le jeu global, son histoire, les catégories, la politique d'authentification, les providers IA, les familiers, l'économie, l'introduction, le shell joueur, la démo, l'aide, l'onboarding, la politique assistant, le journal et les modules avec leurs permissions nécessaires.
 
 Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs utilisent Problem Details. Les routes métier exigent un JWT Bearer sauf inscription, connexion, catalogue public et contrat interne explicitement protégé.
 
@@ -54,8 +54,15 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 ## Player Experience — port 5205
 
 - `GET /me/experience?frontId={frontId}` — familier, portefeuille, possessions et journal récent
+- `GET /me/experience/bootstrap?frontId={frontId}` — prochaine action autoritative, configuration du tutoriel et état joueur
 - `PUT /me/experience/familiar?frontId={frontId}` — personnalisation contrôlée par le catalogue publié
+- `POST /me/experience/onboarding/steps/{stepId}/complete?frontId={frontId}` — progression idempotente d'une étape
+- `POST /me/experience/onboarding/skip?frontId={frontId}` — passage idempotent si autorisé
+- `POST /me/experience/onboarding/reset?frontId={frontId}` — recommence le tutoriel courant
+- `GET /me/experience/journal?frontId={frontId}` — journal filtrable et agrégats personnels
+- `POST /me/experience/assistant/contextual-help?frontId={frontId}` — aide déterministe hors ligne et avertissement de chemin connu
 - `POST /me/experience/shop/purchases?frontId={frontId}` — achat idempotent
 - `POST /internal/rewards` — applique une règle de récompense idempotente depuis un événement narratif
+- `POST /internal/progress-events` — journalise une interaction et consolide la maîtrise cross-session de façon idempotente
 
 L'OpenAPI généré par chaque service reste la source de vérité exécutable.

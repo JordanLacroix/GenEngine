@@ -8,6 +8,7 @@ namespace GenEngine.PlayerExperience.Api;
 
 public sealed record ConfigureFamiliarRequest(int ExpectedRevision, FamiliarSelection Selection);
 public sealed record PurchaseRequest(Guid OfferId, string IdempotencyKey);
+public sealed record OnboardingCommandRequest(string IdempotencyKey);
 
 public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
 {
