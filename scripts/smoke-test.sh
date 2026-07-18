@@ -7,6 +7,7 @@ PLAY_URL="${PLAY_URL:-http://localhost:5202}"
 CONFIGURATION_URL="${CONFIGURATION_URL:-http://localhost:5204}"
 PLAYER_EXPERIENCE_URL="${PLAYER_EXPERIENCE_URL:-http://localhost:5205}"
 BOOTSTRAP_KEY="${GENENGINE_BOOTSTRAP_KEY:?GENENGINE_BOOTSTRAP_KEY must be set for the administrative smoke flow}"
+TOKEN_FILE="${GENENGINE_SMOKE_TOKEN_FILE:-/tmp/genengine-smoke-token}"
 SCENARIO_FILE="${SCENARIO_FILE:-specs/domain/examples/forest-choice.json}"
 USER_NAME="smoke-$(date +%s)"
 PASSWORD="LocalSmokePassword!2026"
@@ -44,6 +45,8 @@ token=$(curl --fail --silent --show-error \
   -H 'Content-Type: application/json' \
   -d "$credentials" \
   "$IDENTITY_URL/auth/login" | jq -er '.token')
+umask 077
+printf '%s' "$token" > "$TOKEN_FILE"
 me=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$IDENTITY_URL/me")
 jq -e '(.permissions | index("scenario.author")) != null and (.permissions | index("config.read")) != null' <<<"$me" >/dev/null
 wallet=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$PLAYER_EXPERIENCE_URL/me/experience?frontId=default")
