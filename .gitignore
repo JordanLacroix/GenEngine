@@ -34,10 +34,6 @@ x86/
 [Aa][Rr][Mm]64/
 bld/
 [Bb]in/
-# `dotnet ef` writes a Windows-style relative path verbatim on macOS, creating a
-# directory whose name literally contains a backslash. It is build output like any
-# other bin/ folder, but `[Bb]in/` does not match it.
-*bin\\Debug/
 [Oo]bj/
 [Ll]og/
 [Ll]ogs/
@@ -488,3 +484,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# dotnet ef sur macOS crée des dossiers au nom contenant un antislash littéral
+*bin\\Debug/
+*obj\\Debug/

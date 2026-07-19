@@ -53,15 +53,17 @@ app.UseAuthorization();
 app.MapAuthoringHealthChecks();
 
 app.MapGet("/catalog", async (
-    int? limit,
     Guid? categoryId,
     string? query,
+    int? page,
+    int? pageSize,
     AuthoringService service,
     CancellationToken cancellationToken) =>
     Results.Ok(await service.ListPublishedAsync(
-        Math.Clamp(limit ?? 20, 1, 100),
         categoryId,
         query,
+        page,
+        pageSize,
         cancellationToken).ConfigureAwait(false)));
 
 RouteGroupBuilder scenarios = app.MapGroup("/scenarios").RequireAuthorization("scenario.author");
@@ -80,8 +82,8 @@ scenarios.MapGet("", async (
         query,
         categoryId,
         includeArchived ?? false,
-        page ?? 1,
-        pageSize ?? 25,
+        page,
+        pageSize,
         cancellationToken).ConfigureAwait(false)));
 
 scenarios.MapPost("/generate", async (
@@ -229,10 +231,12 @@ scenarios.MapPost("/{id:guid}/publish", async (
 
 scenarios.MapGet("/{id:guid}/versions", async (
     Guid id,
+    int? page,
+    int? pageSize,
     ClaimsPrincipal user,
     AuthoringService service,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.ListVersionsAsync(id, GetUserId(user), cancellationToken).ConfigureAwait(false)));
+    Results.Ok(await service.ListVersionsAsync(id, GetUserId(user), page, pageSize, cancellationToken).ConfigureAwait(false)));
 
 scenarios.MapDelete("/{id:guid}", async (
     Guid id,

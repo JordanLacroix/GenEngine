@@ -3,6 +3,7 @@ using System;
 using GenEngine.PlayerExperience.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GenEngine.PlayerExperience.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(PlayerExperienceDbContext))]
-    partial class PlayerExperienceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260719151151_AddJournalPaginationIndexes")]
+    partial class AddJournalPaginationIndexes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -162,17 +165,10 @@ namespace GenEngine.PlayerExperience.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<Guid?>("DefaultJourneyId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("FamiliarAccent")
                         .IsRequired()
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
-
-                    b.Property<string>("FamiliarAxisSelectionsJson")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
 
                     b.Property<string>("FamiliarCustomName")
                         .IsRequired()
@@ -205,12 +201,6 @@ namespace GenEngine.PlayerExperience.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
-
-                    b.Property<Guid?>("FinaleId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("FinaleReachedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("FrontId")
                         .IsRequired()

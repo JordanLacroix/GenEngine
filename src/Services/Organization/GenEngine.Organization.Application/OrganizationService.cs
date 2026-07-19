@@ -7,6 +7,7 @@ public sealed record PeriodView(Guid Id, string FrontId, string Name, string Cod
 public sealed record UnitView(Guid Id, string FrontId, Guid? ParentId, string Name, string Type, string Code, bool IsActive, int Revision, DateTimeOffset UpdatedAt);
 public sealed record MembershipView(Guid Id, string FrontId, Guid UnitId, Guid UserId, Guid? PeriodId, MembershipKind Kind, DateTimeOffset StartsAt, DateTimeOffset? EndsAt, bool IsActive, int Revision, DateTimeOffset UpdatedAt);
 public sealed record AssignmentView(Guid Id, string FrontId, Guid UnitId, AssignedContentType ContentType, Guid ContentId, string Name, bool Required, DateTimeOffset? AvailableFrom, DateTimeOffset? DueAt, bool IsActive, int Revision, DateTimeOffset UpdatedAt);
+/// <summary>Enveloppe paginée commune à toutes les listes de l'API Organization.</summary>
 public sealed record PagedView<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
 public sealed record PlayerOrganizationContextView(string FrontId, bool IsMember, IReadOnlyList<Guid> UnitIds, IReadOnlyList<Guid> SupervisedUnitIds, IReadOnlyList<AssignmentView> Assignments, bool HasGlobalScope = false);
 public sealed record MembershipImportRow(Guid Id, Guid UnitId, Guid UserId, Guid? PeriodId, MembershipKind Kind, DateTimeOffset StartsAt, DateTimeOffset? EndsAt);
@@ -25,9 +26,11 @@ public interface IOrganizationRepository
     Task<Membership?> GetMembershipAsync(string frontId, Guid id, CancellationToken cancellationToken);
     Task<Membership?> GetMembershipByNaturalKeyAsync(string frontId, Guid userId, Guid unitId, DateTimeOffset startsAt, CancellationToken cancellationToken);
     Task<ContentAssignment?> GetAssignmentAsync(string frontId, Guid id, CancellationToken cancellationToken);
+    /// <summary>Charge l'arborescence complète. Réservé aux usages internes (détection de cycle).</summary>
     Task<IReadOnlyList<OrganizationUnit>> ListUnitsAsync(string frontId, CancellationToken cancellationToken);
-    Task<IReadOnlyList<OperatingPeriod>> ListPeriodsAsync(string frontId, CancellationToken cancellationToken);
-    Task<(IReadOnlyList<Membership> Items, int Total)> ListMembershipsAsync(string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, int offset, int limit, CancellationToken cancellationToken);
+    Task<(IReadOnlyList<OrganizationUnit> Items, int Total)> SearchUnitsAsync(string frontId, string? query, int offset, int limit, CancellationToken cancellationToken);
+    Task<(IReadOnlyList<OperatingPeriod> Items, int Total)> SearchPeriodsAsync(string frontId, string? query, int offset, int limit, CancellationToken cancellationToken);
+    Task<(IReadOnlyList<Membership> Items, int Total)> ListMembershipsAsync(string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, string? query, int offset, int limit, CancellationToken cancellationToken);
     Task<(IReadOnlyList<ContentAssignment> Items, int Total)> ListAssignmentsAsync(string frontId, Guid? unitId, AssignedContentType? contentType, int offset, int limit, CancellationToken cancellationToken);
     Task<IReadOnlyList<Membership>> ListEffectiveMembershipsAsync(string frontId, Guid userId, DateTimeOffset now, CancellationToken cancellationToken);
     Task<IReadOnlyList<ContentAssignment>> ListEffectiveAssignmentsAsync(string frontId, IReadOnlyCollection<Guid> unitIds, DateTimeOffset now, CancellationToken cancellationToken);
@@ -43,6 +46,12 @@ public interface IOrganizationRepository
 
 public sealed class OrganizationService(IOrganizationRepository repository, TimeProvider timeProvider, MembershipImportPolicy? configuredImportPolicy = null)
 {
+    public const int DefaultPageSize = 25;
+
+    public const int MinPageSize = 1;
+
+    public const int MaxPageSize = 100;
+
     private readonly MembershipImportPolicy importPolicy = Validate(configuredImportPolicy ?? MembershipImportPolicy.Default);
     public async Task<FrontView> GetFrontAsync(string frontId, CancellationToken cancellationToken) => Map(await RequireFrontAsync(frontId, cancellationToken).ConfigureAwait(false));
 
@@ -64,10 +73,14 @@ public sealed class OrganizationService(IOrganizationRepository repository, Time
         return Map(front);
     }
 
-    public async Task<IReadOnlyList<PeriodView>> ListPeriodsAsync(string frontId, CancellationToken cancellationToken)
+    public async Task<PagedView<PeriodView>> ListPeriodsAsync(string frontId, string? query, int? page, int? pageSize, CancellationToken cancellationToken)
     {
         _ = await RequireFrontAsync(frontId, cancellationToken).ConfigureAwait(false);
-        return (await repository.ListPeriodsAsync(frontId, cancellationToken).ConfigureAwait(false)).Select(Map).ToArray();
+        (int normalizedPage, int normalizedPageSize, int offset) = NormalizePage(page, pageSize);
+        (IReadOnlyList<OperatingPeriod> items, int total) = await repository
+            .SearchPeriodsAsync(frontId, NormalizeQuery(query), offset, normalizedPageSize, cancellationToken)
+            .ConfigureAwait(false);
+        return new(items.Select(Map).ToArray(), normalizedPage, normalizedPageSize, total);
     }
 
     public async Task<PeriodView> UpsertPeriodAsync(string frontId, Guid id, string name, string code, DateTimeOffset startsAt, DateTimeOffset endsAt, bool isActive, int? expectedRevision, CancellationToken cancellationToken)
@@ -89,10 +102,22 @@ public sealed class OrganizationService(IOrganizationRepository repository, Time
         return Map(period);
     }
 
-    public async Task<IReadOnlyList<UnitView>> ListUnitsAsync(string frontId, CancellationToken cancellationToken)
+    /// <summary>
+    /// Pagination « à plat » : les unités sont renvoyées comme une liste triée par nom, chaque
+    /// élément exposant son <c>ParentId</c>. Une pagination par niveau ou par sous-arbre
+    /// couperait des branches au milieu d'une page et rendrait le total ambigu. Le client
+    /// reconstruit l'arborescence à partir des <c>ParentId</c> ; tant que toutes les pages sont
+    /// parcourues, l'arbre obtenu est complet. Un parent peut appartenir à une page ultérieure :
+    /// un nœud dont le parent n'a pas encore été chargé doit être rattaché à la volée.
+    /// </summary>
+    public async Task<PagedView<UnitView>> ListUnitsAsync(string frontId, string? query, int? page, int? pageSize, CancellationToken cancellationToken)
     {
         _ = await RequireFrontAsync(frontId, cancellationToken).ConfigureAwait(false);
-        return (await repository.ListUnitsAsync(frontId, cancellationToken).ConfigureAwait(false)).Select(Map).ToArray();
+        (int normalizedPage, int normalizedPageSize, int offset) = NormalizePage(page, pageSize);
+        (IReadOnlyList<OrganizationUnit> items, int total) = await repository
+            .SearchUnitsAsync(frontId, NormalizeQuery(query), offset, normalizedPageSize, cancellationToken)
+            .ConfigureAwait(false);
+        return new(items.Select(Map).ToArray(), normalizedPage, normalizedPageSize, total);
     }
 
     public async Task<UnitView> UpsertUnitAsync(string frontId, Guid id, Guid? parentId, string name, string type, string code, bool isActive, int? expectedRevision, CancellationToken cancellationToken)
@@ -117,12 +142,19 @@ public sealed class OrganizationService(IOrganizationRepository repository, Time
         return Map(unit);
     }
 
-    public async Task<PagedView<MembershipView>> ListMembershipsAsync(string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, int page, int pageSize, CancellationToken cancellationToken)
+    /// <summary>
+    /// <paramref name="query"/> porte sur le nom et le code de l'unité de rattachement : une
+    /// affectation ne possède aucun champ texte propre, ses autres colonnes sont des
+    /// identifiants opaques déjà filtrables par <paramref name="unitId"/> et <paramref name="userId"/>.
+    /// </summary>
+    public async Task<PagedView<MembershipView>> ListMembershipsAsync(string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, string? query, int? page, int? pageSize, CancellationToken cancellationToken)
     {
         _ = await RequireFrontAsync(frontId, cancellationToken).ConfigureAwait(false);
-        (page, pageSize) = NormalizePage(page, pageSize);
-        (IReadOnlyList<Membership> items, int total) = await repository.ListMembershipsAsync(frontId, unitId, userId, kind, (page - 1) * pageSize, pageSize, cancellationToken).ConfigureAwait(false);
-        return new(items.Select(Map).ToArray(), page, pageSize, total);
+        (int normalizedPage, int normalizedPageSize, int offset) = NormalizePage(page, pageSize);
+        (IReadOnlyList<Membership> items, int total) = await repository
+            .ListMembershipsAsync(frontId, unitId, userId, kind, NormalizeQuery(query), offset, normalizedPageSize, cancellationToken)
+            .ConfigureAwait(false);
+        return new(items.Select(Map).ToArray(), normalizedPage, normalizedPageSize, total);
     }
 
     public async Task<MembershipView> UpsertMembershipAsync(string frontId, Guid id, Guid unitId, Guid userId, Guid? periodId, MembershipKind kind, DateTimeOffset startsAt, DateTimeOffset? endsAt, bool isActive, int? expectedRevision, CancellationToken cancellationToken)
@@ -211,12 +243,12 @@ public sealed class OrganizationService(IOrganizationRepository repository, Time
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<PagedView<AssignmentView>> ListAssignmentsAsync(string frontId, Guid? unitId, AssignedContentType? contentType, int page, int pageSize, CancellationToken cancellationToken)
+    public async Task<PagedView<AssignmentView>> ListAssignmentsAsync(string frontId, Guid? unitId, AssignedContentType? contentType, int? page, int? pageSize, CancellationToken cancellationToken)
     {
         _ = await RequireFrontAsync(frontId, cancellationToken).ConfigureAwait(false);
-        (page, pageSize) = NormalizePage(page, pageSize);
-        (IReadOnlyList<ContentAssignment> items, int total) = await repository.ListAssignmentsAsync(frontId, unitId, contentType, (page - 1) * pageSize, pageSize, cancellationToken).ConfigureAwait(false);
-        return new(items.Select(Map).ToArray(), page, pageSize, total);
+        (int normalizedPage, int normalizedPageSize, int offset) = NormalizePage(page, pageSize);
+        (IReadOnlyList<ContentAssignment> items, int total) = await repository.ListAssignmentsAsync(frontId, unitId, contentType, offset, normalizedPageSize, cancellationToken).ConfigureAwait(false);
+        return new(items.Select(Map).ToArray(), normalizedPage, normalizedPageSize, total);
     }
 
     public async Task<AssignmentView> UpsertAssignmentAsync(string frontId, Guid id, Guid unitId, AssignedContentType contentType, Guid contentId, string name, bool required, DateTimeOffset? availableFrom, DateTimeOffset? dueAt, bool isActive, int? expectedRevision, CancellationToken cancellationToken)
@@ -285,7 +317,15 @@ public sealed class OrganizationService(IOrganizationRepository repository, Time
         return front;
     }
 
-    private static (int Page, int PageSize) NormalizePage(int page, int pageSize) => (Math.Max(1, page), Math.Clamp(pageSize, 10, 100));
+    /// <summary>Bornes de pagination communes à toutes les listes de l'API Organization.</summary>
+    private static (int Page, int PageSize, int Offset) NormalizePage(int? page, int? pageSize)
+    {
+        int normalizedPage = Math.Max(1, page ?? 1);
+        int normalizedPageSize = Math.Clamp(pageSize ?? DefaultPageSize, MinPageSize, MaxPageSize);
+        return (normalizedPage, normalizedPageSize, (normalizedPage - 1) * normalizedPageSize);
+    }
+
+    private static string? NormalizeQuery(string? query) => string.IsNullOrWhiteSpace(query) ? null : query.Trim();
     private static MembershipImportPolicy Validate(MembershipImportPolicy policy) => policy.MaxRows is >= 1 and <= 5000 ? policy : throw new OrganizationException("invalid_import_policy", "Membership import MaxRows must be between 1 and 5000.");
     private static FrontView Map(OrganizationFront item) => new(item.Id, item.FrontId, item.Name, item.Type, item.IsActive, item.Revision, item.UpdatedAt);
     private static PeriodView Map(OperatingPeriod item) => new(item.Id, item.FrontId, item.Name, item.Code, item.StartsAt, item.EndsAt, item.IsActive, item.Revision, item.UpdatedAt);

@@ -274,6 +274,35 @@ rouge, une table de classement affichant « 412 résultats » — c'est plus lis
 juste, localisable en français, et sans licence à gérer. Une photo du bureau d'un
 inconnu ne raconte aucune de ces dix situations.
 
+#### Mise à jour — l'interaction `document` lève une partie de l'impasse
+
+Le schéma de scénario v6 ajoute une interaction `document` : le scénario porte lui-même
+le contenu et le joueur le consulte, en texte structuré, rendu par le client dans son
+propre langage visuel. Voir [`../scenario-schema.md`](../scenario-schema.md).
+
+Cela répond directement au constat de cette section, mais **pas en produisant une
+image** : cela supprime le besoin d'en produire une. Deux des artefacts nommés ci-dessus
+existent désormais réellement dans le contenu — le diff bloqué (`la-revue-automatique`,
+nature `Diff`, avec ses marqueurs de ligne et le verdict de la revue) et la table de
+classement (`le-tri-des-candidatures`, nature `Table`, 6 rangées affichées sur 412
+déclarées). La note de service (`la-note-de-service`, nature `Memo`) s'y ajoute, bien
+qu'elle relève du §5 et non des six sans source.
+
+Portée exacte, pour ne pas surestimer :
+
+- **Sur les six scénarios sans source, un seul est traité** : le 6, le tri des
+  candidatures. Les cinq autres — 2, 3, 4, 9, 10 — restent sans illustration, et la
+  recommandation HTML/SVG ci-dessus tient pour eux. Deux d'entre eux (l'écran de refus
+  d'identité, la trace d'erreur avec l'assistant grisé) sont de bons candidats à un
+  futur `document` de nature `Log` ou `Report`, mais aucun contenu ne le fait à ce jour.
+- **Un document n'est pas une illustration.** Il donne l'artefact, pas l'ambiance du
+  lieu. Les scénarios 1 et 5 gardent donc leur besoin d'image d'ambiance, dont le §5
+  jugeait déjà les rapprochements « correcte » et « générique, aucune sémantique de
+  blocage » — c'est justement la sémantique qui manquait, et c'est elle que le document
+  apporte.
+- Aucun client ne rend encore le champ `document` : le contenu existe et est validé côté
+  moteur, sa présentation reste à câbler.
+
 ### 6.4 Fond `familiar` — aucune source
 
 Le seul candidat CC0 trouvé (`Green Matrix rain on a screen`) est en orientation

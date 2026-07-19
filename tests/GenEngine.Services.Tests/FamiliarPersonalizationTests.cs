@@ -258,6 +258,12 @@ public sealed class FamiliarPersonalizationTests
         public Task<PlayerProfile?> GetAsync(string userId, string frontId, CancellationToken cancellationToken) => Task.FromResult(profile);
         public Task AddAsync(PlayerProfile value, CancellationToken cancellationToken) { profile = value; return Task.CompletedTask; }
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<Guid?> FindProfileIdAsync(string userId, string frontId, CancellationToken cancellationToken) => Task.FromResult(profile?.Id);
+
+        // The paginated journal query is not exercised here: these tests read the recent
+        // journal off the profile itself, which is what the experience view projects.
+        public Task<JournalPage> ListJournalAsync(Guid profileId, JournalFilter filter, int offset, int limit, CancellationToken cancellationToken) =>
+            Task.FromResult(new JournalPage([], 0, new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)));
     }
 
     /// <summary>A published catalogue carrying the full axis set, as Configuration now serves it.</summary>

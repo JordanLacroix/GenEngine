@@ -91,14 +91,72 @@ internal sealed class OrganizationRepository(OrganizationDbContext dbContext) : 
     public async Task<IReadOnlyList<OrganizationUnit>> ListUnitsAsync(string frontId, CancellationToken cancellationToken) => await dbContext.Units.AsNoTracking().Where(item => item.FrontId == Normalize(frontId)).OrderBy(static item => item.Name).ToArrayAsync(cancellationToken).ConfigureAwait(false);
     public async Task<IReadOnlyList<OperatingPeriod>> ListPeriodsAsync(string frontId, CancellationToken cancellationToken) => await dbContext.Periods.AsNoTracking().Where(item => item.FrontId == Normalize(frontId)).OrderByDescending(static item => item.StartsAt).ToArrayAsync(cancellationToken).ConfigureAwait(false);
 
-    public async Task<(IReadOnlyList<Membership> Items, int Total)> ListMembershipsAsync(string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, int offset, int limit, CancellationToken cancellationToken)
+    public async Task<(IReadOnlyList<OrganizationUnit> Items, int Total)> SearchUnitsAsync(string frontId, string? query, int offset, int limit, CancellationToken cancellationToken)
     {
-        IQueryable<Membership> query = dbContext.Memberships.AsNoTracking().Where(item => item.FrontId == Normalize(frontId));
-        if (unitId is not null) query = query.Where(item => item.UnitId == unitId);
-        if (userId is not null) query = query.Where(item => item.UserId == userId);
-        if (kind is not null) query = query.Where(item => item.Kind == kind);
-        int total = await query.CountAsync(cancellationToken).ConfigureAwait(false);
-        Membership[] items = await query.OrderByDescending(static item => item.IsActive).ThenBy(static item => item.UserId).Skip(offset).Take(limit).ToArrayAsync(cancellationToken).ConfigureAwait(false);
+        IQueryable<OrganizationUnit> filtered = dbContext.Units.AsNoTracking().Where(item => item.FrontId == Normalize(frontId));
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            string pattern = $"%{query.Trim()}%";
+            filtered = filtered.Where(item => EF.Functions.ILike(item.Name, pattern) || EF.Functions.ILike(item.Code, pattern));
+        }
+
+        int total = await filtered.CountAsync(cancellationToken).ConfigureAwait(false);
+        OrganizationUnit[] items = await filtered
+            .OrderBy(static item => item.Name)
+            .ThenBy(static item => item.Id)
+            .Skip(offset)
+            .Take(limit)
+            .ToArrayAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return (items, total);
+    }
+
+    public async Task<(IReadOnlyList<OperatingPeriod> Items, int Total)> SearchPeriodsAsync(string frontId, string? query, int offset, int limit, CancellationToken cancellationToken)
+    {
+        IQueryable<OperatingPeriod> filtered = dbContext.Periods.AsNoTracking().Where(item => item.FrontId == Normalize(frontId));
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            string pattern = $"%{query.Trim()}%";
+            filtered = filtered.Where(item => EF.Functions.ILike(item.Name, pattern) || EF.Functions.ILike(item.Code, pattern));
+        }
+
+        int total = await filtered.CountAsync(cancellationToken).ConfigureAwait(false);
+        OperatingPeriod[] items = await filtered
+            .OrderByDescending(static item => item.StartsAt)
+            .ThenBy(static item => item.Id)
+            .Skip(offset)
+            .Take(limit)
+            .ToArrayAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return (items, total);
+    }
+
+    public async Task<(IReadOnlyList<Membership> Items, int Total)> ListMembershipsAsync(string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, string? query, int offset, int limit, CancellationToken cancellationToken)
+    {
+        IQueryable<Membership> filtered = dbContext.Memberships.AsNoTracking().Where(item => item.FrontId == Normalize(frontId));
+        if (unitId is not null) filtered = filtered.Where(item => item.UnitId == unitId);
+        if (userId is not null) filtered = filtered.Where(item => item.UserId == userId);
+        if (kind is not null) filtered = filtered.Where(item => item.Kind == kind);
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            // Une affectation n'a pas de champ texte : la recherche porte sur son unité de rattachement.
+            string pattern = $"%{query.Trim()}%";
+            string normalizedFront = Normalize(frontId);
+            filtered = filtered.Where(item => dbContext.Units.Any(unit =>
+                unit.Id == item.UnitId
+                && unit.FrontId == normalizedFront
+                && (EF.Functions.ILike(unit.Name, pattern) || EF.Functions.ILike(unit.Code, pattern))));
+        }
+
+        int total = await filtered.CountAsync(cancellationToken).ConfigureAwait(false);
+        Membership[] items = await filtered
+            .OrderByDescending(static item => item.IsActive)
+            .ThenBy(static item => item.UserId)
+            .ThenBy(static item => item.Id)
+            .Skip(offset)
+            .Take(limit)
+            .ToArrayAsync(cancellationToken)
+            .ConfigureAwait(false);
         return (items, total);
     }
 

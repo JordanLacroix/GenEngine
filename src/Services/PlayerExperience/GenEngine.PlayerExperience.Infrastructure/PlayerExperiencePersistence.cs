@@ -79,6 +79,12 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
             entity.Property(static entry => entry.ReferenceId).HasMaxLength(160);
             entity.HasIndex(static entry => new { entry.ProfileId, entry.IdempotencyKey }).IsUnique();
             entity.HasIndex(static entry => new { entry.ProfileId, entry.OccurredAt });
+
+            // Filtres du journal poussés en SQL : type, parcours, catégorie et scénario.
+            entity.HasIndex(static entry => new { entry.ProfileId, entry.Type, entry.OccurredAt });
+            entity.HasIndex(static entry => new { entry.ProfileId, entry.JourneyId, entry.OccurredAt });
+            entity.HasIndex(static entry => new { entry.ProfileId, entry.CategoryId, entry.OccurredAt });
+            entity.HasIndex(static entry => new { entry.ProfileId, entry.ScenarioId, entry.OccurredAt });
         });
         modelBuilder.Entity<ScenarioMastery>(entity =>
         {
@@ -106,6 +112,53 @@ internal sealed class PlayerExperienceRepository(PlayerExperienceDbContext dbCon
             .SingleOrDefaultAsync(profile => profile.UserId == userId && profile.FrontId == frontId, cancellationToken);
     public async Task AddAsync(PlayerProfile profile, CancellationToken cancellationToken) =>
         await dbContext.Profiles.AddAsync(profile, cancellationToken).ConfigureAwait(false);
+
+    public async Task<Guid?> FindProfileIdAsync(string userId, string frontId, CancellationToken cancellationToken) =>
+        await dbContext.Profiles
+            .AsNoTracking()
+            .Where(profile => profile.UserId == userId && profile.FrontId == frontId)
+            .Select(static profile => (Guid?)profile.Id)
+            .SingleOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+    public async Task<JournalPage> ListJournalAsync(Guid profileId, JournalFilter filter, int offset, int limit, CancellationToken cancellationToken)
+    {
+        IQueryable<PlayerJournalEntry> filtered = dbContext.JournalEntries
+            .AsNoTracking()
+            .Where(entry => entry.ProfileId == profileId);
+        if (!string.IsNullOrWhiteSpace(filter.Type))
+        {
+            filtered = filtered.Where(entry => EF.Functions.ILike(entry.Type, filter.Type));
+        }
+
+        if (filter.JourneyId is Guid journeyId) filtered = filtered.Where(entry => entry.JourneyId == journeyId);
+        if (filter.CategoryId is Guid categoryId) filtered = filtered.Where(entry => entry.CategoryId == categoryId);
+        if (filter.ScenarioId is Guid scenarioId) filtered = filtered.Where(entry => entry.ScenarioId == scenarioId);
+
+        // Les agrégats portent sur l'ensemble filtré, jamais sur la page.
+        int total = await filtered.CountAsync(cancellationToken).ConfigureAwait(false);
+        var groups = await filtered
+            .GroupBy(static entry => entry.Type)
+            .Select(static group => new { Type = group.Key, Count = group.Count() })
+            .ToArrayAsync(cancellationToken)
+            .ConfigureAwait(false);
+        Dictionary<string, int> totalsByType = new(StringComparer.OrdinalIgnoreCase);
+        foreach (var group in groups)
+        {
+            totalsByType[group.Type] = totalsByType.TryGetValue(group.Type, out int existing)
+                ? existing + group.Count
+                : group.Count;
+        }
+
+        PlayerJournalEntry[] items = await filtered
+            .OrderByDescending(static entry => entry.OccurredAt)
+            .ThenByDescending(static entry => entry.Id)
+            .Skip(offset)
+            .Take(limit)
+            .ToArrayAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return new JournalPage(items, total, totalsByType);
+    }
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         try { await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false); }

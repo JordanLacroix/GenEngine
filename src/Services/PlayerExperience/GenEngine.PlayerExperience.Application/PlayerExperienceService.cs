@@ -94,7 +94,26 @@ public sealed record PlayerJourneysView(Guid? DefaultJourneyId, Guid? EffectiveJ
 
 public sealed record PlayerExperienceView(Guid Id, string FrontId, int Revision, int Balance, string CurrencyCode, string CurrencyName, string CurrencyIcon, FamiliarSelection? Familiar, FamiliarOption? FamiliarDefinition, OnboardingStateView Onboarding, IReadOnlyList<ScenarioMasteryView> Masteries, IReadOnlyList<Guid> OwnedOfferIds, IReadOnlyList<WalletEntryView> RecentEntries, IReadOnlyList<JournalEntryView> RecentJournal, Guid? DefaultJourneyId = null, JourneyProgressView? EffectiveJourney = null, FinaleView? Finale = null);
 public sealed record PlayerBootstrapView(string NextAction, PlayerExperienceView Experience, OnboardingTutorial Tutorial, AssistantPolicy Assistant);
-public sealed record JournalView(IReadOnlyList<JournalEntryView> Items, int Total, IReadOnlyDictionary<string, int> TotalsByType);
+public sealed record JournalView(IReadOnlyList<JournalEntryView> Items, int Page, int PageSize, int Total, IReadOnlyDictionary<string, int> TotalsByType);
+public sealed record JournalFilter(string? Type, Guid? JourneyId, Guid? CategoryId, Guid? ScenarioId);
+public sealed record JournalPage(IReadOnlyList<PlayerJournalEntry> Items, int Total, IReadOnlyDictionary<string, int> TotalsByType);
+
+/// <summary>Bornes de pagination partagées par toutes les routes de l'API PlayerExperience.</summary>
+public static class Pagination
+{
+    public const int DefaultPageSize = 25;
+
+    public const int MinPageSize = 1;
+
+    public const int MaxPageSize = 100;
+
+    public static (int Page, int PageSize, int Offset) Normalize(int? page, int? pageSize)
+    {
+        int normalizedPage = Math.Max(1, page ?? 1);
+        int normalizedPageSize = Math.Clamp(pageSize ?? DefaultPageSize, MinPageSize, MaxPageSize);
+        return (normalizedPage, normalizedPageSize, (normalizedPage - 1) * normalizedPageSize);
+    }
+}
 public sealed record RewardCommand(string FrontId, string UserId, string Trigger, string ReferenceId, string IdempotencyKey);
 public sealed record ProgressEventCommand(string FrontId, string UserId, string IdempotencyKey, string Type, string Title, string Summary, Guid? JourneyId, Guid? CategoryId, Guid? ScenarioId, Guid? ScenarioVersionId, Guid? SessionId, string? ReferenceId, string? ChoiceId, string? TargetNodeId, string? EndingId, bool Completed, int TotalObjectives, DateTimeOffset? OccurredAt = null);
 public sealed record ContextualHelpRequest(string Context, Guid? ScenarioVersionId, string? ChoiceId, bool AlreadyExplored, string? AuthorHint, string? NodeId = null, bool Proactive = false);
@@ -113,6 +132,18 @@ public interface IPlayerExperienceRepository
     Task<PlayerProfile?> GetAsync(string userId, string frontId, CancellationToken cancellationToken);
     Task AddAsync(PlayerProfile profile, CancellationToken cancellationToken);
     Task SaveChangesAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Résout l'identifiant du profil sans matérialiser ses collections. Retourne <c>null</c>
+    /// lorsque le profil n'existe pas encore.
+    /// </summary>
+    Task<Guid?> FindProfileIdAsync(string userId, string frontId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Pagine, filtre et agrège le journal côté base : ni la page, ni le total, ni les totaux
+    /// par type ne doivent matérialiser l'historique complet du profil.
+    /// </summary>
+    Task<JournalPage> ListJournalAsync(Guid profileId, JournalFilter filter, int offset, int limit, CancellationToken cancellationToken);
 }
 
 public interface IPlayerExperienceCatalogProvider
@@ -238,17 +269,27 @@ public sealed class PlayerExperienceService(
         return MapOnboarding(profile, catalog.Onboarding);
     }
 
-    public async Task<JournalView> GetJournalAsync(string userId, string frontId, string? type, Guid? journeyId, Guid? categoryId, Guid? scenarioId, int offset, int limit, CancellationToken cancellationToken)
+    public async Task<JournalView> GetJournalAsync(string userId, string frontId, string? type, Guid? journeyId, Guid? categoryId, Guid? scenarioId, int? page, int? pageSize, CancellationToken cancellationToken)
     {
-        PlayerExperienceCatalog catalog = await catalogs.GetAsync(frontId, cancellationToken).ConfigureAwait(false);
-        PlayerProfile profile = await GetOrCreateAsync(userId, frontId, catalog, cancellationToken).ConfigureAwait(false);
-        IEnumerable<PlayerJournalEntry> query = profile.JournalEntries;
-        if (!string.IsNullOrWhiteSpace(type)) query = query.Where(item => string.Equals(item.Type, type, StringComparison.OrdinalIgnoreCase));
-        if (journeyId is not null) query = query.Where(item => item.JourneyId == journeyId);
-        if (categoryId is not null) query = query.Where(item => item.CategoryId == categoryId);
-        if (scenarioId is not null) query = query.Where(item => item.ScenarioId == scenarioId);
-        PlayerJournalEntry[] matching = query.OrderByDescending(static item => item.OccurredAt).ToArray();
-        return new JournalView(matching.Skip(Math.Max(0, offset)).Take(Math.Clamp(limit, 1, 100)).Select(MapJournal).ToArray(), matching.Length, matching.GroupBy(static item => item.Type).ToDictionary(static group => group.Key, static group => group.Count(), StringComparer.OrdinalIgnoreCase));
+        (int normalizedPage, int normalizedPageSize, int offset) = Pagination.Normalize(page, pageSize);
+
+        // Le profil n'est résolu qu'à l'identifiant : charger l'agrégat matérialiserait tout le journal.
+        Guid? profileId = await repository.FindProfileIdAsync(userId, frontId, cancellationToken).ConfigureAwait(false);
+        if (profileId is null)
+        {
+            PlayerExperienceCatalog catalog = await catalogs.GetAsync(frontId, cancellationToken).ConfigureAwait(false);
+            PlayerProfile created = await GetOrCreateAsync(userId, frontId, catalog, cancellationToken).ConfigureAwait(false);
+            profileId = created.Id;
+        }
+
+        JournalFilter filter = new(string.IsNullOrWhiteSpace(type) ? null : type.Trim(), journeyId, categoryId, scenarioId);
+        JournalPage result = await repository.ListJournalAsync(profileId.Value, filter, offset, normalizedPageSize, cancellationToken).ConfigureAwait(false);
+        return new JournalView(
+            result.Items.Select(MapJournal).ToArray(),
+            normalizedPage,
+            normalizedPageSize,
+            result.Total,
+            result.TotalsByType);
     }
 
     public async Task<PlayerExperienceView> RecordProgressEventAsync(ProgressEventCommand command, CancellationToken cancellationToken)
