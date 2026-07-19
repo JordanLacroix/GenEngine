@@ -133,7 +133,7 @@ d'erreur ne portent jamais la valeur du secret.
 
 ### Grammaire
 
-```
+```abnf
 reference  = scheme ":" identifier
 scheme     = [a-z] [a-z0-9-]*          ; minuscules ASCII, obligatoire
 identifier = 1*( VCHAR )               ; non vide, sans espace ni caractère de contrôle
