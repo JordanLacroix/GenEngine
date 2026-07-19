@@ -134,12 +134,13 @@ public sealed class PlayerExperienceServiceTests
     }
 
     /// <summary>
-    /// The combination that used to lie: the known-path rule produced the warning
-    /// while <c>Source</c> announced <c>AuthorHint</c>, and <c>IsFallback</c> was
-    /// hardcoded true. Source must name the message actually returned.
+    /// The known-path warning no longer suppresses the author's help: replaying a
+    /// branch is an expected use in a teaching context, and knowing you have been
+    /// here before does not make the hint useless. Both are returned, and
+    /// <c>Source</c> names the help that carries the substance.
     /// </summary>
     [Fact]
-    public async Task KnownPathWarningIsReportedAsItsOwnSourceEvenWithAnAuthorHint()
+    public async Task KnownPathWarningIsPrependedToTheAuthorHintRatherThanReplacingIt()
     {
         var repository = new RepositoryStub();
         var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
@@ -150,9 +151,30 @@ public sealed class PlayerExperienceServiceTests
             new ContextualHelpRequest("scenario", null, null, true, "Indice fourni par le client"),
             CancellationToken.None);
 
+        Assert.Equal(HelpSources.AuthorHint, view.Source);
+        Assert.StartsWith("Vous avez déjà emprunté ce chemin.", view.Message, StringComparison.Ordinal);
+        Assert.Contains("Indice fourni par le client", view.Message, StringComparison.Ordinal);
+        Assert.False(view.IsFallback);
+    }
+
+    /// <summary>
+    /// With nothing else to say, the warning still stands on its own — and keeps
+    /// announcing itself as the source, since it is then the whole message.
+    /// </summary>
+    [Fact]
+    public async Task KnownPathWarningStandsAloneWhenNoOtherHelpResolves()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
+
+        ContextualHelpView view = await service.GetContextualHelpAsync(
+            "player-1",
+            "default",
+            new ContextualHelpRequest("scenario", null, null, true, null),
+            CancellationToken.None);
+
         Assert.Equal(HelpSources.KnownPathWarning, view.Source);
         Assert.StartsWith("Vous avez déjà emprunté ce chemin.", view.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("client", view.Message, StringComparison.Ordinal);
         Assert.False(view.IsFallback);
     }
 

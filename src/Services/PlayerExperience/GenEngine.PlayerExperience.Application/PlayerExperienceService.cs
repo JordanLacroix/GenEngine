@@ -176,14 +176,17 @@ public sealed class PlayerExperienceService(
             return Result(HelpSources.Suppressed, string.Empty, HelpModality.None, false);
         }
 
-        if (request.AlreadyExplored && catalog.Assistant.WarnOnKnownPath)
-        {
-            return Result(
-                HelpSources.KnownPathWarning,
-                "Vous avez déjà emprunté ce chemin. Vous pouvez le reprendre, ou tenter une option encore inconnue.",
-                HelpModality.KnownPathWarning,
-                false);
-        }
+        // Re-reading a branch does not make the author's hint useless — in a
+        // teaching context, replay is an expected use. The warning is therefore
+        // prepended to whatever help resolves below, and only stands alone when
+        // nothing else does. The AI path is deliberately excluded: its context
+        // already carries AlreadyExplored, so prepending would say it twice.
+        string? knownPathWarning = request.AlreadyExplored && catalog.Assistant.WarnOnKnownPath
+            ? "Vous avez déjà emprunté ce chemin. Vous pouvez le reprendre, ou tenter une option encore inconnue."
+            : null;
+
+        string Combine(string message) =>
+            knownPathWarning is null ? message : $"{knownPathWarning} {message}";
 
         int helpLevel = profile.FamiliarId is null ? catalog.Assistant.DefaultFrequency : profile.FamiliarHelpLevel;
         HelpModality preferred = HelpModalityPolicy.ForHelpLevel(helpLevel);
@@ -248,12 +251,17 @@ public sealed class PlayerExperienceService(
 
         if (!string.IsNullOrWhiteSpace(request.AuthorHint))
         {
-            return Result(HelpSources.AuthorHint, request.AuthorHint, preferred, false);
+            return Result(HelpSources.AuthorHint, Combine(request.AuthorHint), preferred, false);
         }
 
         if (authored is { } resolved)
         {
-            return Result(HelpSources.ScenarioHelp, resolved.Text, resolved.Modality, false);
+            return Result(HelpSources.ScenarioHelp, Combine(resolved.Text), resolved.Modality, false);
+        }
+
+        if (knownPathWarning is not null)
+        {
+            return Result(HelpSources.KnownPathWarning, knownPathWarning, HelpModality.KnownPathWarning, false);
         }
 
         string generic = request.Context switch
