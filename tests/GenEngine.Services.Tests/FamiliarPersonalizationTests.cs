@@ -122,7 +122,7 @@ public sealed class FamiliarPersonalizationTests
     [Fact]
     public async Task APlayerCanSelectEveryAxisAndTheChoiceIsPersisted()
     {
-        var service = new PlayerExperienceService(new RepositoryStub(), new AxisCatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(new RepositoryStub(), new AxisCatalogStub(), TimeProvider.System, new InertScenarioHelp(), new InertAi());
         PlayerExperienceView current = await service.GetAsync("player-1", "default", CancellationToken.None);
 
         PlayerExperienceView updated = await service.ConfigureFamiliarAsync(
@@ -150,7 +150,7 @@ public sealed class FamiliarPersonalizationTests
     [Fact]
     public async Task AValueOutsideTheCatalogueIsRefused()
     {
-        var service = new PlayerExperienceService(new RepositoryStub(), new AxisCatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(new RepositoryStub(), new AxisCatalogStub(), TimeProvider.System, new InertScenarioHelp(), new InertAi());
         PlayerExperienceView current = await service.GetAsync("player-1", "default", CancellationToken.None);
 
         // The writing style used to be accepted as free text. It no longer is.
@@ -180,7 +180,7 @@ public sealed class FamiliarPersonalizationTests
     [Fact]
     public async Task AnUndeclaredAxisIsRefusedRatherThanSilentlyStored()
     {
-        var service = new PlayerExperienceService(new RepositoryStub(), new AxisCatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(new RepositoryStub(), new AxisCatalogStub(), TimeProvider.System, new InertScenarioHelp(), new InertAi());
         PlayerExperienceView current = await service.GetAsync("player-1", "default", CancellationToken.None);
 
         PlayerExperienceException exception = await Assert.ThrowsAsync<PlayerExperienceException>(() =>
@@ -195,7 +195,7 @@ public sealed class FamiliarPersonalizationTests
     [Fact]
     public async Task AnUnansweredAxisFallsBackToItsDefaultSoAnOlderClientKeepsWorking()
     {
-        var service = new PlayerExperienceService(new RepositoryStub(), new AxisCatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(new RepositoryStub(), new AxisCatalogStub(), TimeProvider.System, new InertScenarioHelp(), new InertAi());
         PlayerExperienceView current = await service.GetAsync("player-1", "default", CancellationToken.None);
 
         // Exactly the payload a client written before the axes existed sends.
@@ -212,7 +212,7 @@ public sealed class FamiliarPersonalizationTests
     [Fact]
     public async Task TheCustomNameCannotCarryActiveContent()
     {
-        var service = new PlayerExperienceService(new RepositoryStub(), new AxisCatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(new RepositoryStub(), new AxisCatalogStub(), TimeProvider.System, new InertScenarioHelp(), new InertAi());
         PlayerExperienceView current = await service.GetAsync("player-1", "default", CancellationToken.None);
 
         PlayerExperienceDomainException markup = await Assert.ThrowsAsync<PlayerExperienceDomainException>(() =>
@@ -237,6 +237,19 @@ public sealed class FamiliarPersonalizationTests
         public Task<ExperienceConfiguration?> GetAsync(string frontId, CancellationToken cancellationToken) => Task.FromResult(configuration);
         public Task AddAsync(ExperienceConfiguration value, CancellationToken cancellationToken) { configuration = value; return Task.CompletedTask; }
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    /// <summary>Contextual help plays no part in these tests; the collaborators stay inert.</summary>
+    private sealed class InertScenarioHelp : IScenarioHelpProvider
+    {
+        public Task<ScenarioHelpSnapshot?> GetAsync(Guid scenarioVersionId, string? nodeId, string? choiceId, CancellationToken cancellationToken) =>
+            Task.FromResult<ScenarioHelpSnapshot?>(null);
+    }
+
+    private sealed class InertAi : IAssistantAiClient
+    {
+        public bool IsConfigured => false;
+        public Task<string?> GenerateAsync(AssistantAiContext context, CancellationToken cancellationToken) => Task.FromResult<string?>(null);
     }
 
     private sealed class RepositoryStub : IPlayerExperienceRepository

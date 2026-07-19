@@ -52,6 +52,12 @@ Le même modèle permet notamment : école → année scolaire → classe → ap
 - modules actifs, catégories visibles, parcours proposés et familier par défaut ;
 - politique d'aide/IA, conservation, quotas et visibilité des analytics.
 
+### Marque et démarrage client anonyme
+
+L'identité publique, le nom court, le logo et les design tokens listés ci-dessus sont portés par le bloc **`branding`** du document d'expérience. Il est facultatif et purement additif : une configuration antérieure sans ce bloc reste publiable et lisible sans changement, et un client retombe alors sur ses propres défauts (« GenEngine » pour le nom d'application). Sa `accentPalette` associe les jetons d'accent nommés déjà portés par les catégories, les parcours et les familiers à de vraies couleurs, ce qui les rend enfin rendables. La grammaire complète, les jetons de thème obligatoires et les règles de validation (`invalid_branding`) sont dans [`api/http.md`](api/http.md).
+
+Un client démarre avant toute authentification et a besoin de savoir quoi afficher. `GET /client-bootstrap/{frontId}`, anonyme, lui livre le strict nécessaire : identité et marque, locale, fuseau, libellés, scènes d'introduction, mode d'authentification et disponibilité de la démonstration. Elle ne porte **aucun** catalogue, aucune organisation, aucune affectation, aucun provider IA et aucun identifiant de locataire Entra ; ces derniers restent publiés par Identity sur `GET /auth/providers`, qui en est la source unique. La répartition champ par champ entre les trois surfaces de lecture est fixée par le tableau de [`api/http.md`](api/http.md).
+
 ### Paramètres d'une unité ou d'un groupe
 
 - libellé, code, période, parent éventuel, responsables et membres ;

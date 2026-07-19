@@ -132,7 +132,7 @@ public sealed class FinaleTests
     public async Task ReachingTheFinaleIsStampedOnceAndTheGameKeepsGoing()
     {
         var repository = new RepositoryStub();
-        var service = new PlayerExperienceService(repository, new FinaleCatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(repository, new FinaleCatalogStub(), TimeProvider.System, new InertScenarioHelp(), new InertAi());
 
         PlayerExperienceView before = await Complete(service, ScenarioOne, "fin-silence");
         Assert.False(before.Finale?.Reached);
@@ -159,7 +159,7 @@ public sealed class FinaleTests
     [Fact]
     public async Task TheProgressTowardsTheFinaleIsReadableBeforeItIsReached()
     {
-        var service = new PlayerExperienceService(new RepositoryStub(), new FinaleCatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(new RepositoryStub(), new FinaleCatalogStub(), TimeProvider.System, new InertScenarioHelp(), new InertAi());
 
         PlayerExperienceView view = await Complete(service, ScenarioOne, "fin-silence");
 
@@ -257,6 +257,19 @@ public sealed class FinaleTests
         public Task<ExperienceConfiguration?> GetAsync(string frontId, CancellationToken cancellationToken) => Task.FromResult(configuration);
         public Task AddAsync(ExperienceConfiguration value, CancellationToken cancellationToken) { configuration = value; return Task.CompletedTask; }
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    }
+
+    /// <summary>Contextual help plays no part in these tests; the collaborators stay inert.</summary>
+    private sealed class InertScenarioHelp : IScenarioHelpProvider
+    {
+        public Task<ScenarioHelpSnapshot?> GetAsync(Guid scenarioVersionId, string? nodeId, string? choiceId, CancellationToken cancellationToken) =>
+            Task.FromResult<ScenarioHelpSnapshot?>(null);
+    }
+
+    private sealed class InertAi : IAssistantAiClient
+    {
+        public bool IsConfigured => false;
+        public Task<string?> GenerateAsync(AssistantAiContext context, CancellationToken cancellationToken) => Task.FromResult<string?>(null);
     }
 
     private sealed class RepositoryStub : IPlayerExperienceRepository

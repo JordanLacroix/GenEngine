@@ -1071,6 +1071,7 @@ public static class ScenarioValidator
             }
 
             ValidateStepMedia(node, scenario.SchemaVersion, issues);
+            ValidateAuthorHelp(node.Help, $"nodes.{node.Id}.help", scenario.SchemaVersion, issues);
 
             if (hasTypedInteractions && node.Choices.Count != 0)
             {
@@ -1348,6 +1349,7 @@ public static class ScenarioValidator
     private const int MaximumAssetUrlLength = 2_048;
     private const int MaximumAnimationCueLength = 64;
     private const int MaximumVisualDescriptionLength = 500;
+    private const int MaximumHelpLength = 500;
 
     /// <summary>
     /// Media are decorative references. They are optional at every level, but
@@ -1414,6 +1416,54 @@ public static class ScenarioValidator
                 "media_animation_cue_invalid",
                 $"{path}.animationCue",
                 $"An animation cue must be non-empty and at most {MaximumAnimationCueLength} characters."));
+        }
+    }
+
+    /// <summary>
+    /// Author help is presentation-only, so validation stays deliberately narrow:
+    /// the capability schema that introduced it, and a length bound per modality
+    /// so a document cannot smuggle an unbounded payload towards an AI provider.
+    /// The null guard comes first, exactly as for media and optionality: a
+    /// document that declares no help must keep validating under every schema.
+    /// </summary>
+    private static void ValidateAuthorHelp(
+        AuthorHelp? help,
+        string path,
+        int schemaVersion,
+        List<ValidationIssue> issues)
+    {
+        if (help is null)
+        {
+            return;
+        }
+
+        if (schemaVersion < NarrativeVersions.AuthorHelpSchema)
+        {
+            issues.Add(Error(
+                "help_requires_schema_5",
+                path,
+                $"Author help requires schema version {NarrativeVersions.AuthorHelpSchema}."));
+        }
+
+        ValidateHelpText(help.Hint, $"{path}.hint", issues);
+        ValidateHelpText(help.Objective, $"{path}.objective", issues);
+        ValidateHelpText(help.Consequence, $"{path}.consequence", issues);
+        ValidateHelpText(help.Blocker, $"{path}.blocker", issues);
+    }
+
+    private static void ValidateHelpText(string? value, string path, List<ValidationIssue> issues)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(value) || value.Length > MaximumHelpLength)
+        {
+            issues.Add(Error(
+                "help_text_invalid",
+                path,
+                $"A help text must be non-empty and at most {MaximumHelpLength} characters."));
         }
     }
 
@@ -1510,6 +1560,7 @@ public static class ScenarioValidator
             ValidateCondition(choice.Condition, $"{choicePath}.condition", nodes, issues, 0);
             ValidateEffects(choice.Effects, $"{choicePath}.effects", nodes, issues, 0);
             ValidateChoiceMedia(choice, choicePath, schemaVersion, issues);
+            ValidateAuthorHelp(choice.Help, $"{choicePath}.help", schemaVersion, issues);
         }
     }
 

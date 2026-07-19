@@ -2,8 +2,9 @@
 
 ## Configuration
 
-- `GET /experience/{frontId}` retourne la dernière configuration publiée sans référence de secret.
-- `GET /admin/configuration/{frontId}` exige `config.read`.
+- `GET /experience/{frontId}` — **anonyme** ; retourne la dernière configuration publiée, expurgée (voir « Surfaces de lecture » ci-dessous).
+- `GET /client-bootstrap/{frontId}` — **anonyme** ; charge utile minimale pour un client qui démarre avant toute authentification.
+- `GET /admin/configuration/{frontId}` exige `config.read` et reste la **seule** surface qui expose le document complet.
 - `PUT /admin/configuration/{frontId}` exige `config.write` et un `expectedRevision` pour une mise à jour.
 - `POST /admin/configuration/{frontId}/publish` exige `config.publish` et publie une nouvelle version immuable.
 - `GET /admin/configuration/field-descriptors` exige `config.read` et retourne l'aide intégrée de **chaque champ** du document de configuration. La route ne dépend d'aucun front : elle décrit le schéma, pas une instance.
@@ -13,7 +14,54 @@
 
 Ces trois routes sont anonymes, comme `GET /experience/{frontId}` : un visiteur de la démonstration doit pouvoir charger un visuel ou un son avant de détenir le moindre jeton, et le contenu livré est du CC0 public. Les packs sont **en lecture seule** : ils sont versionnés avec le dépôt et copiés dans l'image, jamais téléversés à l'exécution, ce qui préserve le système de fichiers en lecture seule et l'utilisateur non-root du conteneur. `path` est réécrit en chemin de requête absolu servi par ce service ; un client n'a donc jamais à connaître l'arborescence du dépôt, et `packId` reste la clé stable même quand le dossier porte un autre nom (`assets/diapason` livre `diapason-core`).
 
-La vue contient le jeu global, son histoire, les catégories, la politique d'authentification, les providers IA, les familiers, l'économie, l'introduction, le shell joueur, la démo, l'aide, l'onboarding, la politique assistant, le journal, les médias et les modules avec leurs permissions nécessaires.
+### Surfaces de lecture de la configuration
+
+Trois surfaces distinctes, du plus restreint au plus complet. Ce tableau fait foi : tout champ ajouté au document doit y être classé.
+
+| Champ | `GET /client-bootstrap/{frontId}` (anonyme) | `GET /experience/{frontId}` (anonyme) | `GET /admin/configuration/{frontId}` (`config.read`) |
+|---|:--:|:--:|:--:|
+| `frontId`, `version`, `publishedAt` | oui | oui | oui (plus `revision`) |
+| `branding` (thème, palette d'accents, icônes) | oui | oui | oui |
+| `applicationName`, `shortName`, `tagline` | oui | via `game` et `branding` | oui |
+| `game.locale`, `game.timeZone` | oui | oui | oui |
+| `language.labels` | oui | oui | oui |
+| `intro` | oui | oui | oui |
+| `authentication.mode` | oui | oui | oui |
+| `authentication.localEnabled` / `entraEnabled` | non | oui | oui |
+| `authentication.entraTenantId` / `entraClientId` | **non** | **non** | oui |
+| `demo.enabled` | oui (booléen seul) | oui (bloc complet) | oui |
+| `game.name`, `description`, `globalStory` | non | oui | oui |
+| `categories`, `journeys`, `familiars`, `economy`, `modules`, `playerShell`, `help`, `onboarding`, `assistantPolicy`, `journal`, `media` | non | oui | oui |
+| `aiProviders` : `id`, `name`, `type`, `enabled`, `deployment`, `capabilities` | non | oui | oui |
+| `aiProviders.endpoint` / `authentication` / `secretReference` | **non** | **non** | oui (`secretReference` = référence opaque) |
+| `organization` (nom, unités, hiérarchie) | **non** | **non** (`null`) | oui |
+| `assignments` (affectations, fenêtres, échéances) | **non** | **non** (`[]`) | oui |
+
+`GET /experience/{frontId}` est anonyme parce que les services `Play`, `PlayerExperience` et `Authoring` la consomment en interservice pour le catalogue jouable (familiers, économie, onboarding, politique assistant, catégories, parcours) et parce qu'un visiteur de la démonstration doit pouvoir la lire. Elle ne doit donc porter que du contenu affichable publiquement. Les identifiants de locataire Entra dont un client a besoin pour un démarrage OIDC restent publiés par Identity sur `GET /auth/providers`, qui en est la source unique ; les endpoints de providers IA, la structure d'organisation et les affectations n'ont aucun consommateur non authentifié et sont retirés.
+
+`GET /client-bootstrap/{frontId}` ne porte volontairement **aucun** catalogue, aucune organisation, aucune affectation, aucun provider IA, aucune économie et aucun module : uniquement de quoi peindre le premier écran et proposer une entrée. `applicationName` retombe sur `game.name` si `branding.applicationName` est absent ; un client sans configuration lisible retombe sur « GenEngine ». `version` et `publishedAt` permettent la mise en cache ; la `revision` du brouillon n'est pas exposée car elle révèle une activité éditoriale non publiée.
+
+### Bloc `branding`
+
+Le bloc `branding` est **facultatif et purement additif** : une configuration antérieure sans ce bloc reste publiable et lisible à l'identique, et `branding` vaut alors `null` sur les trois surfaces.
+
+| Champ | Contenu |
+|---|---|
+| `applicationName` | Nom d'application affiché (≤ 80 caractères) |
+| `shortName` | Nom court (≤ 24) |
+| `tagline` | Accroche (≤ 160) |
+| `brandIconUrl` | Icône de marque de l'organisation |
+| `clientIconUrl` | Icône du client |
+| `logoUrl`, `faviconUrl` | Logo et favicon |
+| `theme.colors` | Couleurs nommées ; les jetons `ink`, `surface`, `accent`, `accentAlt`, `success`, `warning`, `danger`, `muted` sont **obligatoires** dès que `theme` est présent |
+| `theme.colorScheme` | `Dark`, `Light` ou `Auto` |
+| `theme.cornerRadius` | Rayon de coin, 0 à 64 |
+| `theme.fontFamily` | Famille typographique (≤ 120) |
+| `accentPalette` | Associe les jetons d'accent nommés (`encre`, `or`, `sauge`, `azur`, `cuivre`, `aube`…) portés par `categories[].accent`, `journeys[].accent` et `familiars[].accent` à de vraies couleurs ; sans elle, ces accents ne sont pas rendables |
+
+Une couleur est un hexadécimal strict `#RRGGBB` ou `#RRGGBBAA` — les couleurs CSS nommées, `rgb()` et l'abrégé à trois chiffres sont refusés pour que tous les clients rendent la même valeur. Les quatre icônes suivent la **même grammaire** que les familiers, les scènes d'introduction et les médias : URL absolue HTTPS ou référence de pack `packId:assetId`. Toute violation renvoie `invalid_branding`.
+
+La vue `GET /experience/{frontId}` contient le jeu global, son histoire, les catégories, le mode et les fournisseurs d'authentification activés, les providers IA sans endpoint ni credential, les familiers, l'économie, l'introduction, le shell joueur, la démo, l'aide, l'onboarding, la politique assistant, le journal, les médias, le branding et les modules avec leurs permissions nécessaires.
 
 Le bloc `media` porte le paramétrage sonore et visuel de l'instance : `enabled`, `defaultMuted`, une liste `locations` (`location`, `ambienceUrl`, `musicUrl`, `backgroundUrl`, `backgroundDescription`, `bpm`, `loop`) pour les emplacements applicatifs (`home`, `map`, `player`, `journal`, `familiar`, `shop`…) et un bloc `gameOver` (`musicUrl`, `visualUrl`, `visualDescription`, `labelKey`). Tous les assets sont facultatifs et doivent être soit des URL absolues en HTTPS, soit des références de pack `packId:assetId` résolues via le manifeste du pack livré (même grammaire que le moteur, pour qu'une instance sans serveur d'assets reste illustrée) ; un `bpm` déclaré reste entre 40 et 200. Un emplacement ne peut être nommé qu'une fois. Les violations renvoient `invalid_media`. Un opérateur pilote donc l'ambiance par instance via `PUT /admin/configuration/{frontId}` puis `POST /admin/configuration/{frontId}/publish`, sans mécanisme parallèle.
 
@@ -91,7 +139,22 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 - `POST /me/experience/onboarding/skip?frontId={frontId}` — passage idempotent si autorisé
 - `POST /me/experience/onboarding/reset?frontId={frontId}` — recommence le tutoriel courant
 - `GET /me/experience/journal?frontId={frontId}` — journal filtrable et agrégats personnels
-- `POST /me/experience/assistant/contextual-help?frontId={frontId}` — aide déterministe hors ligne et avertissement de chemin connu
+- `POST /me/experience/assistant/contextual-help?frontId={frontId}` — aide contextuelle résolue côté serveur
+
+  Corps : `context`, `scenarioVersionId`, `nodeId`, `choiceId`, `alreadyExplored`,
+  `authorHint`, `proactive`. `scenarioVersionId`, `nodeId` et `choiceId` servent à
+  relire l'aide d'auteur portée par la version publiée via la route interne
+  d'Authoring ; `authorHint` reste une surcharge cliente facultative.
+
+  Réponse : `source`, `message`, `isFallback`, `familiarName`, `avatarUrl`,
+  `modality`. `source` désigne la source du message **réellement retourné** —
+  `KnownPathWarning`, `Ai`, `AuthorHint`, `ScenarioHelp`, `OfflineRule` ou
+  `Suppressed` — et `isFallback` n'est vrai que pour `OfflineRule`, seule branche
+  qui ne s'appuie sur aucun contenu. `modality` vaut `Hint`, `Objective`,
+  `Consequence`, `Blocker`, `KnownPathWarning` ou `None`.
+
+  L'appel est en lecture seule : il ne modifie aucun état de session, ne consomme
+  aucun tour et n'entre dans aucun hash.
 - `POST /me/experience/shop/purchases?frontId={frontId}` — achat idempotent
 - `POST /internal/rewards` — applique une règle de récompense idempotente depuis un événement narratif
 - `POST /internal/progress-events` — journalise une interaction et consolide la maîtrise cross-session de façon idempotente

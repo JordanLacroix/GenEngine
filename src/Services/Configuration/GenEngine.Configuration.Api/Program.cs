@@ -42,8 +42,19 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapConfigurationHealthChecks();
 
+// Anonymous projection of the published document. It carries the playable
+// catalog other services consume, but never the Entra tenant and client
+// identifiers, the AI provider endpoints and credential schemes, the
+// organization structure or the catalog assignments. A caller holding
+// config.read keeps the complete document on /admin/configuration/{frontId}.
 app.MapGet("/experience/{frontId}", async (string frontId, ConfigurationService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetPublishedAsync(frontId, cancellationToken).ConfigureAwait(false)));
+
+// Strictly minimal payload for a client that starts before any authentication:
+// branding, wording, locale, authentication mode, demo flag and the public
+// introduction. Nothing else — see ClientBootstrapView.
+app.MapGet("/client-bootstrap/{frontId}", async (string frontId, ConfigurationService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetClientBootstrapAsync(frontId, cancellationToken).ConfigureAwait(false)));
 
 // Asset packs are read-only content shipped with the instance. They are exposed
 // next to the published experience, and for the same reason: a client must be

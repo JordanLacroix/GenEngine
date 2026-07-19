@@ -112,6 +112,41 @@ public sealed record MediaDefinition(
     IReadOnlyList<AppLocationMediaDefinition> Locations,
     GameOverMediaDefinition? GameOver);
 
+public enum BrandingColorScheme { Dark, Light, Auto }
+
+/// <summary>
+/// Named colour set of the instance. <see cref="Colors"/> must carry the eight
+/// documented tokens so a client never has to invent a fallback, and may carry
+/// extra ones a given client understands.
+/// </summary>
+public sealed record BrandingThemeDefinition(
+    IReadOnlyDictionary<string, string> Colors,
+    BrandingColorScheme ColorScheme = BrandingColorScheme.Auto,
+    int CornerRadius = 12,
+    string? FontFamily = null);
+
+/// <summary>
+/// Optional and purely additive brand block. A configuration without it stays
+/// valid, publishable and readable exactly as before; clients then fall back to
+/// their own defaults ("GenEngine" for the application name).
+/// <para>
+/// <see cref="AccentPalette"/> maps the named accent tokens already carried by
+/// <see cref="CategoryDefinition.Accent"/>, <see cref="JourneyDefinition.Accent"/>
+/// and <see cref="FamiliarDefinition.Accent"/> onto real colours, which is what
+/// finally makes those accents renderable.
+/// </para>
+/// </summary>
+public sealed record BrandingDefinition(
+    string? ApplicationName = null,
+    string? ShortName = null,
+    string? Tagline = null,
+    string? BrandIconUrl = null,
+    string? ClientIconUrl = null,
+    string? LogoUrl = null,
+    string? FaviconUrl = null,
+    BrandingThemeDefinition? Theme = null,
+    IReadOnlyDictionary<string, string>? AccentPalette = null);
+
 public sealed record ExperienceDocument(
     string FrontId,
     OrganizationType OrganizationType,
@@ -134,6 +169,7 @@ public sealed record ExperienceDocument(
     AssistantPolicyDefinition? AssistantPolicy = null,
     JournalPolicyDefinition? Journal = null,
     MediaDefinition? Media = null,
+    BrandingDefinition? Branding = null,
     FinaleDefinition? Finale = null);
 
 /// <summary>
@@ -159,6 +195,32 @@ public static class DiapasonIds
 
 public sealed record ExperienceConfigurationView(Guid Id, int Revision, int PublishedVersion, DateTimeOffset UpdatedAt, DateTimeOffset? PublishedAt, ExperienceDocument Document);
 public sealed record PublishedExperienceView(int Version, DateTimeOffset PublishedAt, ExperienceDocument Document);
+
+/// <summary>
+/// Strictly minimal, non-sensitive payload for a client that boots before it
+/// holds any credential. It deliberately carries no catalog, no organization,
+/// no assignment, no AI provider, no economy and no module: everything a client
+/// needs to paint its first screen and offer a way in, and nothing more.
+/// <para>
+/// Only the authentication <em>mode</em> is exposed. The Entra authority, tenant
+/// and client identifiers are published by Identity on <c>GET /auth/providers</c>,
+/// which stays the single source for an OIDC bootstrap.
+/// </para>
+/// </summary>
+public sealed record ClientBootstrapView(
+    string FrontId,
+    int Version,
+    DateTimeOffset PublishedAt,
+    string ApplicationName,
+    string? ShortName,
+    string? Tagline,
+    BrandingDefinition? Branding,
+    string Locale,
+    string TimeZone,
+    IReadOnlyDictionary<string, string> Labels,
+    AuthenticationMode AuthenticationMode,
+    bool DemoEnabled,
+    IntroDefinition? Intro);
 
 public interface IConfigurationRepository
 {
@@ -187,11 +249,75 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         }
 
         ExperienceDocument document = Deserialize(configuration.PublishedJson);
-        ExperienceDocument publicDocument = document with
+        return new PublishedExperienceView(configuration.PublishedVersion, configuration.PublishedAt.Value, Anonymize(document));
+    }
+
+    /// <summary>
+    /// Anonymous projection of a published document, served by <c>GET /experience/{frontId}</c>.
+    /// <para>
+    /// The route is reachable without a token, so it must not carry anything an
+    /// operator would not print on a poster. Four families are removed here:
+    /// the Entra tenant and client identifiers (Identity publishes what a client
+    /// legitimately needs on <c>GET /auth/providers</c>), the AI provider
+    /// endpoint, credential scheme and secret reference, the organization
+    /// structure, and the catalog assignments — the last two describe internal
+    /// units, cohorts and deadlines.
+    /// </para>
+    /// <para>
+    /// A caller holding <c>config.read</c> keeps the complete document, secret
+    /// reference included, through <c>GET /admin/configuration/{frontId}</c>.
+    /// </para>
+    /// </summary>
+    private static ExperienceDocument Anonymize(ExperienceDocument document) => document with
+    {
+        // Emptied rather than nulled. The goal is to withhold the unit tree, and
+        // an empty organization does that just as well — while a null breaks the
+        // iOS client, whose `organization` is a non-optional property and whose
+        // decoder therefore fails the whole document, not just this field.
+        Organization = document.Organization is null
+            ? null
+            : new OrganizationDefinition(document.Organization.Name, string.Empty, []),
+        Assignments = [],
+        Authentication = document.Authentication with { EntraTenantId = null, EntraClientId = null },
+        AiProviders = document.AiProviders
+            .Select(static provider => provider with
+            {
+                Endpoint = string.Empty,
+                Authentication = string.Empty,
+                SecretReference = null,
+            })
+            .ToArray(),
+    };
+
+    /// <summary>
+    /// Anonymous bootstrap payload. See <see cref="ClientBootstrapView"/> for the
+    /// exclusion rules; this method is the only place that decides what a client
+    /// may read before it authenticates.
+    /// </summary>
+    public async Task<ClientBootstrapView> GetClientBootstrapAsync(string frontId, CancellationToken cancellationToken)
+    {
+        ExperienceConfiguration configuration = await GetRequiredAsync(frontId, cancellationToken).ConfigureAwait(false);
+        if (configuration.PublishedJson is null || configuration.PublishedAt is null)
         {
-            AiProviders = document.AiProviders.Select(provider => provider with { SecretReference = null }).ToArray(),
-        };
-        return new PublishedExperienceView(configuration.PublishedVersion, configuration.PublishedAt.Value, publicDocument);
+            throw new ConfigurationException("configuration_not_published", "The front configuration is not published.");
+        }
+
+        ExperienceDocument document = Deserialize(configuration.PublishedJson);
+        BrandingDefinition? branding = document.Branding;
+        return new ClientBootstrapView(
+            document.FrontId,
+            configuration.PublishedVersion,
+            configuration.PublishedAt.Value,
+            string.IsNullOrWhiteSpace(branding?.ApplicationName) ? document.Game.Name : branding.ApplicationName,
+            branding?.ShortName,
+            branding?.Tagline ?? document.Game.Description,
+            branding,
+            document.Game.Locale,
+            document.Game.TimeZone,
+            document.Language?.Labels ?? new Dictionary<string, string>(StringComparer.Ordinal),
+            document.Authentication.Mode,
+            document.Demo?.Enabled ?? false,
+            document.Intro);
     }
 
     public async Task<ExperienceConfigurationView> UpsertAsync(string frontId, int? expectedRevision, ExperienceDocument document, CancellationToken cancellationToken)
@@ -315,7 +441,52 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         CreateDefaultAssistantPolicy(),
         new JournalPolicyDefinition(true, true, 0, true),
         CreateDefaultMedia(),
+        CreateDiapasonBranding(),
         FinaleCatalog.CreateDiapasonDefault());
+
+    /// <summary>
+    /// Branding of the Diapason reference configuration. The colours come from
+    /// the art direction recorded in <c>specs/domain/diapason/README.md</c> and
+    /// from the <c>palette</c> block of <c>assets/diapason/asset-manifest.json</c>.
+    /// <para>
+    /// Every icon stays null: the <c>diapason-core</c> pack ships interface
+    /// elements, gameplay icons and short signatures, but no brand icon, logo or
+    /// favicon — its <c>gaps</c> field records the absence. A reference that does
+    /// not resolve would be worse than none.
+    /// </para>
+    /// </summary>
+    private static BrandingDefinition CreateDiapasonBranding() => new(
+        "Le Diapason",
+        "Diapason",
+        "Une réponse fluide n'est pas une réponse vérifiée.",
+        Theme: new BrandingThemeDefinition(
+            new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["ink"] = "#17344a",
+                ["surface"] = "#fffaf0",
+                ["accent"] = "#d7a746",
+                ["accentAlt"] = "#2f7fa0",
+                ["success"] = "#7a9a55",
+                ["warning"] = "#c98a2e",
+                ["danger"] = "#a33b2a",
+                ["muted"] = "#c8b98d",
+            },
+            BrandingColorScheme.Light,
+            12,
+            "Georgia, \"Times New Roman\", serif"),
+        // One entry per accent token actually used by the six postures, the three
+        // journeys and the familiar. An unmapped token would leave a category
+        // unrenderable, which is exactly what this block exists to prevent.
+        AccentPalette: new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["encre"] = "#17344a",
+            ["azur"] = "#2f7fa0",
+            ["or"] = "#d7a746",
+            ["cuivre"] = "#b0733a",
+            ["sauge"] = "#7a9a55",
+            ["aube"] = "#e8b98c",
+            ["amber"] = "#c98a2e",
+        });
 
     private async Task<ExperienceConfiguration> GetRequiredAsync(string frontId, CancellationToken cancellationToken) =>
         await repository.GetAsync(frontId, cancellationToken).ConfigureAwait(false)
@@ -488,6 +659,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
 
         ValidateMedia(document.Media ?? CreateDefaultMedia());
         ValidateFinale(document.Finale, categoryIds, journeyIds);
+        ValidateBranding(document.Branding);
     }
 
     /// <summary>
@@ -577,6 +749,112 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
                 throw new ConfigurationException("invalid_familiar_axis", "The default value of a familiar axis must be one of its options.");
             }
         }
+    }
+
+    /// <summary>
+    /// Colour tokens a theme must always define. A client can then style every
+    /// documented surface without guessing, and an operator learns at publication
+    /// time that a token is missing rather than in front of a blank screen.
+    /// </summary>
+    public static IReadOnlyList<string> RequiredThemeColors { get; } =
+        ["ink", "surface", "accent", "accentAlt", "success", "warning", "danger", "muted"];
+
+    /// <summary>
+    /// The branding block is optional and additive: a document without it is
+    /// valid and left untouched. When present, every colour is a strict
+    /// <c>#RRGGBB</c> or <c>#RRGGBBAA</c> value and every icon goes through the
+    /// same <see cref="IsValidAssetUrl"/> grammar as familiars, intro scenes and
+    /// media, so an HTTPS URL and a "packId:assetId" pack reference are the only
+    /// two accepted forms.
+    /// </summary>
+    private static void ValidateBranding(BrandingDefinition? branding)
+    {
+        if (branding is null)
+        {
+            return;
+        }
+
+        if (IsBlankOrTooLong(branding.ApplicationName, 80)
+            || IsBlankOrTooLong(branding.ShortName, 24)
+            || IsBlankOrTooLong(branding.Tagline, 160))
+        {
+            throw new ConfigurationException("invalid_branding", "Branding names and tagline must be non-empty and within their size limits.");
+        }
+
+        if (!IsValidAssetUrl(branding.BrandIconUrl)
+            || !IsValidAssetUrl(branding.ClientIconUrl)
+            || !IsValidAssetUrl(branding.LogoUrl)
+            || !IsValidAssetUrl(branding.FaviconUrl))
+        {
+            throw new ConfigurationException("invalid_branding", "Branding icons must be absolute HTTPS URLs or 'packId:assetId' pack references.");
+        }
+
+        if (branding.Theme is BrandingThemeDefinition theme)
+        {
+            if (theme.CornerRadius is < 0 or > 64 || IsBlankOrTooLong(theme.FontFamily, 120))
+            {
+                throw new ConfigurationException("invalid_branding", "The theme corner radius must be between 0 and 64 and the font family within its size limit.");
+            }
+
+            ValidateColorMap(theme.Colors, "theme");
+            if (RequiredThemeColors.Any(token => !theme.Colors.ContainsKey(token)))
+            {
+                throw new ConfigurationException(
+                    "invalid_branding",
+                    $"The theme must define every required colour token: {string.Join(", ", RequiredThemeColors)}.");
+            }
+        }
+
+        if (branding.AccentPalette is IReadOnlyDictionary<string, string> palette)
+        {
+            ValidateColorMap(palette, "accent palette");
+        }
+    }
+
+    private static void ValidateColorMap(IReadOnlyDictionary<string, string>? colors, string what)
+    {
+        // A positional record parameter that the request body omits arrives as
+        // null, not as an empty map. Dereferencing it here would surface as an
+        // opaque 500 instead of the invalid_branding an operator can act on.
+        if (colors is null)
+        {
+            throw new ConfigurationException("invalid_branding", $"The {what} must define its colours.");
+        }
+
+        if (colors.Count > 60
+            || colors.Any(static color => string.IsNullOrWhiteSpace(color.Key) || color.Key.Length > 40 || !IsHexColor(color.Value)))
+        {
+            throw new ConfigurationException("invalid_branding", $"Every {what} colour must be named once and expressed as #RRGGBB or #RRGGBBAA.");
+        }
+    }
+
+    private static bool IsBlankOrTooLong(string? value, int maximumLength) =>
+        value is not null && (string.IsNullOrWhiteSpace(value) || value.Length > maximumLength);
+
+    /// <summary>
+    /// Strict hexadecimal colour: a leading '#' then exactly six or eight
+    /// hexadecimal digits. Named CSS colours, <c>rgb()</c> and three-digit
+    /// shorthands are refused on purpose, so every client renders the same value.
+    /// </summary>
+    private static bool IsHexColor(string? value)
+    {
+        if (value is null || (value.Length != 7 && value.Length != 9) || value[0] != '#')
+        {
+            return false;
+        }
+
+        foreach (char character in value.AsSpan(1))
+        {
+            bool hexadecimal = (character >= '0' && character <= '9')
+                || (character >= 'a' && character <= 'f')
+                || (character >= 'A' && character <= 'F');
+            if (!hexadecimal)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -691,7 +969,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
                 "Le Diapason",
                 "Une réponse fluide n'est pas une réponse vérifiée.",
                 "2026. Vous êtes étudiant ingénieur en alternance. Personne autour de vous n'a le temps de douter, et vous êtes souvent la seule personne à détenir le fait qui manque. Ce que vous en faites vous appartient.",
-                "https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=1800&q=85",
+                null,
                 1),
         ]);
 

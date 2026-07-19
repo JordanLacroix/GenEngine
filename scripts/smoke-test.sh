@@ -24,6 +24,38 @@ done
 experience=$(curl --fail --silent --show-error "$CONFIGURATION_URL/experience/default")
 jq -e '.version >= 1 and .document.game.name != "" and (.document.categories | length) > 0 and (.document.familiars | length) > 0 and .document.economy.currencyCode == "ACCORD" and (.document.aiProviders[] | select(.type == "AzureAiFoundry") | .secretReference) == null' <<<"$experience" >/dev/null
 
+# The anonymous experience route must not leak operator data: no Entra tenant or
+# client identifier, no AI provider endpoint or credential scheme, no unit tree
+# and no assignment. The organization is emptied rather than removed — the iOS
+# client declares it non-optional, so a null would fail the whole decode. See
+# specs/api/http.md.
+jq -e '
+  (.document.organization.units | length) == 0
+  and .document.organization.description == ""
+  and (.document.assignments | length) == 0
+  and .document.authentication.entraTenantId == null
+  and .document.authentication.entraClientId == null
+  and ([.document.aiProviders[] | select(.endpoint != "" or .authentication != "")] | length) == 0
+' <<<"$experience" >/dev/null
+
+# Anonymous client bootstrap: minimal, branded, and carrying nothing else.
+bootstrap_public=$(curl --fail --silent --show-error "$CONFIGURATION_URL/client-bootstrap/default")
+jq -e '
+  .frontId == "default"
+  and .applicationName == "Le Diapason"
+  and .version >= 1
+  and .locale != ""
+  and (.labels | length) > 0
+  and .authenticationMode != null
+  and .branding.theme.colors.accent != null
+  and .branding.accentPalette.encre != null
+  and (has("organization") | not)
+  and (has("assignments") | not)
+  and (has("aiProviders") | not)
+  and (has("categories") | not)
+  and (has("economy") | not)
+' <<<"$bootstrap_public" >/dev/null
+
 credentials=$(jq -n --arg userName "$USER_NAME" --arg password "$PASSWORD" '{userName:$userName,password:$password}')
 if [[ -z "${GENENGINE_SMOKE_USER_NAME:-}" ]]; then
   echo "[1/11] Register"
