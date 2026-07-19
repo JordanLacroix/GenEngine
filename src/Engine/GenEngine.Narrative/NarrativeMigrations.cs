@@ -32,6 +32,11 @@ public static class ScenarioMigrationPipeline
             document = document.SchemaVersion switch
             {
                 1 => document with { SchemaVersion = 2 },
+
+                // v3 only adds optional media references. Nothing is rewritten:
+                // a v2 document migrates by raising its version, and a snapshot
+                // already published keeps its own version and canonical hash.
+                2 => document with { SchemaVersion = 3 },
                 _ => throw new NarrativeException(
                     "scenario_migration_missing",
                     $"No migration is registered from scenario schema {document.SchemaVersion}."),

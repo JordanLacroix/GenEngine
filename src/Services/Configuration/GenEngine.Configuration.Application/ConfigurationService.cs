@@ -80,6 +80,37 @@ public sealed record OnboardingDefinition(Guid Id, int Version, bool Enabled, bo
 public sealed record AssistantPolicyDefinition(bool Enabled, bool RequireFirstRunConfiguration, bool Proactive, bool WarnOnKnownPath, int DefaultFrequency, IReadOnlyList<string> OfflineCapabilities);
 public sealed record JournalPolicyDefinition(bool Enabled, bool AllowExport, int RetentionDays, bool ShowStoryTimeline);
 
+/// <summary>
+/// Ambience of an application location (home, map, player, journal, familiar…).
+/// Every asset is optional: a location without media stays fully usable, and the
+/// audio never carries information on its own.
+/// </summary>
+public sealed record AppLocationMediaDefinition(
+    string Location,
+    string? AmbienceUrl = null,
+    string? MusicUrl = null,
+    string? BackgroundUrl = null,
+    string? BackgroundDescription = null,
+    int? Bpm = null,
+    bool Loop = true);
+
+/// <summary>Music and visual played when a run ends on a failure.</summary>
+public sealed record GameOverMediaDefinition(
+    string? MusicUrl = null,
+    string? VisualUrl = null,
+    string? VisualDescription = null,
+    string? LabelKey = null);
+
+/// <summary>
+/// Per-instance media policy. <see cref="Enabled"/> lets an operator turn every
+/// client-side media off, and <see cref="DefaultMuted"/> keeps sound opt-in.
+/// </summary>
+public sealed record MediaDefinition(
+    bool Enabled,
+    bool DefaultMuted,
+    IReadOnlyList<AppLocationMediaDefinition> Locations,
+    GameOverMediaDefinition? GameOver);
+
 public sealed record ExperienceDocument(
     string FrontId,
     OrganizationType OrganizationType,
@@ -100,7 +131,8 @@ public sealed record ExperienceDocument(
     HelpCenterDefinition? Help = null,
     OnboardingDefinition? Onboarding = null,
     AssistantPolicyDefinition? AssistantPolicy = null,
-    JournalPolicyDefinition? Journal = null);
+    JournalPolicyDefinition? Journal = null,
+    MediaDefinition? Media = null);
 
 /// <summary>
 /// Stable identifiers of the Diapason reference configuration.
@@ -276,7 +308,8 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         CreateDefaultHelp(),
         CreateDefaultOnboarding(),
         CreateDefaultAssistantPolicy(),
-        new JournalPolicyDefinition(true, true, 0, true));
+        new JournalPolicyDefinition(true, true, 0, true),
+        CreateDefaultMedia());
 
     private async Task<ExperienceConfiguration> GetRequiredAsync(string frontId, CancellationToken cancellationToken) =>
         await repository.GetAsync(frontId, cancellationToken).ConfigureAwait(false)
@@ -441,7 +474,59 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         {
             throw new ConfigurationException("invalid_assistant_policy", "The assistant frequency must be between 0 and 5.");
         }
+
+        ValidateMedia(document.Media ?? CreateDefaultMedia());
     }
+
+    /// <summary>
+    /// Media are decorative and always optional, but a declared asset must be an
+    /// absolute HTTPS URL and a declared tempo must stay within the documented
+    /// ambient range, so a client never has to guess what to load.
+    /// </summary>
+    private static void ValidateMedia(MediaDefinition media)
+    {
+        if (media.Locations.Count > 40
+            || media.Locations.Any(static location => string.IsNullOrWhiteSpace(location.Location) || location.Location.Length > 40)
+            || media.Locations
+                .Select(static location => location.Location.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count() != media.Locations.Count)
+        {
+            throw new ConfigurationException("invalid_media", "Application locations must be named once and within their size limit.");
+        }
+
+        if (media.Locations.Any(static location =>
+                !IsValidAssetUrl(location.AmbienceUrl)
+                || !IsValidAssetUrl(location.MusicUrl)
+                || !IsValidAssetUrl(location.BackgroundUrl)
+                || location.Bpm is < 40 or > 200))
+        {
+            throw new ConfigurationException("invalid_media", "Location media require HTTPS assets and a tempo between 40 and 200 BPM.");
+        }
+
+        if (media.GameOver is GameOverMediaDefinition gameOver
+            && (!IsValidAssetUrl(gameOver.MusicUrl) || !IsValidAssetUrl(gameOver.VisualUrl)))
+        {
+            throw new ConfigurationException("invalid_media", "Game-over media require HTTPS assets.");
+        }
+    }
+
+    /// <summary>
+    /// Default ambience map. Assets are deliberately absent: an operator opts in
+    /// per instance, and the experience is complete without a single file.
+    /// </summary>
+    private static MediaDefinition CreateDefaultMedia() => new(
+        true,
+        true,
+        [
+            new AppLocationMediaDefinition("home"),
+            new AppLocationMediaDefinition("map"),
+            new AppLocationMediaDefinition("player"),
+            new AppLocationMediaDefinition("journal"),
+            new AppLocationMediaDefinition("familiar"),
+            new AppLocationMediaDefinition("shop"),
+        ],
+        new GameOverMediaDefinition(LabelKey: "gameOver.title"));
 
     private static OrganizationDefinition CreateOrganizationDefault(OrganizationType type) => new(
         type switch
@@ -483,6 +568,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             Onboarding = document.Onboarding ?? CreateDefaultOnboarding(),
             AssistantPolicy = document.AssistantPolicy ?? CreateDefaultAssistantPolicy(),
             Journal = document.Journal ?? new JournalPolicyDefinition(true, true, 0, true),
+            Media = document.Media ?? CreateDefaultMedia(),
         };
     }
 
@@ -537,9 +623,45 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
     private static AssistantPolicyDefinition CreateDefaultAssistantPolicy() =>
         new(true, true, true, true, 2, ["hint", "recap", "rephrase", "known-path-warning"]);
 
+    /// <summary>
+    /// An asset is either an absolute HTTPS URL, for assets the instance hosts
+    /// itself, or a pack reference "packId:assetId" resolved by the client through
+    /// the shipped pack manifest. The second form is what lets a configuration —
+    /// and its demonstration — run with no host to serve the files from. The
+    /// grammar mirrors the narrative engine's, so both validate references alike.
+    /// </summary>
     private static bool IsValidAssetUrl(string? value) =>
         string.IsNullOrWhiteSpace(value)
-        || (Uri.TryCreate(value, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps);
+        || (Uri.TryCreate(value, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps)
+        || IsPackReference(value);
+
+    private static bool IsPackReference(string value)
+    {
+        int separator = value.IndexOf(':', StringComparison.Ordinal);
+        if (separator <= 0 || separator == value.Length - 1)
+        {
+            return false;
+        }
+
+        return IsPackSegment(value.AsSpan(0, separator))
+            && IsPackSegment(value.AsSpan(separator + 1));
+    }
+
+    private static bool IsPackSegment(ReadOnlySpan<char> segment)
+    {
+        foreach (char character in segment)
+        {
+            bool allowed = (character >= 'a' && character <= 'z')
+                || (character >= '0' && character <= '9')
+                || character is '.' or '-' or '_';
+            if (!allowed)
+            {
+                return false;
+            }
+        }
+
+        return !segment.IsEmpty;
+    }
 
     private static Dictionary<string, string> CreateDefaultLabels() => new(StringComparer.Ordinal)
     {

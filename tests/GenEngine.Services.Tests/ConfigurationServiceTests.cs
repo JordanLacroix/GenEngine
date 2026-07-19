@@ -123,6 +123,131 @@ public sealed class ConfigurationServiceTests
         Assert.Equal("invalid_familiar", exception.Code);
     }
 
+    [Fact]
+    public async Task AppLocationAndGameOverMediaArePublishedPerInstance()
+    {
+        var repository = new ConfigurationRepositoryStub();
+        var service = new ConfigurationService(repository, TimeProvider.System);
+        ExperienceDocument document = ConfigurationService.CreateDefault("studio") with
+        {
+            Media = new MediaDefinition(
+                true,
+                false,
+                [
+                    new AppLocationMediaDefinition(
+                        "map",
+                        "https://assets.example.org/ambience-map-v1.ogg",
+                        "https://assets.example.org/music-map-v1.ogg",
+                        Bpm: 64),
+                    new AppLocationMediaDefinition("journal"),
+                ],
+                new GameOverMediaDefinition(
+                    "https://assets.example.org/music-game-over-v1.ogg",
+                    "https://assets.example.org/scene-game-over-v1.avif",
+                    "Une brume éteinte recouvre le chemin parcouru.",
+                    "gameOver.title")),
+        };
+
+        ExperienceConfigurationView created = await service.UpsertAsync("studio", null, document, CancellationToken.None);
+        await service.PublishAsync("studio", created.Revision, CancellationToken.None);
+        PublishedExperienceView published = await service.GetPublishedAsync("studio", CancellationToken.None);
+
+        AppLocationMediaDefinition map = Assert.Single(published.Document.Media!.Locations, location => location.Location == "map");
+        Assert.Equal(64, map.Bpm);
+        Assert.True(map.Loop);
+        Assert.Null(published.Document.Media.Locations.Single(location => location.Location == "journal").AmbienceUrl);
+        Assert.Equal("gameOver.title", published.Document.Media.GameOver?.LabelKey);
+    }
+
+    [Fact]
+    public async Task DefaultConfigurationDeclaresLocationsWithoutAnyAsset()
+    {
+        var service = new ConfigurationService(new ConfigurationRepositoryStub(), TimeProvider.System);
+
+        ExperienceConfigurationView created = await service.UpsertAsync(
+            "default",
+            null,
+            ConfigurationService.CreateDefault("default"),
+            CancellationToken.None);
+
+        MediaDefinition media = Assert.IsType<MediaDefinition>(created.Document.Media);
+        Assert.True(media.DefaultMuted);
+        Assert.Contains(media.Locations, static location => location.Location == "home");
+        Assert.All(media.Locations, static location =>
+        {
+            Assert.Null(location.AmbienceUrl);
+            Assert.Null(location.MusicUrl);
+        });
+    }
+
+    [Fact]
+    public async Task MediaRejectAnInsecureLocationAsset()
+    {
+        var service = new ConfigurationService(new ConfigurationRepositoryStub(), TimeProvider.System);
+        ExperienceDocument document = ConfigurationService.CreateDefault("default") with
+        {
+            Media = new MediaDefinition(
+                true,
+                true,
+                [new AppLocationMediaDefinition("home", "http://insecure.example/ambience.ogg")],
+                null),
+        };
+
+        ConfigurationException exception = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            service.UpsertAsync("default", null, document, CancellationToken.None));
+
+        Assert.Equal("invalid_media", exception.Code);
+    }
+
+    [Fact]
+    public async Task MediaRejectAnInsecureGameOverAsset()
+    {
+        var service = new ConfigurationService(new ConfigurationRepositoryStub(), TimeProvider.System);
+        ExperienceDocument document = ConfigurationService.CreateDefault("default") with
+        {
+            Media = new MediaDefinition(true, true, [], new GameOverMediaDefinition("http://insecure.example/theme.ogg")),
+        };
+
+        ConfigurationException exception = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            service.UpsertAsync("default", null, document, CancellationToken.None));
+
+        Assert.Equal("invalid_media", exception.Code);
+    }
+
+    [Fact]
+    public async Task MediaRejectADuplicatedLocationAndAnOutOfRangeTempo()
+    {
+        var service = new ConfigurationService(new ConfigurationRepositoryStub(), TimeProvider.System);
+        ExperienceDocument baseline = ConfigurationService.CreateDefault("default");
+
+        ConfigurationException duplicate = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            service.UpsertAsync(
+                "default",
+                null,
+                baseline with
+                {
+                    Media = new MediaDefinition(
+                        true,
+                        true,
+                        [new AppLocationMediaDefinition("home"), new AppLocationMediaDefinition("Home")],
+                        null),
+                },
+                CancellationToken.None));
+
+        ConfigurationException tempo = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            service.UpsertAsync(
+                "default",
+                null,
+                baseline with
+                {
+                    Media = new MediaDefinition(true, true, [new AppLocationMediaDefinition("home", Bpm: 300)], null),
+                },
+                CancellationToken.None));
+
+        Assert.Equal("invalid_media", duplicate.Code);
+        Assert.Equal("invalid_media", tempo.Code);
+    }
+
     private sealed class ConfigurationRepositoryStub : IConfigurationRepository
     {
         private ExperienceConfiguration? configuration;

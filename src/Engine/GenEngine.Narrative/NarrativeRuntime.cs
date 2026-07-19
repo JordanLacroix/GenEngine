@@ -292,6 +292,7 @@ public sealed class NarrativeRuntime
             return new CurrentStep(node.Id, node.Text, state.Status, [], state.Turn)
             {
                 Kind = InteractionKind.Completed,
+                Media = node.Media,
             };
         }
 
@@ -302,6 +303,7 @@ public sealed class NarrativeRuntime
                 return new CurrentStep(node.Id, node.Text, state.Status, [], state.Turn)
                 {
                     Kind = InteractionKind.Completed,
+                    Media = node.Media,
                 };
             }
 
@@ -317,6 +319,7 @@ public sealed class NarrativeRuntime
                 {
                     InteractionId = narration.Id,
                     Kind = InteractionKind.Narration,
+                    Media = node.Media,
                 },
                 ChoiceSetInteraction choiceSet => new CurrentStep(
                     node.Id,
@@ -329,6 +332,7 @@ public sealed class NarrativeRuntime
                 {
                     InteractionId = choiceSet.Id,
                     Kind = InteractionKind.ChoiceSet,
+                    Media = node.Media,
                 },
                 QuizInteraction quiz => new CurrentStep(
                     node.Id,
@@ -341,6 +345,7 @@ public sealed class NarrativeRuntime
                 {
                     InteractionId = quiz.Id,
                     Kind = InteractionKind.Quiz,
+                    Media = node.Media,
                 },
                 CharacteristicGateInteraction gate => new CurrentStep(
                     node.Id,
@@ -351,6 +356,7 @@ public sealed class NarrativeRuntime
                 {
                     InteractionId = gate.Id,
                     Kind = InteractionKind.CharacteristicGate,
+                    Media = node.Media,
                 },
                 FreeTextInteraction freeText => new CurrentStep(
                     node.Id,
@@ -362,6 +368,7 @@ public sealed class NarrativeRuntime
                     InteractionId = freeText.Id,
                     Kind = InteractionKind.FreeText,
                     PendingTextAnalysis = state.PendingTextAnalysis,
+                    Media = node.Media,
                 },
                 _ => throw new NarrativeException("interaction_not_supported", "The interaction type is not supported."),
             };
@@ -371,7 +378,10 @@ public sealed class NarrativeRuntime
             ? VisibleChoices(node.Choices, state.World)
             : [];
 
-        return new CurrentStep(node.Id, node.Text, state.Status, choices, state.Turn);
+        return new CurrentStep(node.Id, node.Text, state.Status, choices, state.Turn)
+        {
+            Media = node.Media,
+        };
     }
 
     public static IReadOnlyList<ChoiceAvailability> ExplainChoices(ScenarioDocument scenario, GameState state)
@@ -548,7 +558,7 @@ public sealed class NarrativeRuntime
         WorldState world) =>
         choices
             .Where(choice => ConditionEvaluator.Evaluate(choice.Condition, world))
-            .Select(static choice => new VisibleChoice(choice.Id, choice.Text))
+            .Select(static choice => new VisibleChoice(choice.Id, choice.Text) { Media = choice.Media })
             .ToArray();
 
     private static NarrativeNode FindNode(ScenarioDocument scenario, string nodeId) =>
@@ -977,13 +987,15 @@ public static class ScenarioValidator
             ValidateCondition(node.EnterCondition, $"nodes.{node.Id}.enterCondition", nodes, issues, 0);
             ValidateEffects(node.OnEnterEffects, $"nodes.{node.Id}.onEnterEffects", nodes, issues, 0);
 
-            if (hasTypedInteractions && scenario.SchemaVersion < NarrativeVersions.LatestSchema)
+            if (hasTypedInteractions && scenario.SchemaVersion < NarrativeVersions.InteractionsSchema)
             {
                 issues.Add(Error(
                     "interactions_require_schema_2",
                     $"nodes.{node.Id}.interactions",
-                    "Typed interactions require schema version 2."));
+                    $"Typed interactions require schema version {NarrativeVersions.InteractionsSchema}."));
             }
+
+            ValidateStepMedia(node, scenario.SchemaVersion, issues);
 
             if (hasTypedInteractions && node.Choices.Count != 0)
             {
@@ -993,8 +1005,8 @@ public static class ScenarioValidator
                     "A node cannot combine legacy choices with typed interactions."));
             }
 
-            ValidateChoices(node.Choices, $"nodes.{node.Id}.choices", nodes, issues);
-            ValidateInteractions(node, nodes, issues);
+            ValidateChoices(node.Choices, $"nodes.{node.Id}.choices", nodes, issues, scenario.SchemaVersion);
+            ValidateInteractions(node, nodes, issues, scenario.SchemaVersion);
         }
 
         if (nodes.ContainsKey(scenario.InitialNodeId))
@@ -1016,7 +1028,8 @@ public static class ScenarioValidator
     private static void ValidateInteractions(
         NarrativeNode node,
         Dictionary<string, NarrativeNode> nodes,
-        List<ValidationIssue> issues)
+        List<ValidationIssue> issues,
+        int schemaVersion)
     {
         if (node.Interactions is not { Count: > 0 } interactions)
         {
@@ -1084,7 +1097,7 @@ public static class ScenarioValidator
                         issues.Add(Error("choice_set_empty", interactionPath, "A choice set requires at least one choice."));
                     }
 
-                    ValidateChoices(choiceSet.Choices, $"{interactionPath}.choices", nodes, issues);
+                    ValidateChoices(choiceSet.Choices, $"{interactionPath}.choices", nodes, issues, schemaVersion);
                     break;
                 case QuizInteraction quiz:
                     ValidateQuiz(quiz, interactionPath, nodes, issues);
@@ -1201,11 +1214,139 @@ public static class ScenarioValidator
         ValidateEffects(quiz.IncorrectEffects, $"{path}.incorrectEffects", nodes, issues, 0);
     }
 
+    private const int MaximumAssetUrlLength = 2_048;
+    private const int MaximumAnimationCueLength = 64;
+    private const int MaximumVisualDescriptionLength = 500;
+
+    /// <summary>
+    /// Media are decorative references. They are optional at every level, but
+    /// when present they must be resolvable by a client without ambiguity, in one
+    /// of two bounded forms: an absolute HTTPS URL, for assets a client instance
+    /// hosts itself; or a pack-scoped identifier "packId:assetId", for assets
+    /// shipped with a configuration and resolved through the pack manifest. The
+    /// second form is what lets a demonstration run entirely offline, with no host
+    /// to serve the files from. The engine never loads a media — it only carries
+    /// and validates the reference.
+    /// </summary>
+    private static void ValidateStepMedia(NarrativeNode node, int schemaVersion, List<ValidationIssue> issues)
+    {
+        if (node.Media is not StepMedia media)
+        {
+            return;
+        }
+
+        string path = $"nodes.{node.Id}.media";
+        if (schemaVersion < NarrativeVersions.MediaSchema)
+        {
+            issues.Add(Error(
+                "media_requires_schema_3",
+                path,
+                $"Step media require schema version {NarrativeVersions.MediaSchema}."));
+        }
+
+        ValidateAssetUrl(media.VisualUrl, $"{path}.visualUrl", issues);
+        ValidateAssetUrl(media.SoundUrl, $"{path}.soundUrl", issues);
+        if (media.VisualDescription is { Length: > MaximumVisualDescriptionLength })
+        {
+            issues.Add(Error(
+                "media_description_too_long",
+                $"{path}.visualDescription",
+                $"A visual description cannot exceed {MaximumVisualDescriptionLength} characters."));
+        }
+    }
+
+    private static void ValidateChoiceMedia(
+        NarrativeChoice choice,
+        string choicePath,
+        int schemaVersion,
+        List<ValidationIssue> issues)
+    {
+        if (choice.Media is not ChoiceMedia media)
+        {
+            return;
+        }
+
+        string path = $"{choicePath}.media";
+        if (schemaVersion < NarrativeVersions.MediaSchema)
+        {
+            issues.Add(Error(
+                "media_requires_schema_3",
+                path,
+                $"Choice media require schema version {NarrativeVersions.MediaSchema}."));
+        }
+
+        ValidateAssetUrl(media.SoundUrl, $"{path}.soundUrl", issues);
+        if (media.AnimationCue is not null
+            && (string.IsNullOrWhiteSpace(media.AnimationCue) || media.AnimationCue.Length > MaximumAnimationCueLength))
+        {
+            issues.Add(Error(
+                "media_animation_cue_invalid",
+                $"{path}.animationCue",
+                $"An animation cue must be non-empty and at most {MaximumAnimationCueLength} characters."));
+        }
+    }
+
+    private static void ValidateAssetUrl(string? value, string path, List<ValidationIssue> issues)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(value)
+            || value.Length > MaximumAssetUrlLength
+            || !(IsHttpsUrl(value) || IsPackReference(value)))
+        {
+            issues.Add(Error(
+                "media_asset_invalid",
+                path,
+                "A media asset must be an absolute HTTPS URL or a pack reference \"packId:assetId\"."));
+        }
+    }
+
+    private static bool IsHttpsUrl(string value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps;
+
+    /// <summary>
+    /// A pack reference is "packId:assetId", both segments limited to lowercase
+    /// letters, digits, dot, dash and underscore. The grammar is deliberately
+    /// narrow so a reference can never be mistaken for a URL, a path or a scheme
+    /// a client might try to dereference.
+    /// </summary>
+    private static bool IsPackReference(string value)
+    {
+        int separator = value.IndexOf(':', StringComparison.Ordinal);
+        if (separator <= 0 || separator == value.Length - 1)
+        {
+            return false;
+        }
+
+        return IsPackSegment(value.AsSpan(0, separator))
+            && IsPackSegment(value.AsSpan(separator + 1));
+    }
+
+    private static bool IsPackSegment(ReadOnlySpan<char> segment)
+    {
+        foreach (char character in segment)
+        {
+            bool allowed = (character >= 'a' && character <= 'z')
+                || (character >= '0' && character <= '9')
+                || character is '.' or '-' or '_';
+            if (!allowed)
+            {
+                return false;
+            }
+        }
+
+        return !segment.IsEmpty;
+    }
+
     private static void ValidateChoices(
         IReadOnlyList<NarrativeChoice> choices,
         string path,
         Dictionary<string, NarrativeNode> nodes,
-        List<ValidationIssue> issues)
+        List<ValidationIssue> issues,
+        int schemaVersion)
     {
         string[] duplicateIds = choices
             .GroupBy(static choice => choice.Id, StringComparer.Ordinal)
@@ -1237,6 +1378,7 @@ public static class ScenarioValidator
 
             ValidateCondition(choice.Condition, $"{choicePath}.condition", nodes, issues, 0);
             ValidateEffects(choice.Effects, $"{choicePath}.effects", nodes, issues, 0);
+            ValidateChoiceMedia(choice, choicePath, schemaVersion, issues);
         }
     }
 
