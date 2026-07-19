@@ -76,7 +76,18 @@ internal sealed class ScenarioHelpProvider(
                 .ConfigureAwait(false);
             return snapshot is null ? null : Project(snapshot.SnapshotJson, nodeId, choiceId);
         }
-        catch (Exception exception) when (exception is HttpRequestException or TaskCanceledException or JsonException)
+        // Degrading is the whole contract of this port: help is a presentation
+        // layer, and Authoring being slow or down must never fail a player's
+        // request. Enumerating exception types proved too narrow — the resilience
+        // handler also raises TimeoutRejectedException and BrokenCircuitException,
+        // neither of which is an HttpRequestException. Anything short of the
+        // caller cancelling is therefore caught, and the offline path takes over.
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            AuthoringUnavailable(logger, scenarioVersionId, null);
+            return null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
         {
             AuthoringUnavailable(logger, scenarioVersionId, exception);
             return null;
