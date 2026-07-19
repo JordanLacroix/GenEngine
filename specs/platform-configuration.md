@@ -6,7 +6,7 @@ Ce document fixe la cible fonctionnelle prioritaire issue du plan initial, adapt
 
 - Une valeur métier configurable n'est pas codée en dur dans un client.
 - Chaque paramètre possède un type, un schéma, une valeur par défaut sûre, une portée, une version et une règle de validation.
-- Un secret n'entre jamais dans le registre lisible par les API d'administration ; il est référencé depuis un secret store d'infrastructure.
+- Un secret n'entre jamais dans le registre lisible par les API d'administration ; il est référencé depuis un secret store d'infrastructure. La grammaire de ces références et leur résolution sont fixées ci-dessous, section [Références de secrets](#références-de-secrets).
 - L'autorisation est évaluée côté service propriétaire de la ressource.
 - Une configuration publiée ou utilisée par une session est identifiée par version ; aucune modification silencieuse ne change un replay.
 - L'installation par défaut fonctionne avec un seul front générique, sans SSO, cloud ou IA.
@@ -139,6 +139,57 @@ Les adaptateurs IA restent en Infrastructure derrière des ports métier. Les pr
 Le chemin nominal de développement et CI est `Offline` : aide statique et réponses déterministes. Les modes local et cloud sont opt-in. Une panne, un quota atteint ou une sortie invalide déclenche une dégradation explicite, jamais un blocage du jeu.
 
 Chaque appel accepté possède un `callId` idempotent et un enregistrement append-only : front, acteur pseudonymisé, session, usage, profil/modèle, tokens entrée/sortie, tarif appliqué, coût, horodatage et résultat de fallback. Les tarifs sont versionnés et le coût historique ne change pas lors d'une mise à jour.
+
+## Références de secrets
+
+Un fournisseur externe — aujourd'hui `AiProviderDefinition` — se configure avec une
+`secretReference`. Cette référence **désigne** un secret, elle ne le **contient** pas. Le
+document de configuration, la base `Configuration`, les journaux, les traces et les messages
+d'erreur ne portent jamais la valeur du secret.
+
+### Grammaire
+
+```abnf
+reference  = scheme ":" identifier
+scheme     = [a-z] [a-z0-9-]*          ; minuscules ASCII, obligatoire
+identifier = 1*( VCHAR )               ; non vide, sans espace ni caractère de contrôle
+```
+
+La longueur totale est bornée à 512 caractères. Une référence vide ou absente signifie
+« ce fournisseur ne demande aucun identifiant » ; toute autre valeur doit être conforme,
+faute de quoi l'enregistrement est refusé en `invalid_secret_reference`.
+
+| Schéma | État | Identifiant | Résolution |
+| --- | --- | --- | --- |
+| `env` | **implémenté** | Nom de variable `[A-Z_][A-Z0-9_]*` | Environnement du processus, injecté par Compose ou la plateforme d'hébergement. |
+| `vault` | **réservé, non implémenté** | Chemin dans le coffre-fort | Aucun résolveur n'est enregistré : la référence dégrade en `secret_scheme_unsupported`. |
+
+Le choix d'`env` comme unique implémentation locale est délibéré : il ne lit ni n'écrit rien
+sur le disque, ce qui reste compatible avec le conteneur en lecture seule et l'utilisateur
+non-root. Aucun schéma « fichier » n'est prévu, pour ne pas encourager des secrets déposés
+sur le système de fichiers.
+
+### Extensibilité
+
+Ajouter un backend, c'est enregistrer un `ISecretResolver` supplémentaire dans le
+`SecretStore` ; la grammaire ne change pas. Un coffre-fort — Azure Key Vault ou équivalent —
+prendra la place réservée par le schéma `vault`. Ce dépôt ne livre **aucun client de
+coffre-fort** : il ne peut pas être testé ici honnêtement.
+
+### Dégradation
+
+L'échec de résolution est une **valeur**, jamais une exception. Un fournisseur dont le secret
+est introuvable est vu comme non configuré et l'appelant se replie sur le fournisseur
+`Offline`, conformément à la section précédente. La cause remontée est un code stable et
+clos — `secret_not_configured`, `secret_reference_malformed`, `secret_scheme_unsupported`,
+`secret_not_found` — qui ne transporte ni la référence, ni le chemin du backend, ni un
+fragment du secret. Une exception levée par un backend est rabattue sur `secret_not_found`
+pour la même raison.
+
+Le secret résolu est porté par un `SecretValue` dont tous les rendus implicites —
+`ToString`, interpolation, formatage de log structuré, sérialisation JSON — produisent `***`.
+Seul un appel délibéré à `Reveal()` rend la valeur claire ; c'est le point unique à auditer,
+et il n'a lieu qu'au moment de tendre l'identifiant au fournisseur externe.
 
 ## Definition of Done d'une fonctionnalité
 
