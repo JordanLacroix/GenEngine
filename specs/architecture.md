@@ -2,7 +2,7 @@
 
 ## Décision
 
-GenEngine adopte une **architecture distribuée orientée services**, structurée avec DDD et Clean Architecture. Il n’existe aucun déployable backend global : `Authoring`, `Play` et `Identity` sont trois services autonomes, versionnés et déployables indépendamment.
+GenEngine adopte une **architecture distribuée orientée services**, structurée avec DDD et Clean Architecture. Il n’existe aucun déployable backend global : `Authoring`, `Play`, `Identity`, `Configuration`, `PlayerExperience` et `Organization` sont six services autonomes, versionnés et déployables indépendamment. L’ADR 0002 a posé les trois premiers ; les ADR 0005 et 0006 ont ajouté le control plane de configuration puis le service d’organisation. Tout nouveau bounded context exige un ADR avant création.
 
 Le moteur `Narrative` est une bibliothèque métier pure et versionnée. Il est embarqué dans les services qui doivent valider ou exécuter une narration afin de préserver le déterminisme et d’éviter un appel réseau dans la boucle d’exécution.
 
