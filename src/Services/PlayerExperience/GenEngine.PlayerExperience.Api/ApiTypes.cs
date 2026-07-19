@@ -10,6 +10,9 @@ public sealed record ConfigureFamiliarRequest(int ExpectedRevision, FamiliarSele
 public sealed record PurchaseRequest(Guid OfferId, string IdempotencyKey);
 public sealed record OnboardingCommandRequest(string IdempotencyKey);
 
+/// <summary>A null <see cref="JourneyId"/> clears the default journey.</summary>
+public sealed record SelectJourneyRequest(int ExpectedRevision, Guid? JourneyId);
+
 public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsService) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)

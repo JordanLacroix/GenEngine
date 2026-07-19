@@ -5,8 +5,9 @@
 - `GET /experience/{frontId}` — **anonyme** ; retourne la dernière configuration publiée, expurgée (voir « Surfaces de lecture » ci-dessous).
 - `GET /client-bootstrap/{frontId}` — **anonyme** ; charge utile minimale pour un client qui démarre avant toute authentification.
 - `GET /admin/configuration/{frontId}` exige `config.read` et reste la **seule** surface qui expose le document complet.
-- `PUT /admin/configuration/{frontId}` exige `config.write` et un `expectedRevision` pour une mise à jour.
+- `PUT /admin/configuration/{frontId}` exige `config.write` et un `expectedRevision` pour une mise à jour. Il rejette en `invalid_secret_reference` toute `aiProviders[].secretReference` non conforme à la grammaire de référence ; le message d'erreur ne réémet jamais la valeur refusée.
 - `POST /admin/configuration/{frontId}/publish` exige `config.publish` et publie une nouvelle version immuable.
+- `GET /admin/journeys/{frontId}` exige `journey.manage` — vue d'exploitation **en lecture seule** du catalogue de parcours, parcours masqués compris : `frontId`, `revision`, `publishedVersion` et, par parcours, ses catégories et prérequis résolus par nom ainsi que son nombre de scénarios. L'écriture reste `PUT /admin/configuration/{frontId}` : le Studio et l'Administration éditent déjà ce document par ce chemin, et un second chemin d'écriture ferait courir deux clients sur la même révision optimiste.
 - `GET /asset-packs` — packs d'assets livrés par l'instance : `packId`, `packVersion`, `configurationKey`, `description`, `assetCount`, `filesBaseUrl`.
 - `GET /asset-packs/{packId}` — manifeste complet d'un pack. Un pack inconnu renvoie `asset_pack_not_found` en 404, jamais un manifeste vide.
 - `GET /asset-packs/{packId}/files/{chemin}` — octets d'un asset, en `image/svg+xml`, `image/png` ou `audio/ogg`, avec `Cache-Control: public, max-age=31536000, immutable` et `X-Content-Type-Options: nosniff`.
@@ -37,6 +38,8 @@ Trois surfaces distinctes, du plus restreint au plus complet. Ce tableau fait fo
 | `assignments` (affectations, fenêtres, échéances) | **non** | **non** (`[]`) | oui |
 
 `GET /experience/{frontId}` est anonyme parce que les services `Play`, `PlayerExperience` et `Authoring` la consomment en interservice pour le catalogue jouable (familiers, économie, onboarding, politique assistant, catégories, parcours) et parce qu'un visiteur de la démonstration doit pouvoir la lire. Elle ne doit donc porter que du contenu affichable publiquement. Les identifiants de locataire Entra dont un client a besoin pour un démarrage OIDC restent publiés par Identity sur `GET /auth/providers`, qui en est la source unique ; les endpoints de providers IA, la structure d'organisation et les affectations n'ont aucun consommateur non authentifié et sont retirés.
+
+La « référence opaque » que le tableau classe en administration seule obéit à la grammaire `scheme:identifier` définie par [`platform-configuration.md`](../platform-configuration.md#références-de-secrets), qui en est la source unique. Elle **désigne** un secret et ne le contient jamais : aucune surface, y compris celle d'administration, ne restitue la valeur du secret ; seul le service qui appelle le fournisseur la résout depuis son propre environnement.
 
 `GET /client-bootstrap/{frontId}` ne porte volontairement **aucun** catalogue, aucune organisation, aucune affectation, aucun provider IA, aucune économie et aucun module : uniquement de quoi peindre le premier écran et proposer une entrée. `applicationName` retombe sur `game.name` si `branding.applicationName` est absent ; un client sans configuration lisible retombe sur « GenEngine ». `version` et `publishedAt` permettent la mise en cache ; la `revision` du brouillon n'est pas exposée car elle révèle une activité éditoriale non publiée.
 
@@ -110,8 +113,10 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 
 ## Player Experience — port 5205
 
-- `GET /me/experience?frontId={frontId}` — familier, portefeuille, possessions et journal récent
-- `GET /me/experience/bootstrap?frontId={frontId}` — prochaine action autoritative, configuration du tutoriel et état joueur
+- `GET /me/experience?frontId={frontId}` — familier, portefeuille, possessions et journal récent, plus `defaultJourneyId` et `effectiveJourney` (le parcours complet avec sa progression)
+- `GET /me/experience/bootstrap?frontId={frontId}` — prochaine action autoritative, configuration du tutoriel et état joueur, `effectiveJourney` compris
+- `GET /me/experience/journeys?frontId={frontId}` — exige `journey.read`. Parcours visibles du front avec, par parcours, son état de déblocage (`isUnlocked`, `blockedByJourneyIds`, `blockedByJourneyNames`), sa progression (`scenarioCount`, `startedCount`, `completedCount`, `progressPercent`) et la même progression par catégorie, pour que la carte affiche un indicateur par porte. La réponse porte aussi `defaultJourneyId`, `effectiveJourneyId` et la `revision` du profil à réutiliser en écriture
+- `PUT /me/experience/journey?frontId={frontId}` — exige `journey.read`. Corps `{ expectedRevision, journeyId }` ; un `journeyId` nul efface le parcours par défaut. Le parcours est validé contre le document publié : inexistant ou invisible renvoie `journey_not_found`, prérequis non satisfaits renvoie `journey_locked`, et une révision périmée renvoie `revision_conflict` en 409
 - `PUT /me/experience/familiar?frontId={frontId}` — personnalisation contrôlée par le catalogue publié
 - `POST /me/experience/onboarding/steps/{stepId}/complete?frontId={frontId}` — progression idempotente d'une étape
 - `POST /me/experience/onboarding/skip?frontId={frontId}` — passage idempotent si autorisé

@@ -104,6 +104,19 @@ La tranche suivante complète les périodes métier nommées, l'import de masse 
 - `install-diapason.sh` n'est pas idempotent : `POST /scenarios/import` crée toujours un nouveau brouillon ;
 - le seeder de configuration ne rejoue jamais sur une base non vide : une instance antérieure conserve son ancien document.
 
+### Tranche `feat/journeys-default-progress` — vérifiée le 19 juillet 2026
+
+- Le parcours devient un objet de premier plan côté joueur : `PlayerProfile.DefaultJourneyId` (colonne nullable, migration EF `AddDefaultJourney`), `GET /me/experience/journeys` et `PUT /me/experience/journey` sous `journey.read`, avec le contrôle optimiste `ExpectedRevision` déjà en place. Un `journeyId` nul efface le choix.
+- Le choix est validé contre le document publié : `journey_not_found` pour un parcours inexistant ou invisible, `journey_locked` pour des prérequis non satisfaits. `GET /me/experience` et `GET /me/experience/bootstrap` portent `defaultJourneyId` et `effectiveJourney`, donc un client filtre sa carte sans second appel.
+- Progression agrégée par parcours **et** par catégorie depuis `ScenarioMastery`, qui n'est jamais recalculée : scénarios, entamés, terminés et pourcentage moyen. `ScenarioMastery` étant clé par version, le repli est fait sur deux critères indépendants : meilleure version pour le pourcentage, OU logique sur toutes les versions pour l'achèvement.
+- Un parcours prérequis **à périmètre vide compte comme terminé** et ne verrouille rien. L'inverse créait une impasse définitive et non réparable dès qu'une catégorie était supprimée après publication.
+- Tous les rôles système — Player, Creator et Administrator — sont désormais synchronisés au démarrage d'Identity par une seule boucle pilotée par les mêmes constantes que l'amorçage. Le rattrapage ne couvrait que Player et Administrator, et les listes de permissions étaient dupliquées entre création et rattrapage, ce qui avait déjà fait dériver Creator.
+- `journey.manage` est enfin câblée : `GET /admin/journeys/{frontId}` côté `Configuration`, en **lecture seule** et assumée comme telle — l'écriture reste `PUT /admin/configuration/{frontId}` pour ne pas faire courir le Studio et l'Administration sur deux chemins d'écriture de la même révision optimiste.
+- Détection de cycle des `PrerequisiteJourneyIds` corrigée sur le modèle des unités d'organisation : `A → B → A` et `A → B → C → A` sont refusés avec `journey_cycle`, l'auto-référence reste `invalid_journey`. Le partage d'une catégorie entre parcours reste valide et est couvert par un test.
+- `journey.read` ajoutée aux presets Player et Creator et synchronisée au démarrage d'Identity. Additif de bout en bout : une configuration et un profil existants fonctionnent sans parcours par défaut. 212 tests backend au vert après fusion de `main` (branding, hotlink et aide contextuelle).
+- Cohabitation vérifiée avec l'aide contextuelle : la résolution d'aide ne lit jamais `ScenarioMastery` — son `AlreadyExplored` vient de la requête appelante — et n'appelle ni `Map` ni `BuildJourneys`. Les deux fonctionnalités ne partagent que `GetOrCreateAsync` sur `PlayerProfile`, antérieur aux deux.
+- **Non traité** : aucun client Web ou iOS ne consomme encore ces routes ; la sélection reste invisible tant que le câblage client n'est pas fait. Les catégories du Diapason ne portent aucun `scenarioIds`, donc la progression y vaut zéro tant que `install-diapason.sh` n'a pas rattaché les scénarios.
+
 ### Tranche `feat/branding-client-bootstrap` — vérifiée le 19 juillet 2026
 
 - Bloc `branding` **facultatif et purement additif** dans `ExperienceDocument` : nom d'application, nom court, accroche, quatre icônes, `theme` (couleurs nommées avec huit jetons obligatoires, `colorScheme`, rayon de coin, typographie) et `accentPalette`. Cette dernière associe enfin les jetons d'accent de `CategoryDefinition`, `JourneyDefinition` et `FamiliarDefinition` à de vraies couleurs. Validation `invalid_branding` : hexadécimal strict `#RRGGBB`/`#RRGGBBAA`, icônes passées par l'`IsValidAssetUrl` existant (HTTPS absolu ou `packId:assetId`). Une configuration sans `branding` reste publiable et lisible à l'identique — test dédié.
@@ -119,6 +132,66 @@ La tranche suivante complète les périodes métier nommées, l'import de masse 
 - `source` et `isFallback` ne mentent plus : `source` désigne le message réellement retourné, `isFallback` n'est vrai que pour `OfflineRule`. La réponse porte en plus la modalité employée. Le niveau d'aide choisit la modalité, la fréquence d'intervention filtre la seule aide proactive.
 - Le port `IAssistantAiClient` est en place avec repli hors ligne garanti dans le service lui-même. **Aucun fournisseur réel n'est implémenté ni validé de bout en bout** : le défaut enregistré se déclare non configuré, et le branchement n'est couvert que par doubles (succès, erreur, dépassement de délai). Câbler un fournisseur réel reste à faire.
 - Un test vérifie qu'un appel d'aide n'écrit rien : ni sauvegarde, ni révision, ni journal, ni portefeuille.
+
+### Tranche `feat/secret-resolution` — vérifiée le 19 juillet 2026
+
+**Constat de départ, vérifié** : `AiProviderDefinition.SecretReference` existait depuis
+longtemps et `ConfigurationService.GetPublishedAsync` prenait soin de l'effacer des projections
+anonymes, mais **aucun chemin du dépôt ne transformait cette référence en identifiant
+utilisable**. Les seules occurrences de `SecretReference` dans tout le dépôt étaient la
+déclaration du record, la ligne de redaction, la valeur par défaut et l'assertion de redaction
+dans les tests. La valeur par défaut était `"azure-foundry-credential"` : une chaîne opaque
+sans grammaire ni résolveur.
+
+- Nouveau building block [`GenEngine.Secrets`](../src/BuildingBlocks/GenEngine.Secrets/) — sans
+  dépendance, sans I/O disque : `SecretReference` (grammaire `scheme:identifier`),
+  `SecretValue` (rendus implicites rabattus sur `***`, `Reveal()` explicite),
+  `SecretResolution` (échec = valeur, cause close), `ISecretResolver`/`ISecretStore`,
+  `EnvironmentSecretResolver` (schéma `env`) et `SecretStore` (dispatch par schéma).
+- `AiProviderCredentialResolver` dans `Configuration.Application` traduit un
+  `AiProviderDefinition` en `AiProviderAvailability` (`ready`, `provider_disabled`,
+  `no_credential_required`, `secret_not_found`…) ou en `SecretValue?`.
+- Grammaire refusée à l'écriture : `PUT /admin/configuration/{frontId}` renvoie
+  `invalid_secret_reference` sans réémettre la valeur refusée.
+- Défaut migré vers `env:GENENGINE_AI_AZURE_FOUNDRY_KEY` ; variable câblée vide dans
+  `compose.yaml` (Authoring, PlayerExperience) et `.env.example`.
+- Grammaire et extensibilité documentées dans
+  [`platform-configuration.md`](platform-configuration.md#références-de-secrets).
+
+**Ce qui est testé** (`tests/GenEngine.Services.Tests/SecretResolutionTests.cs` ; 226 tests
+backend au vert après fusion de `main`) : résolution réussie depuis l'environnement ; secret absent → fournisseur
+non utilisable, aucun fragment de référence dans la raison ; backend qui lève → rabattu sur
+`secret_not_found` ; huit grammaires invalides rejetées ; rejet explicite à l'`Upsert` ;
+`vault:` dégradé en `secret_scheme_unsupported` ; fournisseur `Offline` et fournisseur
+désactivé. Le test central `NoSecretCanReachAClientProjectionAnAvailabilityPayloadOrALog`
+résout **réellement** le secret, puis prouve son absence des deux surfaces anonymes
+(`GET /experience` et le `GET /client-bootstrap` livré par #52), du payload de disponibilité
+et de sept chemins de rendu de log.
+
+Le test `AdminViewKeepsTheCompleteDocumentTheAnonymousRouteNoLongerServes` livré par #52
+figeait l'ancienne valeur littérale `"azure-foundry-credential"` ; il a été recalé sur le
+nouveau défaut et vérifie en plus que toute référence par défaut respecte la grammaire, pour
+qu'un défaut illisible par tout résolveur échoue au test plutôt qu'à l'exécution.
+
+**Ce qui n'est pas testé et ne doit pas être présenté autrement** : aucun client de
+coffre-fort n'est livré. Le schéma `vault` est *réservé*, pas implémenté — il n'existe aucun
+code à tester, et rien ici n'a été validé contre un coffre-fort réel. Aucun appel à un
+fournisseur IA réel n'a été exercé.
+
+**Branchement avec `IAssistantAiClient`** (fusionné entre-temps par #56) : les deux contrats
+s'accordent sans adaptation. `IAssistantAiClient.IsConfigured` correspond exactement à
+`AiProviderAvailability.IsUsable`, et le `null` que le port impose de retourner plutôt que de
+lever correspond à la règle « l'échec est une valeur » de `SecretResolution`. La documentation
+du port dit déjà qu'une implémentation « resolves its own credentials locally » : c'est
+précisément ce que `SecretStore` fournit, et c'était la pièce manquante.
+
+**Le câblage reste toutefois à faire, et rien ici ne doit être lu autrement.** Le seul
+`IAssistantAiClient` enregistré est `OfflineAssistantAiClient`, dont `IsConfigured` est
+`false` en dur ; aucun chemin de `PlayerExperience` n'appelle aujourd'hui `SecretStore`.
+Brancher la résolution suppose de livrer un client de fournisseur réel — ce que cette tranche
+s'interdit faute de pouvoir le vérifier. Enregistrer un `SecretStore` inutilisé dans la DI de
+`PlayerExperience` aurait ajouté un composant sans consommateur, ce que les instructions du
+dépôt proscrivent ; la dépendance sera ajoutée en même temps que le client qui s'en sert.
 
 ### Tranche `feat/document-interaction`
 
