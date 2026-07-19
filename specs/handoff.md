@@ -141,4 +141,4 @@ Contexte livré au jalon 3 :
 
 ## Critère de passage de relais réussi
 
-Un nouvel agent doit pouvoir cloner le dépôt, lire `CLAUDE.md`, lancer les commandes ci-dessus et reprendre P0 du jalon 4 sans dépendre de l’historique de conversation qui a créé le projet.
+Un nouvel agent doit pouvoir cloner le dépôt, lire `AGENTS.md`, lancer les commandes ci-dessus et reprendre P0 du jalon 4 sans dépendre de l’historique de conversation qui a créé le projet.

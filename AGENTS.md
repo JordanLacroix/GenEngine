@@ -1,4 +1,9 @@
-# Instructions Codex — GenEngine
+# Instructions agents — GenEngine
+
+**Ce fichier est la source unique des instructions du dépôt**, quel que soit l'agent
+(Codex, Claude Code ou autre). `CLAUDE.md` n'y renvoie que par un lien : dupliquer
+les consignes dans deux fichiers les fait diverger, et elles ont déjà donné des
+ordres contradictoires sur la tâche à mener.
 
 Lis ce fichier avant toute modification, puis consulte dans cet ordre :
 
@@ -72,7 +77,31 @@ docker compose -f compose.yaml -f compose.observability.yaml up --build --detach
 - Le smoke test Compose standard ne démarre pas la surcouche d’observabilité ; la CI valide néanmoins sa configuration.
 - Les identifiants et secrets présents dans Compose sont exclusivement des valeurs de développement local.
 - Le projet est public mais ne possède pas encore de licence ; n’affirme aucune permission de réutilisation.
+- Le document de scénario est **hashé canoniquement** et les sessions rejouent contre un snapshot publié. Tout champ ajouté au schéma doit être **nullable** : un type non-nullable sérialise sa valeur par défaut, change le hash de tous les snapshots existants et casse le replay.
+- Une montée de schéma se prouve, elle ne s'affirme pas : reconstruis le moteur d'avant depuis git, calcule hash et état final rejoué avec ce binaire, et fige ces valeurs en tests.
+- La validation d'une capacité se conditionne à sa **constante de schéma dédiée** (`InteractionsSchema`, `MediaSchema`, `OptionalInteractionsSchema`), jamais à `LatestSchema` : sinon monter la version invalide en silence tous les documents antérieurs.
+- La CI **ne vérifie pas le format** et `main` porte des écarts préexistants (`FINALNEWLINE`, `WHITESPACE`). Ne les corrige pas au passage, mais n'en ajoute aucun.
+- `scripts/smoke-test.sh` exige `GENENGINE_BOOTSTRAP_KEY` et une base Identity sans administrateur ; sur une base déjà amorcée il l'explique et sort en 1.
+- Le contrôle de liens exclut les badges `img.shields.io` : leurs délais d'attente rendaient la CI non déterministe.
 
 ## Prochaine tâche
 
-Le jalon 4 est actif. Les frontières distribuées de `Configuration` et `Organization`, les rôles custom, les unités, memberships et affectations runtime sont livrés. La prochaine tranche P0 doit compléter périodes, import de masse, parcours affectés et isolation systématique des autres services, avant d'approfondir l'assistant IA et l'économie. Suivre [`specs/functional-roadmap.md`](specs/functional-roadmap.md) et ne marquer une tâche `done` qu'après code, tests, contrats et documentation fusionnés.
+Le jalon 3 (durcissement) est clos. Le **jalon 4** est actif et centré sur la
+plateforme configurable.
+
+Sont livrés et fusionnés : le control plane `Configuration`, le service
+`Organization` avec unités, périodes, memberships et imports de masse, la
+configuration de référence **Le Diapason** (six postures, dix scénarios,
+amorçage d'instance), les médias paramétrables (schéma v3), les interactions
+facultatives (schéma v4), le pack d'assets CC0 servi par `Configuration`, et
+côté clients la coque immersive, le Studio et la démonstration Diapason.
+
+Restent ouverts, sans priorité arbitrée : la rotation quotidienne des scénarios
+est documentée mais non implémentée ; le moteur ne distingue pas une partie
+perdue d'une partie gagnée, donc les « game over » sont narratifs seulement ;
+aucune ambiance, musique ni illustration de personnage n'existe dans le pack ;
+et aucun contenu Diapason n'utilise encore `isOptional`.
+
+Consulte [`specs/handoff.md`](specs/handoff.md) avant de choisir : il fait foi
+sur ce qui est réellement vérifié. Ne marque une tâche `done` qu'après code,
+tests, contrats et documentation fusionnés.
