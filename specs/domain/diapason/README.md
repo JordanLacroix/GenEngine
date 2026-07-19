@@ -20,7 +20,7 @@ Diapason remplace l'ancien contenu de démonstration (« Les braises sous la bru
 
 ## Prémisse
 
-2026. Notre monde, sans surcouche de fiction. Les systèmes d'intelligence artificielle sont déployés partout : dans les écoles, dans les administrations, dans les entreprises, dans les chaînes de décision qui accordent ou refusent un droit. Certains gouvernements en interdisent l'usage par peur, d'autres s'en servent pour nier que certaines personnes existent. L'accélération n'est maîtrisée par personne, y compris par ceux qui la produisent.
+2026\. Notre monde, sans surcouche de fiction. Les systèmes d'intelligence artificielle sont déployés partout : dans les écoles, dans les administrations, dans les entreprises, dans les chaînes de décision qui accordent ou refusent un droit. Certains gouvernements en interdisent l'usage par peur, d'autres s'en servent pour nier que certaines personnes existent. L'accélération n'est maîtrisée par personne, y compris par ceux qui la produisent.
 
 Le symptôme central n'est pas technique. C'est que les gens ont cessé de prendre du recul. Non par bêtise : parce que le recul coûte du temps, qu'il expose celui qui le prend, et qu'une réponse fluide, complète et immédiatement disponible désactive presque toujours l'envie de vérifier. La fluidité s'est substituée à la preuve.
 

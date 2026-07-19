@@ -8,7 +8,7 @@ Trois scénarios sont mis en avant chaque jour. L'objectif est de donner un poin
 
 Déterministe, sans état stocké, sans horloge système côté moteur :
 
-```
+```text
 selection(jour) = [ pool[((jour * taille) + offset) mod |pool|] pour offset dans [0, taille) ]
 ```
 
