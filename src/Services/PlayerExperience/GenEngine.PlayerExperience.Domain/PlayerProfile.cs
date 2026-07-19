@@ -39,6 +39,26 @@ public sealed class PlayerProfile
     public string FamiliarCustomName { get; private set; } = string.Empty;
     public int FamiliarInterventionFrequency { get; private set; } = 2;
     public bool FamiliarProactive { get; private set; } = true;
+
+    /// <summary>
+    /// Every personalisation axis the player has chosen, keyed by stable axis key.
+    /// </summary>
+    /// <remarks>
+    /// Held as one JSON document rather than one column per axis so adding an axis to
+    /// the catalogue never requires a schema migration. The four historical columns
+    /// above are kept and mirrored from this map: a profile written before the axes
+    /// existed still reads correctly, and a client that only knows form/tone/style/accent
+    /// keeps working.
+    /// </remarks>
+    public string FamiliarAxisSelectionsJson { get; private set; } = "{}";
+
+    /// <summary>The finale the player has crossed, and when. Never cleared: crossing it is a memory, not a state machine.</summary>
+    public Guid? FinaleId { get; private set; }
+    public DateTimeOffset? FinaleReachedAt { get; private set; }
+
+    public IReadOnlyDictionary<string, string> FamiliarAxisSelections =>
+        JsonSerializer.Deserialize<Dictionary<string, string>>(FamiliarAxisSelectionsJson) ?? [];
+
     /// <summary>
     /// Journey the player browses by default. Nullable on purpose: a profile created
     /// before journeys existed, or a front publishing none, stays fully playable and
@@ -59,12 +79,14 @@ public sealed class PlayerProfile
     public static PlayerProfile Create(string userId, string frontId, int initialBalance, DateTimeOffset now) =>
         new(Guid.NewGuid(), userId, frontId, initialBalance, now);
 
+    /// <summary>
+    /// Applies a familiar personalisation. <paramref name="axisSelections"/> is the
+    /// authoritative map; the four legacy columns are mirrored from it so nothing that
+    /// reads them has to change.
+    /// </summary>
     public void ConfigureFamiliar(
         Guid familiarId,
-        string form,
-        string tone,
-        string writingStyle,
-        string accent,
+        IReadOnlyDictionary<string, string> axisSelections,
         int helpLevel,
         string? customName,
         int interventionFrequency,
@@ -83,17 +105,56 @@ public sealed class PlayerProfile
             throw new PlayerExperienceDomainException("invalid_intervention_frequency", "Intervention frequency must be between 0 and 5.");
         }
 
+        string trimmedName = customName?.Trim() ?? string.Empty;
+        if (trimmedName.Length > 80 || trimmedName.Any(IsUnsafeNameCharacter))
+        {
+            throw new PlayerExperienceDomainException("invalid_custom_name", "The familiar name must be at most 80 printable characters without markup.");
+        }
+
+        Dictionary<string, string> selections = new(StringComparer.Ordinal);
+        foreach (KeyValuePair<string, string> selection in axisSelections)
+        {
+            selections[selection.Key] = selection.Value.Trim();
+        }
+
         FamiliarId = familiarId;
-        FamiliarForm = form.Trim();
-        FamiliarTone = tone.Trim();
-        FamiliarWritingStyle = writingStyle.Trim();
-        FamiliarAccent = accent.Trim();
+        FamiliarAxisSelectionsJson = JsonSerializer.Serialize(selections.OrderBy(static item => item.Key, StringComparer.Ordinal).ToDictionary(static item => item.Key, static item => item.Value, StringComparer.Ordinal));
+        FamiliarForm = Selected(selections, "form");
+        FamiliarTone = Selected(selections, "tone");
+        FamiliarWritingStyle = Selected(selections, "writingStyle");
+        FamiliarAccent = Selected(selections, "accent");
         FamiliarHelpLevel = helpLevel;
-        FamiliarCustomName = customName?.Trim() ?? string.Empty;
+        FamiliarCustomName = trimmedName;
         FamiliarInterventionFrequency = interventionFrequency;
         FamiliarProactive = proactive;
         Touch(now);
     }
+
+    /// <summary>
+    /// Records that the player crossed the finale. Idempotent, and deliberately
+    /// one-way: nothing in this aggregate reads the stamp to deny an action, so the
+    /// player keeps playing exactly as before.
+    /// </summary>
+    public bool MarkFinaleReached(Guid finaleId, DateTimeOffset now)
+    {
+        if (FinaleId == finaleId && FinaleReachedAt is not null) return false;
+        FinaleId = finaleId;
+        FinaleReachedAt = now;
+        Touch(now);
+        return true;
+    }
+
+    private static string Selected(Dictionary<string, string> selections, string axis) =>
+        selections.TryGetValue(axis, out string? value) ? value : string.Empty;
+
+    /// <summary>
+    /// The custom name is free text, so it must not be able to carry active content
+    /// into a client that renders it. Angle brackets and ampersands are refused
+    /// outright rather than escaped, because escaping is the renderer's job and we
+    /// cannot audit every renderer.
+    /// </summary>
+    private static bool IsUnsafeNameCharacter(char character) =>
+        char.IsControl(character) || character is '<' or '>' or '&';
 
     /// <summary>
     /// Selects the journey the player browses by default, or clears it when

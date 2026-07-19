@@ -7,6 +7,7 @@
 - `GET /admin/configuration/{frontId}` exige `config.read` et reste la **seule** surface qui expose le document complet.
 - `PUT /admin/configuration/{frontId}` exige `config.write` et un `expectedRevision` pour une mise à jour. Il rejette en `invalid_secret_reference` toute `aiProviders[].secretReference` non conforme à la grammaire de référence ; le message d'erreur ne réémet jamais la valeur refusée.
 - `POST /admin/configuration/{frontId}/publish` exige `config.publish` et publie une nouvelle version immuable.
+- `GET /admin/configuration/field-descriptors` exige `config.read` et retourne l'aide intégrée de **chaque champ** du document de configuration. La route ne dépend d'aucun front : elle décrit le schéma, pas une instance.
 - `GET /admin/journeys/{frontId}` exige `journey.manage` — vue d'exploitation **en lecture seule** du catalogue de parcours, parcours masqués compris : `frontId`, `revision`, `publishedVersion` et, par parcours, ses catégories et prérequis résolus par nom ainsi que son nombre de scénarios. L'écriture reste `PUT /admin/configuration/{frontId}` : le Studio et l'Administration éditent déjà ce document par ce chemin, et un second chemin d'écriture ferait courir deux clients sur la même révision optimiste.
 - `GET /asset-packs` — packs d'assets livrés par l'instance : `packId`, `packVersion`, `configurationKey`, `description`, `assetCount`, `filesBaseUrl`.
 - `GET /asset-packs/{packId}` — manifeste complet d'un pack. Un pack inconnu renvoie `asset_pack_not_found` en 404, jamais un manifeste vide.
@@ -66,6 +67,28 @@ Une couleur est un hexadécimal strict `#RRGGBB` ou `#RRGGBBAA` — les couleurs
 La vue `GET /experience/{frontId}` contient le jeu global, son histoire, les catégories, le mode et les fournisseurs d'authentification activés, les providers IA sans endpoint ni credential, les familiers, l'économie, l'introduction, le shell joueur, la démo, l'aide, l'onboarding, la politique assistant, le journal, les médias, le branding et les modules avec leurs permissions nécessaires.
 
 Le bloc `media` porte le paramétrage sonore et visuel de l'instance : `enabled`, `defaultMuted`, une liste `locations` (`location`, `ambienceUrl`, `musicUrl`, `backgroundUrl`, `backgroundDescription`, `bpm`, `loop`) pour les emplacements applicatifs (`home`, `map`, `player`, `journal`, `familiar`, `shop`…) et un bloc `gameOver` (`musicUrl`, `visualUrl`, `visualDescription`, `labelKey`). Tous les assets sont facultatifs et doivent être soit des URL absolues en HTTPS, soit des références de pack `packId:assetId` résolues via le manifeste du pack livré (même grammaire que le moteur, pour qu'une instance sans serveur d'assets reste illustrée) ; un `bpm` déclaré reste entre 40 et 200. Un emplacement ne peut être nommé qu'une fois. Les violations renvoient `invalid_media`. Un opérateur pilote donc l'ambiance par instance via `PUT /admin/configuration/{frontId}` puis `POST /admin/configuration/{frontId}/publish`, sans mécanisme parallèle.
+
+### Aide intégrée par champ
+
+Chaque descripteur porte `path`, `label`, `description`, `example` et un `constraint` facultatif. La **granularité est le chemin de champ** : les noms JSON du document joints par un point, un élément de collection étant noté `[]` — `game.name`, `economy.offers[].price`, `familiars[].axes[].options[].value`. C'est l'adressage le plus direct, il survit au déplacement d'un champ dans son bloc, et un formulaire retrouve son aide sans table de correspondance supplémentaire.
+
+Le catalogue est maintenu exhaustif par construction : `ConfigurationFieldCatalog.EnumerateDocumentPaths()` parcourt le type `ExperienceDocument` par réflexion, et `ConfigurationFieldCatalogTests` compare ce parcours au catalogue dans les deux sens. **Ajouter un champ sans l'accompagner d'un descripteur fait échouer les tests**, et un descripteur devenu orphelin est signalé de la même façon. Les deux clients consomment cette route au lieu de réécrire les textes.
+
+### Bloc `finale`
+
+Le bloc `finale` est facultatif et décrit un **scénario de fin global**, absent de toute version antérieure. Il porte `id`, `enabled`, `title`, `summary`, `body`, `mode` (`All` ou `Any`), `visualUrl`, `musicUrl`, `labelKey` et une liste `conditions`. Chaque condition porte `id`, `type`, `description` et seulement les opérandes que son type utilise :
+
+| `type` | Opérandes lus | Satisfaite quand |
+|---|---|---|
+| `ScenariosCompleted` | `threshold`, `scenarioIds` facultatif | `threshold` scénarios distincts terminés |
+| `CategoryCompleted` | `categoryId` | tous les scénarios rattachés à la catégorie sont terminés |
+| `JourneyCompleted` | `journeyId` | tous les scénarios des catégories du parcours sont terminés |
+| `EndingsReached` | `endingIds`, `threshold` facultatif | `threshold` des fins listées ont été atteintes |
+| `MasteryPercentReached` | `threshold`, `scenarioIds` facultatif | la maîtrise moyenne atteint `threshold` pour cent |
+
+Les violations renvoient `invalid_finale` ou `invalid_finale_condition`. Une catégorie ou un parcours sans scénario rattaché n'est **jamais** considéré comme terminé : traiter « rien à faire » comme « fait » déclencherait la fin sur une instance fraîchement amorcée.
+
+L'évaluation est déterministe et se fait dans `PlayerExperience` à partir de `ScenarioMastery`, la maîtrise cross-session déjà enregistrée par (profil, version de scénario). **Aucun second système de suivi n'est introduit.** Atteindre la fin est un **seuil franchi et mémorisé**, jamais un état terminal : le profil reçoit `finaleId` et `finaleReachedAt`, une entrée de journal `FinaleReached` est écrite une seule fois, et **rien n'est verrouillé** — le joueur continue de jouer, de progresser et d'être récompensé exactement comme avant. Il n'existe volontairement aucun drapeau permettant de rendre la fin bloquante.
 
 Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs utilisent Problem Details. Les routes métier exigent un JWT Bearer sauf inscription, connexion, catalogue public et contrat interne explicitement protégé.
 
@@ -156,7 +179,7 @@ Les clients vivant dans des dépôts distincts, ils sont alignés en parallèle 
 - `GET /me/experience/bootstrap?frontId={frontId}` — prochaine action autoritative, configuration du tutoriel et état joueur, `effectiveJourney` compris
 - `GET /me/experience/journeys?frontId={frontId}` — exige `journey.read`. Parcours visibles du front avec, par parcours, son état de déblocage (`isUnlocked`, `blockedByJourneyIds`, `blockedByJourneyNames`), sa progression (`scenarioCount`, `startedCount`, `completedCount`, `progressPercent`) et la même progression par catégorie, pour que la carte affiche un indicateur par porte. La réponse porte aussi `defaultJourneyId`, `effectiveJourneyId` et la `revision` du profil à réutiliser en écriture
 - `PUT /me/experience/journey?frontId={frontId}` — exige `journey.read`. Corps `{ expectedRevision, journeyId }` ; un `journeyId` nul efface le parcours par défaut. Le parcours est validé contre le document publié : inexistant ou invisible renvoie `journey_not_found`, prérequis non satisfaits renvoie `journey_locked`, et une révision périmée renvoie `revision_conflict` en 409
-- `PUT /me/experience/familiar?frontId={frontId}` — personnalisation contrôlée par le catalogue publié
+- `PUT /me/experience/familiar?frontId={frontId}` — personnalisation contrôlée **axe par axe** par le catalogue publié. Le corps accepte toujours `form`, `tone`, `writingStyle` et `accent`, et accepte en plus une carte `axes` (clé d'axe → valeur), qui l'emporte pour les clés qu'elle porte. Une valeur hors catalogue renvoie `invalid_familiar_configuration`, un axe non déclaré renvoie `unknown_familiar_axis`, un axe non renseigné retombe sur le `defaultValue` de l'axe. `customName` reste libre mais borné à 80 caractères imprimables et refuse `<`, `>`, `&` et les caractères de contrôle (`invalid_custom_name`)
 - `POST /me/experience/onboarding/steps/{stepId}/complete?frontId={frontId}` — progression idempotente d'une étape
 - `POST /me/experience/onboarding/skip?frontId={frontId}` — passage idempotent si autorisé
 - `POST /me/experience/onboarding/reset?frontId={frontId}` — recommence le tutoriel courant

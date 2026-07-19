@@ -35,6 +35,7 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
             entity.Property(static profile => profile.FamiliarWritingStyle).HasMaxLength(120);
             entity.Property(static profile => profile.FamiliarAccent).HasMaxLength(80);
             entity.Property(static profile => profile.FamiliarCustomName).HasMaxLength(80);
+            entity.Property(static profile => profile.FamiliarAxisSelectionsJson).HasColumnType("jsonb");
             entity.Property(static profile => profile.Revision).IsConcurrencyToken();
             entity.HasIndex(static profile => new { profile.UserId, profile.FrontId }).IsUnique();
             entity.HasMany(static profile => profile.WalletEntries).WithOne().HasForeignKey(static entry => entry.ProfileId).OnDelete(DeleteBehavior.Cascade);
@@ -192,7 +193,8 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
                 GetNullableString(item, "avatarUrl"),
                 GetNullableString(item, "backgroundUrl"),
                 GetNullableString(item, "license"),
-                GetNullableString(item, "attribution"))).ToArray();
+                GetNullableString(item, "attribution"),
+                ReadAxes(item))).ToArray();
         RewardRule[] rewards = economy.GetProperty("rewardRules").EnumerateArray().Select(static item =>
             new RewardRule(item.GetProperty("trigger").GetString() ?? string.Empty, item.GetProperty("referenceId").GetString() ?? string.Empty, item.GetProperty("amount").GetInt32(), item.GetProperty("description").GetString() ?? string.Empty)).ToArray();
         ShopOffer[] offers = economy.GetProperty("offers").EnumerateArray().Select(static item =>
@@ -231,7 +233,58 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
             tutorial,
             assistantPolicy,
             GetJourneys(document),
-            GetCategories(document));
+            GetCategories(document),
+            ReadFinale(document));
+    }
+
+    private static FamiliarAxis[]? ReadAxes(JsonElement familiar)
+    {
+        if (!familiar.TryGetProperty("axes", out JsonElement axes) || axes.ValueKind != JsonValueKind.Array) return null;
+        return axes.EnumerateArray().Select(static axis => new FamiliarAxis(
+            GetString(axis, "axis"),
+            GetString(axis, "label"),
+            GetString(axis, "description"),
+            GetString(axis, "defaultValue"),
+            axis.TryGetProperty("options", out JsonElement options) && options.ValueKind == JsonValueKind.Array
+                ? options.EnumerateArray().Select(static option => new FamiliarAxisOption(
+                    GetString(option, "value"),
+                    GetString(option, "label"),
+                    GetString(option, "description"),
+                    GetNullableString(option, "accentToken"),
+                    GetNullableString(option, "assetReference"),
+                    option.TryGetProperty("order", out JsonElement order) && order.ValueKind == JsonValueKind.Number ? order.GetInt32() : 0)).ToArray()
+                : [])).ToArray();
+    }
+
+    /// <summary>
+    /// Reads the optional finale block. An unknown condition type is mapped to
+    /// <see cref="FinaleConditionKind.Unknown"/> rather than dropped, so a document
+    /// published by a newer engine can never make the finale easier to reach here.
+    /// </summary>
+    private static FinalePlan? ReadFinale(JsonElement document)
+    {
+        if (!document.TryGetProperty("finale", out JsonElement finale) || finale.ValueKind != JsonValueKind.Object) return null;
+        return new FinalePlan(
+            finale.GetProperty("id").GetGuid(),
+            finale.TryGetProperty("enabled", out JsonElement enabled) && enabled.GetBoolean(),
+            GetString(finale, "title"),
+            GetString(finale, "summary"),
+            GetString(finale, "body"),
+            Enum.TryParse(GetString(finale, "mode"), ignoreCase: true, out FinaleMode mode) ? mode : FinaleMode.All,
+            finale.TryGetProperty("conditions", out JsonElement conditions) && conditions.ValueKind == JsonValueKind.Array
+                ? conditions.EnumerateArray().Select(static condition => new FinaleCondition(
+                    condition.GetProperty("id").GetGuid(),
+                    Enum.TryParse(GetString(condition, "type"), ignoreCase: true, out FinaleConditionKind kind) ? kind : FinaleConditionKind.Unknown,
+                    GetString(condition, "description"),
+                    GetNullableInt(condition, "threshold"),
+                    GetNullableGuid(condition, "categoryId"),
+                    GetNullableGuid(condition, "journeyId"),
+                    GetStrings(condition, "endingIds"),
+                    GetGuids(condition, "scenarioIds"))).ToArray()
+                : [],
+            GetNullableString(finale, "visualUrl"),
+            GetNullableString(finale, "musicUrl"),
+            GetNullableString(finale, "labelKey"));
     }
 
     /// <summary>
@@ -270,6 +323,12 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
         element.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.Array
             ? value.EnumerateArray().Select(static item => item.GetGuid()).ToArray()
             : [];
+
+    private static int? GetNullableInt(JsonElement element, string property) =>
+        element.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.Number ? value.GetInt32() : null;
+
+    private static Guid? GetNullableGuid(JsonElement element, string property) =>
+        element.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.String && value.TryGetGuid(out Guid parsed) ? parsed : null;
 
     private static string GetString(JsonElement element, string property) =>
         element.TryGetProperty(property, out JsonElement value) ? value.GetString() ?? string.Empty : string.Empty;

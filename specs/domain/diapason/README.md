@@ -78,6 +78,18 @@ Le moteur ne connaît qu'un seul concept terminal : `isEnding`. Diapason en dér
 
 Une fin de rupture n'est pas une punition et ne comporte aucun jugement sur le joueur : elle décrit ce qui s'est produit dans le monde et rend la reprise nécessaire. Le moteur n'expose aucun drapeau de type « game over » ; l'obligation de recommencer est portée par le texte et par le fait que la partie est `Completed`. Voir la limite signalée dans `scenarios.md`.
 
+## Fin de partie globale
+
+Au-dessus des fins internes aux scénarios, Diapason déclare une **fin de jeu** dans sa configuration de référence : « Ce qui reste après vous ». Elle se déclenche en mode `All`, sur deux conditions — avoir terminé la posture « Autonomie », et avoir terminé au moins huit des dix scénarios.
+
+La condition vise une **catégorie** plutôt que le parcours homonyme, alors que « Ce qui reste après toi » se lirait mieux. C'est délibéré : les parcours sont faits pour être recomposés par chaque client au-dessus des six postures, et y épingler la fin livrée par défaut rendrait invalide toute réécriture des parcours. Les six postures sont l'axe stable de Diapason ; les parcours sont une composition. Une configuration cliente qui fige ses propres parcours peut, elle, utiliser `JourneyCompleted`.
+
+Le texte de clôture assume la position du jeu : *« Vous n'avez pas gagné, et vous n'avez rien perdu non plus. »* Il énonce aussi la règle du moteur, qui est ici une règle de récit : **atteindre la fin ne ferme rien**. Les scénarios déjà joués gardent leurs branches non ouvertes, et le joueur y revient s'il le souhaite. La fin est un accord tenu, pas une porte.
+
+## Le familier dans Diapason
+
+Le familier de la plateforme reste un outil, pas un protagoniste — mais son apparence est désormais choisie par le joueur sur neuf axes catalogués. La configuration de référence propose la forme `tuning-fork` par défaut, ce qui accorde l'outil au titre : un objet sobre qui vibre quand quelque chose sonne faux. Les formes `spark`, `echo`, `owl` et `fox` restent offertes, ainsi que les couleurs de la palette ci-dessous, de sorte qu'un familier personnalisé ne sort jamais de la direction artistique.
+
 ## Grammaire visuelle et sonore
 
 Diapason reprend intégralement la direction artistique et sonore du POC « Le Diapason », dont ce récit est la version rapportée au monde réel.

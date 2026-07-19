@@ -3,6 +3,7 @@ using System;
 using GenEngine.PlayerExperience.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GenEngine.PlayerExperience.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(PlayerExperienceDbContext))]
-    partial class PlayerExperienceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260719171446_AddFamiliarAxesAndFinale")]
+    partial class AddFamiliarAxesAndFinale
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -140,14 +143,6 @@ namespace GenEngine.PlayerExperience.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProfileId", "OccurredAt");
 
-                    b.HasIndex("ProfileId", "CategoryId", "OccurredAt");
-
-                    b.HasIndex("ProfileId", "JourneyId", "OccurredAt");
-
-                    b.HasIndex("ProfileId", "ScenarioId", "OccurredAt");
-
-                    b.HasIndex("ProfileId", "Type", "OccurredAt");
-
                     b.ToTable("player_journal_entries", (string)null);
                 });
 
@@ -161,9 +156,6 @@ namespace GenEngine.PlayerExperience.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("DefaultJourneyId")
-                        .HasColumnType("uuid");
 
                     b.Property<string>("FamiliarAccent")
                         .IsRequired()
