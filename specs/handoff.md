@@ -104,6 +104,16 @@ La tranche suivante complète les périodes métier nommées, l'import de masse 
 - `install-diapason.sh` n'est pas idempotent : `POST /scenarios/import` crée toujours un nouveau brouillon ;
 - le seeder de configuration ne rejoue jamais sur une base non vide : une instance antérieure conserve son ancien document.
 
+### Tranche `feat/journeys-default-progress` — vérifiée le 19 juillet 2026
+
+- Le parcours devient un objet de premier plan côté joueur : `PlayerProfile.DefaultJourneyId` (colonne nullable, migration EF `AddDefaultJourney`), `GET /me/experience/journeys` et `PUT /me/experience/journey` sous `journey.read`, avec le contrôle optimiste `ExpectedRevision` déjà en place. Un `journeyId` nul efface le choix.
+- Le choix est validé contre le document publié : `journey_not_found` pour un parcours inexistant ou invisible, `journey_locked` pour des prérequis non satisfaits. `GET /me/experience` et `GET /me/experience/bootstrap` portent `defaultJourneyId` et `effectiveJourney`, donc un client filtre sa carte sans second appel.
+- Progression agrégée par parcours **et** par catégorie depuis `ScenarioMastery`, qui n'est jamais recalculée : scénarios, entamés, terminés et pourcentage moyen. Une maîtrise est retenue par sa meilleure version publiée.
+- `journey.manage` est enfin câblée : `GET /admin/journeys/{frontId}` côté `Configuration`, en **lecture seule** et assumée comme telle — l'écriture reste `PUT /admin/configuration/{frontId}` pour ne pas faire courir le Studio et l'Administration sur deux chemins d'écriture de la même révision optimiste.
+- Détection de cycle des `PrerequisiteJourneyIds` corrigée sur le modèle des unités d'organisation : `A → B → A` et `A → B → C → A` sont refusés avec `journey_cycle`, l'auto-référence reste `invalid_journey`. Le partage d'une catégorie entre parcours reste valide et est couvert par un test.
+- `journey.read` ajoutée aux presets Player et Creator et synchronisée au démarrage d'Identity. Additif de bout en bout : une configuration et un profil existants fonctionnent sans parcours par défaut. 184 tests backend au vert.
+- **Non traité** : aucun client Web ou iOS ne consomme encore ces routes ; la sélection reste invisible tant que le câblage client n'est pas fait. Les catégories du Diapason ne portent aucun `scenarioIds`, donc la progression y vaut zéro tant que `install-diapason.sh` n'a pas rattaché les scénarios.
+
 Contexte livré au jalon 3 :
 
 - `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.

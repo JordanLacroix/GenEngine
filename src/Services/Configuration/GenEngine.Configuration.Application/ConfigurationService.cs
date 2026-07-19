@@ -155,6 +155,28 @@ public static class DiapasonIds
     public static Guid CeQuiReste { get; } = Guid.Parse("7d4c2a10-1b3e-4f52-8a6d-9c0e2f4a6b03");
 }
 
+public sealed record JourneyCategoryView(Guid Id, string Name, int Order, bool IsVisible, int ScenarioCount);
+public sealed record JourneyPrerequisiteView(Guid Id, string Name, bool IsVisible);
+public sealed record JourneyAdminView(
+    Guid Id,
+    string Name,
+    string Description,
+    string Accent,
+    string? ImageUrl,
+    int Order,
+    bool IsVisible,
+    IReadOnlyList<string> Tags,
+    IReadOnlyList<JourneyCategoryView> Categories,
+    IReadOnlyList<JourneyPrerequisiteView> Prerequisites,
+    int ScenarioCount);
+
+/// <summary>
+/// Read-only administration view of the journey catalog. Journeys stay edited through
+/// the configuration document: a second write path would race the Studio and the
+/// Administration on the same optimistic revision. See <c>specs/api/http.md</c>.
+/// </summary>
+public sealed record JourneyCatalogView(string FrontId, int Revision, int PublishedVersion, IReadOnlyList<JourneyAdminView> Journeys);
+
 public sealed record ExperienceConfigurationView(Guid Id, int Revision, int PublishedVersion, DateTimeOffset UpdatedAt, DateTimeOffset? PublishedAt, ExperienceDocument Document);
 public sealed record PublishedExperienceView(int Version, DateTimeOffset PublishedAt, ExperienceDocument Document);
 
@@ -190,6 +212,49 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             AiProviders = document.AiProviders.Select(provider => provider with { SecretReference = null }).ToArray(),
         };
         return new PublishedExperienceView(configuration.PublishedVersion, configuration.PublishedAt.Value, publicDocument);
+    }
+
+    /// <summary>
+    /// Journey catalog of a front, including the journeys hidden from players, with the
+    /// categories and prerequisites resolved to their names. Guarded by
+    /// <c>journey.manage</c>: it is the operator view of the catalog, not the player one.
+    /// </summary>
+    public async Task<JourneyCatalogView> GetJourneyCatalogAsync(string frontId, CancellationToken cancellationToken)
+    {
+        ExperienceConfiguration configuration = await GetRequiredAsync(frontId, cancellationToken).ConfigureAwait(false);
+        ExperienceDocument document = Deserialize(configuration.DocumentJson);
+        IReadOnlyList<JourneyDefinition> journeys = document.Journeys ?? [];
+        Dictionary<Guid, CategoryDefinition> categories = document.Categories.ToDictionary(static category => category.Id);
+        Dictionary<Guid, JourneyDefinition> byId = journeys.ToDictionary(static journey => journey.Id);
+        JourneyAdminView[] views = journeys.OrderBy(static journey => journey.Order).Select(journey =>
+        {
+            JourneyCategoryView[] journeyCategories = journey.CategoryIds
+                .Where(categories.ContainsKey)
+                .Select(categoryId => categories[categoryId])
+                .OrderBy(static category => category.Order)
+                .Select(static category => new JourneyCategoryView(category.Id, category.Name, category.Order, category.IsVisible, (category.ScenarioIds ?? []).Count))
+                .ToArray();
+            return new JourneyAdminView(
+                journey.Id,
+                journey.Name,
+                journey.Description,
+                journey.Accent,
+                journey.ImageUrl,
+                journey.Order,
+                journey.IsVisible,
+                journey.Tags,
+                journeyCategories,
+                journey.PrerequisiteJourneyIds
+                    .Where(byId.ContainsKey)
+                    .Select(prerequisiteId => new JourneyPrerequisiteView(prerequisiteId, byId[prerequisiteId].Name, byId[prerequisiteId].IsVisible))
+                    .ToArray(),
+                journey.CategoryIds
+                    .Where(categories.ContainsKey)
+                    .SelectMany(categoryId => categories[categoryId].ScenarioIds ?? [])
+                    .Distinct()
+                    .Count());
+        }).ToArray();
+        return new JourneyCatalogView(document.FrontId, configuration.Revision, configuration.PublishedVersion, views);
     }
 
     public async Task<ExperienceConfigurationView> UpsertAsync(string frontId, int? expectedRevision, ExperienceDocument document, CancellationToken cancellationToken)
@@ -420,6 +485,8 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             throw new ConfigurationException("invalid_journey", "Journeys must have a name and reference existing categories and prerequisites.");
         }
 
+        ValidateJourneyPrerequisiteGraph(journeys);
+
         if (assignments.Any(assignment =>
                 !unitIds.Contains(assignment.OrganizationUnitId)
                 || assignment.DueAt < assignment.AvailableFrom
@@ -476,6 +543,41 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         }
 
         ValidateMedia(document.Media ?? CreateDefaultMedia());
+    }
+
+    /// <summary>
+    /// A journey prerequisite graph must stay acyclic, exactly like the organization
+    /// hierarchy above. Rejecting only the self-reference let A → B → A through, and a
+    /// cycle makes every journey of the loop permanently locked: no player can ever
+    /// satisfy its prerequisites. A journey may declare several prerequisites, so the
+    /// ancestor walk used for units becomes a breadth-first closure here — the rule is
+    /// the same, only the branching factor differs.
+    /// </summary>
+    private static void ValidateJourneyPrerequisiteGraph(IReadOnlyList<JourneyDefinition> journeys)
+    {
+        Dictionary<Guid, IReadOnlyList<Guid>> prerequisites = journeys.ToDictionary(
+            static journey => journey.Id,
+            static journey => journey.PrerequisiteJourneyIds);
+
+        foreach (JourneyDefinition journey in journeys)
+        {
+            HashSet<Guid> reached = [];
+            Queue<Guid> pending = new(journey.PrerequisiteJourneyIds);
+            while (pending.Count > 0)
+            {
+                Guid current = pending.Dequeue();
+                if (current == journey.Id)
+                {
+                    throw new ConfigurationException("journey_cycle", "The journey prerequisite graph cannot contain a cycle.");
+                }
+
+                if (!reached.Add(current)) continue;
+                foreach (Guid ancestor in prerequisites[current])
+                {
+                    pending.Enqueue(ancestor);
+                }
+            }
+        }
     }
 
     /// <summary>

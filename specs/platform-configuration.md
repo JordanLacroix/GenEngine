@@ -68,6 +68,14 @@ Le même modèle permet notamment : école → année scolaire → classe → ap
 - objectifs pédagogiques, tags de recherche et politique d'aide par défaut ;
 - version des relations publiée avec le catalogue afin qu'une session ne change pas silencieusement.
 
+Un parcours représente une durée très variable — un semestre, une année, une formation entière — et peut porter jusqu'à environ 200 scénarios. Plusieurs parcours peuvent partager une même catégorie : c'est un besoin produit explicite, jamais une erreur de saisie.
+
+Le graphe de `prerequisiteJourneyIds` doit rester **acyclique**, au même titre que la hiérarchie des unités d'organisation. Un cycle, même transitif (`A → B → A`, `A → B → C → A`), verrouille définitivement tous les parcours de la boucle : aucun joueur ne peut plus en satisfaire les prérequis. `PUT /admin/configuration/{frontId}` refuse un tel document avec `journey_cycle` ; l'auto-référence reste refusée avec `invalid_journey`.
+
+Un parcours est **déverrouillé** lorsque tous ses prérequis directs sont terminés, un parcours étant terminé lorsque chacun de ses scénarios a atteint au moins une fin. Un parcours sans scénario n'est jamais considéré comme terminé, ce qui évite qu'un parcours vide déverrouille la suite par accident, mais il reste lui-même déverrouillé s'il n'a aucun prérequis.
+
+Chaque joueur choisit **un parcours par défaut**, stocké dans son profil `PlayerExperience` et non dans la configuration. Il est facultatif : une configuration et un profil antérieurs continuent de fonctionner sans lui.
+
 ## RBAC et rôles personnalisables
 
 Les permissions sont des contrats stables enregistrés par les services. Un administrateur autorisé compose des rôles custom à partir de ces permissions, les clone, les versionne, les active ou les archive, sans créer de permission arbitraire inconnue du backend.

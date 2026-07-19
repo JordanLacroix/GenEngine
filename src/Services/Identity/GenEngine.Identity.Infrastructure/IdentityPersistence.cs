@@ -283,8 +283,8 @@ public static class IdentityInfrastructureExtensions
         {
             DateTimeOffset now = TimeProvider.System.GetUtcNow();
             dbContext.Roles.AddRange(
-                CustomRole.Create("Player", "Joue, suit sa progression et personnalise son familier.", ["session.play", "shop.read", "assistant.use", "assistant.customize", "onboarding.use", "onboarding.reset.own", "progress.read.own", "journal.read.own", "journal.export.own", "help.read", "media.read"], now, true),
-                CustomRole.Create("Creator", "Crée, prévisualise et publie des scénarios.", ["session.play", "shop.read", "assistant.use", "assistant.customize", "onboarding.use", "onboarding.reset.own", "progress.read.own", "journal.read.own", "journal.export.own", "help.read", "media.read", "scenario.author", "scenario.publish", "ai.generate"], now, true),
+                CustomRole.Create("Player", "Joue, suit sa progression et personnalise son familier.", ["session.play", "shop.read", "assistant.use", "assistant.customize", "onboarding.use", "onboarding.reset.own", "progress.read.own", "journal.read.own", "journal.export.own", "help.read", "media.read", "journey.read"], now, true),
+                CustomRole.Create("Creator", "Crée, prévisualise et publie des scénarios.", ["session.play", "shop.read", "assistant.use", "assistant.customize", "onboarding.use", "onboarding.reset.own", "progress.read.own", "journal.read.own", "journal.export.own", "help.read", "media.read", "journey.read", "scenario.author", "scenario.publish", "ai.generate"], now, true),
                 CustomRole.Create("Administrator", "Administre l'expérience, les accès et les providers.", PermissionCatalog.All.Keys, now, true));
             await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
@@ -294,7 +294,7 @@ public static class IdentityInfrastructureExtensions
             .ConfigureAwait(false);
         if (player is not null)
         {
-            string[] playerPermissions = ["session.play", "shop.read", "assistant.use", "assistant.customize", "onboarding.use", "onboarding.reset.own", "progress.read.own", "journal.read.own", "journal.export.own", "help.read", "media.read"];
+            string[] playerPermissions = ["session.play", "shop.read", "assistant.use", "assistant.customize", "onboarding.use", "onboarding.reset.own", "progress.read.own", "journal.read.own", "journal.export.own", "help.read", "media.read", "journey.read"];
             HashSet<string> existing = player.Permissions.Select(static permission => permission.PermissionCode).ToHashSet(StringComparer.Ordinal);
             foreach (string permissionCode in playerPermissions.Where(code => !existing.Contains(code)))
             {

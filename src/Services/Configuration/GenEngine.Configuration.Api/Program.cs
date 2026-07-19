@@ -24,6 +24,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("config.read", policy => policy.RequireClaim("permission", "config.read"));
     options.AddPolicy("config.write", policy => policy.RequireClaim("permission", "config.write"));
     options.AddPolicy("config.publish", policy => policy.RequireClaim("permission", "config.publish"));
+    options.AddPolicy("journey.manage", policy => policy.RequireClaim("permission", "journey.manage"));
 });
 
 WebApplication app = builder.Build();
@@ -58,6 +59,13 @@ admin.MapPut("", async (string frontId, UpdateConfigurationRequest request, Conf
     Results.Ok(await service.UpsertAsync(frontId, request.ExpectedRevision, request.Document, cancellationToken).ConfigureAwait(false))).RequireAuthorization("config.write");
 admin.MapPost("/publish", async (string frontId, PublishConfigurationRequest request, ConfigurationService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.PublishAsync(frontId, request.ExpectedRevision, cancellationToken).ConfigureAwait(false))).RequireAuthorization("config.publish");
+
+// Journeys are owned by the configuration document, so their operator view lives here
+// rather than in PlayerExperience. It stays read-only on purpose: the Studio and the
+// Administration already edit this document through PUT /admin/configuration/{frontId},
+// and a second write path would make two clients race the same optimistic revision.
+app.MapGet("/admin/journeys/{frontId}", async (string frontId, ConfigurationService service, CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetJourneyCatalogAsync(frontId, cancellationToken).ConfigureAwait(false))).RequireAuthorization("journey.manage");
 
 app.Run();
 
