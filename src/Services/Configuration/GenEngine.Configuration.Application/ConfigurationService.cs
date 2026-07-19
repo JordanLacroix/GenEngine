@@ -861,7 +861,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
                 "Le Diapason",
                 "Une réponse fluide n'est pas une réponse vérifiée.",
                 "2026. Vous êtes étudiant ingénieur en alternance. Personne autour de vous n'a le temps de douter, et vous êtes souvent la seule personne à détenir le fait qui manque. Ce que vous en faites vous appartient.",
-                "https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=1800&q=85",
+                null,
                 1),
         ]);
 
