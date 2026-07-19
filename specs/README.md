@@ -16,6 +16,7 @@ Ce dossier décrit les intentions, invariants et décisions du projet.
 - [Passage de relais](handoff.md)
 - [Architecture](architecture.md)
 - [Invariants](invariants.md)
+- [Packs d'assets et manifeste média](media-assets.md)
 - [Glossaire](glossary.md)
 - [ADR](adr/README.md)
 - [Gouvernance GitHub et CI/CD](process/github-governance.md)

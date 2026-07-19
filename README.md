@@ -210,7 +210,10 @@ GenEngine/
 │   ├── GenEngine.Services.Tests/
 │   ├── GenEngine.Architecture.Tests/
 │   └── GenEngine.*.IntegrationTests/
+├── assets/
+│   └── diapason/          # Pack d'assets CC0 + manifeste et licences
 ├── specs/
+├── scripts/
 ├── .github/workflows/
 └── GenEngine.sln
 ```
@@ -251,6 +254,9 @@ BACKUP_AGE_PASSPHRASE='…' scripts/backup-databases.sh
 
 # Restauration : dry-run par défaut, base temporaire avec --target-db
 BACKUP_AGE_PASSPHRASE='…' scripts/restore-database.sh authoring-db backups/authoring-db-<UTC>.dump.age
+
+# Intégrité du pack d'assets : chemins, empreintes, en-têtes de fichiers et licences
+python3 scripts/verify-asset-manifest.py
 ```
 
 Les versions NuGet sont centralisées dans [`Directory.Packages.props`](Directory.Packages.props) et verrouillées par projet avec `packages.lock.json`.
@@ -288,6 +294,7 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 | [`specs/handoff.md`](specs/handoff.md) | État vérifié et prochaine unité de travail |
 | [`specs/architecture.md`](specs/architecture.md) | Modules et règles de dépendance |
 | [`specs/invariants.md`](specs/invariants.md) | Invariants non négociables |
+| [`specs/media-assets.md`](specs/media-assets.md) | Packs d’assets, manifeste média, surcharge cliente et règles de licence |
 | [`specs/glossary.md`](specs/glossary.md) | Vocabulaire métier |
 | [`specs/adr/`](specs/adr/) | Architecture Decision Records |
 | [`specs/modules/narrative/tasks.md`](specs/modules/narrative/tasks.md) | Tâches du premier module |
@@ -339,6 +346,16 @@ Consultez [`CONTRIBUTING.md`](CONTRIBUTING.md), puis utilisez le formulaire de b
 Le dépôt est public, mais **aucune licence du code source n’a encore été choisie**. En l’absence de fichier `LICENSE`, le code reste soumis au droit d’auteur par défaut et sa réutilisation n’est pas automatiquement autorisée.
 
 La licence du projet sera choisie explicitement avant la première distribution. Les dépendances intégrées doivent, elles, rester permissives et compatibles avec un usage commercial.
+
+### Assets
+
+Les fichiers livrés sous [`assets/`](assets/) ne sont **pas** couverts par cette réserve : ils proviennent de tiers et sont tous sous licence **CC0 1.0**. Leur provenance, leur licence et leur attribution sont tracées fichier par fichier dans [`assets/diapason/LICENSES.md`](assets/diapason/LICENSES.md) et dans le manifeste [`assets/diapason/asset-manifest.json`](assets/diapason/asset-manifest.json).
+
+Le pack `diapason-core` est intégralement l’œuvre de **Kenney** ([kenney.nl](https://kenney.nl)). CC0 n’impose aucune attribution, mais le projet crédite systématiquement :
+
+> Éléments d’interface et sons : **Kenney** — <https://kenney.nl> — CC0 1.0.
+
+Les règles d’ajout d’un nouvel asset — licence vérifiée à la source, provenance officielle, traçabilité, attribution, vérification mécanique — sont normatives et décrites dans [`assets/diapason/LICENSES.md`](assets/diapason/LICENSES.md) et [`specs/media-assets.md`](specs/media-assets.md).
 
 ---
 
