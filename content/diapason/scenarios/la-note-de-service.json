@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 6,
   "title": "La note de service",
   "initialNodeId": "arrivee",
   "nodes": [
@@ -7,8 +7,16 @@
       "id": "arrivee",
       "text": "Mardi, 8 h 12. Le service Données et Plateformes, deuxième étage.",
       "onEnterEffects": [
-        { "$type": "setCharacteristic", "name": "lucidite", "value": 1 },
-        { "$type": "assign", "name": "credit", "value": 3 }
+        {
+          "$type": "setCharacteristic",
+          "name": "lucidite",
+          "value": 1
+        },
+        {
+          "$type": "assign",
+          "name": "credit",
+          "value": 3
+        }
       ],
       "choices": [],
       "interactions": [
@@ -23,7 +31,67 @@
           "id": "detail",
           "text": "Vous relisez. La note est parfaite. Trop lisse, trop équilibrée, avec cette manière de conclure chaque paragraphe sur une formule apaisante. En bas, aucune signature : une mention de service, « Direction des Opérations », et un horodatage. Vous ouvrez les propriétés du fichier. Créé ce matin à 6 h 47. Auteur : un compte applicatif.",
           "continueEffects": [
-            { "$type": "discoverEvidence", "evidence": "note-sans-auteur-humain" }
+            {
+              "$type": "discoverEvidence",
+              "evidence": "note-sans-auteur-humain"
+            }
+          ]
+        },
+        {
+          "$type": "document",
+          "id": "la-note",
+          "isOptional": true,
+          "prompt": "Ouvrir la note et la lire en entier",
+          "document": {
+            "title": "Réorganisation du périmètre Données — application immédiate",
+            "nature": "Memo",
+            "headers": [
+              {
+                "name": "Objet",
+                "value": "Réorganisation du périmètre Données — application immédiate"
+              },
+              {
+                "name": "De",
+                "value": "Direction des Opérations"
+              },
+              {
+                "name": "Date",
+                "value": "Ce jour, 06:47"
+              },
+              {
+                "name": "Signataire",
+                "value": "—"
+              }
+            ],
+            "excerpt": {
+              "shownUnits": 4,
+              "totalUnits": 27,
+              "unit": "Paragraphs"
+            },
+            "blocks": [
+              {
+                "$type": "paragraph",
+                "text": "Afin de renforcer la continuité de service, le périmètre Données et Plateformes évolue avec effet immédiat. Cette évolution a été validée collégialement."
+              },
+              {
+                "$type": "paragraph",
+                "text": "L'astreinte passe de trois à cinq personnes. Cette extension permettra une meilleure répartition de la charge et un confort accru pour les équipes concernées."
+              },
+              {
+                "$type": "paragraph",
+                "text": "Deux prestataires ne seront pas reconduits à l'échéance de leur contrat. Cette décision, sans lien avec la qualité des prestations, s'inscrit dans une trajectoire d'internalisation sereine."
+              },
+              {
+                "$type": "paragraph",
+                "text": "La direction reste naturellement à l'écoute de toute question que cette évolution pourrait susciter."
+              }
+            ]
+          },
+          "consultEffects": [
+            {
+              "$type": "discoverEvidence",
+              "evidence": "note-lue-integralement"
+            }
           ]
         },
         {
@@ -36,8 +104,16 @@
               "text": "Relayer la note dans le canal de l'équipe pour que tout le monde soit au courant",
               "targetNodeId": "propagation",
               "effects": [
-                { "$type": "increment", "name": "credit", "amount": -1 },
-                { "$type": "recordNotableEvent", "label": "Vous avez diffusé un document dont vous ne connaissiez pas l'origine.", "scope": "lucidite" }
+                {
+                  "$type": "increment",
+                  "name": "credit",
+                  "amount": -1
+                },
+                {
+                  "$type": "recordNotableEvent",
+                  "label": "Vous avez diffusé un document dont vous ne connaissiez pas l'origine.",
+                  "scope": "lucidite"
+                }
               ]
             },
             {
@@ -45,7 +121,11 @@
               "text": "Chercher qui a réellement produit ce texte avant d'en parler",
               "targetNodeId": "verification",
               "effects": [
-                { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 }
+                {
+                  "$type": "changeCharacteristic",
+                  "name": "lucidite",
+                  "amount": 1
+                }
               ]
             },
             {
@@ -53,6 +133,27 @@
               "text": "Ce n'est pas votre niveau de responsabilité. Attendre la réunion.",
               "targetNodeId": "attente",
               "effects": []
+            },
+            {
+              "id": "citer-la-contradiction",
+              "text": "Relever que la note dit « validée collégialement » sans nommer une seule personne, et le vérifier",
+              "targetNodeId": "verification",
+              "condition": {
+                "$type": "consultedDocument",
+                "interactionId": "la-note"
+              },
+              "effects": [
+                {
+                  "$type": "changeCharacteristic",
+                  "name": "lucidite",
+                  "amount": 1
+                },
+                {
+                  "$type": "recordNotableEvent",
+                  "label": "Vous avez lu le document avant d'en parler.",
+                  "scope": "lucidite"
+                }
+              ]
             }
           ]
         }
@@ -69,7 +170,11 @@
           "id": "reaction",
           "text": "Vous collez la note avec trois mots : « Vous avez vu ça ? » En quatorze minutes, le fil compte quarante et un messages. Une prestataire demande si son contrat s'arrête vendredi. Un ingénieur écrit qu'il refuse la cinquième astreinte. Quelqu'un mentionne un avocat. À 8 h 51, la responsable du service entre dans l'open space sans dire bonjour et demande, d'une voix très calme, qui a diffusé ce document.",
           "continueEffects": [
-            { "$type": "recordNotableEvent", "label": "Quarante et un messages en quatorze minutes.", "scope": "consequence" }
+            {
+              "$type": "recordNotableEvent",
+              "label": "Quarante et un messages en quatorze minutes.",
+              "scope": "consequence"
+            }
           ]
         },
         {
@@ -82,7 +187,11 @@
               "text": "Dire que c'est vous",
               "targetNodeId": "explication",
               "effects": [
-                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+                {
+                  "$type": "changeCharacteristic",
+                  "name": "courage",
+                  "amount": 1
+                }
               ]
             },
             {
@@ -106,7 +215,10 @@
           "id": "revelation",
           "text": "« Cette note n'existe pas », dit-elle. « Elle a été produite par l'assistant de rédaction du service, à partir d'un brouillon de travail que quelqu'un lui a demandé de mettre en forme. Le brouillon envisageait quatre scénarios. L'assistant en a retenu un et l'a écrit au présent de l'indicatif. Personne ne l'a relu. Personne ne l'a validée. Elle est partie dans la boîte commune par une règle d'archivage automatique. » Elle marque un temps. « Vous, vous l'avez rendue vraie. »",
           "continueEffects": [
-            { "$type": "discoverEvidence", "evidence": "brouillon-quatre-scenarios" }
+            {
+              "$type": "discoverEvidence",
+              "evidence": "brouillon-quatre-scenarios"
+            }
           ]
         },
         {
@@ -119,8 +231,15 @@
               "text": "Proposer d'écrire vous-même le démenti, et de le faire signer par un humain nommé",
               "targetNodeId": "fin-reparation",
               "effects": [
-                { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 },
-                { "$type": "grantReward", "reward": "frequence-du-doute" }
+                {
+                  "$type": "changeCharacteristic",
+                  "name": "lucidite",
+                  "amount": 1
+                },
+                {
+                  "$type": "grantReward",
+                  "reward": "frequence-du-doute"
+                }
               ]
             },
             {
@@ -144,7 +263,11 @@
           "id": "silence",
           "text": "Vous fermez la note. Vous ouvrez votre ticket du jour. À 8 h 44, la prestataire du bureau d'en face range ses affaires dans un carton : elle a lu la note, elle a compris que son contrat s'arrête, elle ne veut pas qu'on lui dise en réunion devant tout le monde. Elle part avant 9 h. Elle ne reviendra pas. La note, elle, sera démentie à 11 h 30.",
           "continueEffects": [
-            { "$type": "recordNotableEvent", "label": "Une personne est partie sur la foi d'un document que personne n'avait vérifié.", "scope": "consequence" }
+            {
+              "$type": "recordNotableEvent",
+              "label": "Une personne est partie sur la foi d'un document que personne n'avait vérifié.",
+              "scope": "consequence"
+            }
           ]
         },
         {
@@ -157,8 +280,16 @@
               "text": "La rattraper dans l'escalier",
               "targetNodeId": "verification",
               "effects": [
-                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 },
-                { "$type": "increment", "name": "credit", "amount": -1 }
+                {
+                  "$type": "changeCharacteristic",
+                  "name": "courage",
+                  "amount": 1
+                },
+                {
+                  "$type": "increment",
+                  "name": "credit",
+                  "amount": -1
+                }
               ]
             },
             {
@@ -182,7 +313,10 @@
           "id": "methode",
           "text": "Un document dit toujours deux choses : ce qu'il affirme, et ce qui l'a fait exister. Le second est vérifiable en quelques minutes. Vous ouvrez l'historique du fichier, vous remontez au brouillon source, vous relevez le compte applicatif qui a produit le texte final, et vous notez ce qui a été ajouté entre les deux : le mot « validée », et le présent de l'indicatif.",
           "continueEffects": [
-            { "$type": "discoverEvidence", "evidence": "mot-valide-ajoute" }
+            {
+              "$type": "discoverEvidence",
+              "evidence": "mot-valide-ajoute"
+            }
           ]
         },
         {
@@ -190,17 +324,37 @@
           "id": "nature-affirmation",
           "prompt": "« Cette réorganisation a été validée collégialement. » Dans l'état de vos vérifications, cette phrase est…",
           "answers": [
-            { "id": "fait", "text": "un fait établi par le document" },
-            { "id": "affirmation", "text": "une affirmation dont aucune source ne répond" },
-            { "id": "opinion", "text": "une opinion de la direction" }
+            {
+              "id": "fait",
+              "text": "un fait établi par le document"
+            },
+            {
+              "id": "affirmation",
+              "text": "une affirmation dont aucune source ne répond"
+            },
+            {
+              "id": "opinion",
+              "text": "une opinion de la direction"
+            }
           ],
           "correctAnswerId": "affirmation",
           "correctEffects": [
-            { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 },
-            { "$type": "discoverEvidence", "evidence": "affirmation-sans-repondant" }
+            {
+              "$type": "changeCharacteristic",
+              "name": "lucidite",
+              "amount": 1
+            },
+            {
+              "$type": "discoverEvidence",
+              "evidence": "affirmation-sans-repondant"
+            }
           ],
           "incorrectEffects": [
-            { "$type": "increment", "name": "erreurs", "amount": 1 }
+            {
+              "$type": "increment",
+              "name": "erreurs",
+              "amount": 1
+            }
           ]
         },
         {
@@ -213,7 +367,10 @@
               "text": "Aller voir la responsable avec la chaîne de provenance, avant la réunion",
               "targetNodeId": "confrontation",
               "effects": [
-                { "$type": "collect", "item": "chaine-de-provenance" }
+                {
+                  "$type": "collect",
+                  "item": "chaine-de-provenance"
+                }
               ]
             },
             {
@@ -221,7 +378,11 @@
               "text": "Publier votre analyse dans le canal d'équipe : c'est plus rapide et plus transparent",
               "targetNodeId": "propagation",
               "effects": [
-                { "$type": "increment", "name": "credit", "amount": -1 }
+                {
+                  "$type": "increment",
+                  "name": "credit",
+                  "amount": -1
+                }
               ]
             }
           ]
@@ -240,17 +401,32 @@
           "condition": {
             "$type": "all",
             "conditions": [
-              { "$type": "hasItem", "item": "chaine-de-provenance" },
-              { "$type": "characteristicAtLeast", "name": "lucidite", "value": 2 }
+              {
+                "$type": "hasItem",
+                "item": "chaine-de-provenance"
+              },
+              {
+                "$type": "characteristicAtLeast",
+                "name": "lucidite",
+                "value": 2
+              }
             ]
           },
           "satisfiedTargetNodeId": "ecoute",
           "failedTargetNodeId": "renvoi",
           "satisfiedEffects": [
-            { "$type": "recordNotableEvent", "label": "Vous êtes arrivé avec une chaîne vérifiable, pas avec une intuition.", "scope": "lucidite" }
+            {
+              "$type": "recordNotableEvent",
+              "label": "Vous êtes arrivé avec une chaîne vérifiable, pas avec une intuition.",
+              "scope": "lucidite"
+            }
           ],
           "failedEffects": [
-            { "$type": "recordNotableEvent", "label": "Vous aviez raison, mais rien pour l'établir.", "scope": "lucidite" }
+            {
+              "$type": "recordNotableEvent",
+              "label": "Vous aviez raison, mais rien pour l'établir.",
+              "scope": "lucidite"
+            }
           ]
         }
       ]
@@ -266,8 +442,15 @@
           "id": "dialogue",
           "text": "Vous ne dites pas que la note est fausse. Vous dites qu'elle a été produite à 6 h 47 par un compte applicatif, à partir d'un brouillon à quatre branches, et que le mot « validée » n'existe pas dans la source. Elle lit deux fois. Elle décroche son téléphone. À 9 h 02, la réunion commence par : « La note de ce matin est retirée. Voici les quatre hypothèses réelles, et le calendrier de décision. » Personne ne saura que ça vient de vous. La prestataire d'en face ne range pas son carton.",
           "continueEffects": [
-            { "$type": "grantReward", "reward": "frequence-du-doute" },
-            { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 }
+            {
+              "$type": "grantReward",
+              "reward": "frequence-du-doute"
+            },
+            {
+              "$type": "changeCharacteristic",
+              "name": "lucidite",
+              "amount": 1
+            }
           ]
         },
         {
@@ -296,7 +479,11 @@
           "id": "refus",
           "text": "« Vous pensez que la note est fausse. » Elle ne dit pas non. Elle dit : « Sur quoi. » Vous répondez que le ton vous a paru bizarre, que ça ressemble à une génération automatique. Elle hoche la tête, poliment, et regarde l'heure. « Revenez quand vous aurez autre chose qu'une impression. » Elle a raison, et la note part quand même en réunion.",
           "continueEffects": [
-            { "$type": "recordNotableEvent", "label": "Une intuition juste sans preuve ne pèse rien.", "scope": "lucidite" }
+            {
+              "$type": "recordNotableEvent",
+              "label": "Une intuition juste sans preuve ne pèse rien.",
+              "scope": "lucidite"
+            }
           ]
         },
         {
@@ -332,7 +519,11 @@
           "id": "epilogue",
           "text": "Vous n'avez pas eu besoin d'avoir raison contre quelqu'un. Vous avez seulement refusé de traiter un texte sans auteur comme un texte avec auteur, et vous avez pris les quinze minutes nécessaires pour établir la différence. C'est un geste petit, répétable, et il tient debout devant une responsable pressée. Un document parfaitement écrit n'est pas un document vérifié : la fluidité n'est pas une preuve.",
           "continueEffects": [
-            { "$type": "recordNotableEvent", "label": "Scénario terminé : vous avez remonté une provenance avant d'agir.", "scope": "learning" }
+            {
+              "$type": "recordNotableEvent",
+              "label": "Scénario terminé : vous avez remonté une provenance avant d'agir.",
+              "scope": "learning"
+            }
           ]
         }
       ]
@@ -349,7 +540,11 @@
           "id": "epilogue",
           "text": "Le démenti part à 11 h 30, avec un nom et une fonction en bas. Il arrive trop tard pour deux personnes, à temps pour les autres. Vous avez réparé ce que vous aviez cassé, et vous avez appris la règle dans le mauvais sens : on la retient mieux ainsi, mais elle coûte plus cher. La prochaine note sans auteur, vous la vérifierez avant de la diffuser.",
           "continueEffects": [
-            { "$type": "recordNotableEvent", "label": "Scénario terminé : réparation après diffusion non vérifiée.", "scope": "learning" }
+            {
+              "$type": "recordNotableEvent",
+              "label": "Scénario terminé : réparation après diffusion non vérifiée.",
+              "scope": "learning"
+            }
           ]
         }
       ]
@@ -366,7 +561,11 @@
           "id": "epilogue",
           "text": "Personne n'a parlé. L'enquête interne a duré six jours et a désigné quelqu'un d'autre. Vous êtes resté à votre poste avec la seule chose que vous ne pouvez plus poser : savoir. La note fausse a produit ses effets, et vous avez ajouté aux dégâts la part qui vous revenait. Il n'y a rien à sauver depuis ce point. Reprenez le mardi matin : la note attend toujours dans la boîte commune.",
           "continueEffects": [
-            { "$type": "recordNotableEvent", "label": "Rupture : vous avez laissé les conséquences retomber sur un autre.", "scope": "rupture" }
+            {
+              "$type": "recordNotableEvent",
+              "label": "Rupture : vous avez laissé les conséquences retomber sur un autre.",
+              "scope": "rupture"
+            }
           ]
         }
       ]
@@ -383,7 +582,11 @@
           "id": "epilogue",
           "text": "Vous vous êtes excusé, sincèrement, et vous êtes retourné à votre ticket. Le service a passé la journée à éteindre l'incendie ; deux personnes sont parties ; le démenti n'est jamais sorti clairement. Des excuses ne réparent rien : elles clôturent seulement votre inconfort. Reprenez le mardi matin, et cette fois mesurez ce que « diffuser » veut dire.",
           "continueEffects": [
-            { "$type": "recordNotableEvent", "label": "Rupture : excuse sans réparation.", "scope": "rupture" }
+            {
+              "$type": "recordNotableEvent",
+              "label": "Rupture : excuse sans réparation.",
+              "scope": "rupture"
+            }
           ]
         }
       ]
@@ -400,7 +603,11 @@
           "id": "epilogue",
           "text": "« Ce n'est pas mon niveau » est une phrase vraie qui sert presque toujours à autre chose. Vous aviez lu le document avant tout le monde, vous aviez vu l'anomalie, et vous étiez assis à quatre mètres de la personne qui en subissait les effets. Le démenti est arrivé à 11 h 30. Elle était partie depuis 8 h 44. Reprenez le mardi matin.",
           "continueEffects": [
-            { "$type": "recordNotableEvent", "label": "Rupture : inertie devant une conséquence visible.", "scope": "rupture" }
+            {
+              "$type": "recordNotableEvent",
+              "label": "Rupture : inertie devant une conséquence visible.",
+              "scope": "rupture"
+            }
           ]
         }
       ]
@@ -417,7 +624,11 @@
           "id": "epilogue",
           "text": "Vous aviez raison. Cela n'a servi à rien, parce que vous vous êtes présenté avec une intuition là où il fallait une chaîne : un fichier, une heure, un compte, un écart entre deux versions. Avoir raison sans pouvoir l'établir, c'est se donner le confort du jugement sans en payer le travail. Reprenez le mardi matin, et allez chercher la provenance d'abord.",
           "continueEffects": [
-            { "$type": "recordNotableEvent", "label": "Rupture : jugement juste, démonstration absente.", "scope": "rupture" }
+            {
+              "$type": "recordNotableEvent",
+              "label": "Rupture : jugement juste, démonstration absente.",
+              "scope": "rupture"
+            }
           ]
         }
       ]

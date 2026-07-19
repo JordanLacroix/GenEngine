@@ -5,7 +5,7 @@ namespace GenEngine.Narrative;
 public static class NarrativeVersions
 {
     public const int Schema = 1;
-    public const int LatestSchema = 5;
+    public const int LatestSchema = 6;
 
     /// <summary>Schema that introduced typed step interactions.</summary>
     public const int InteractionsSchema = 2;
@@ -18,6 +18,9 @@ public static class NarrativeVersions
 
     /// <summary>Schema that introduced optional author-written help on steps and choices.</summary>
     public const int AuthorHelpSchema = 5;
+
+    /// <summary>Schema that introduced the document interaction and its consultation condition.</summary>
+    public const int DocumentSchema = 6;
     public const string Runtime = "1.0.0";
     public const string HashFormat = "sha256-canonical-json-v1";
     public const string RngAlgorithm = "splitmix64-v1";
@@ -94,6 +97,119 @@ public sealed record AuthorHelp
     public string? Blocker { get; init; }
 }
 
+/// <summary>
+/// What a presented document <em>is</em>, from the player's point of view. The
+/// taxonomy is named rather than free-form so a client can style a memo like a
+/// memo and an application log like a log, and so authoring tooling can reason
+/// about it. <see cref="Other"/> keeps it open: a nature nobody anticipated
+/// still ships as a document instead of forcing a new schema version.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<DocumentNature>))]
+public enum DocumentNature
+{
+    Other,
+    Memo,
+    Email,
+    Code,
+    Diff,
+    Log,
+    Table,
+    Conversation,
+    Report,
+}
+
+/// <summary>Unit an excerpt is counted in, so a client can word the disclosure correctly.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<DocumentUnit>))]
+public enum DocumentUnit
+{
+    Lines,
+    Rows,
+    Messages,
+    Entries,
+    Paragraphs,
+}
+
+/// <summary>
+/// Honest disclosure that the body is a sample, not the whole thing: "12 lignes
+/// affichées sur 412". The engine carries and validates the counts; presenting a
+/// sample as a whole would be an interface lie, and this game is precisely about
+/// lucidity in front of information.
+/// </summary>
+public sealed record DocumentExcerpt(int ShownUnits, int TotalUnits, DocumentUnit Unit);
+
+/// <summary>A named header line — an email's <c>From</c>, a memo's <c>Objet</c>.</summary>
+public sealed record DocumentHeader(string Name, string Value);
+
+/// <summary>
+/// How a single line stands out. One marker set serves a diff (<see cref="Added"/>,
+/// <see cref="Removed"/>, <see cref="Context"/>) and an application log
+/// (<see cref="Warning"/>, <see cref="Error"/>), which is why lines are one block
+/// type and not two.
+/// </summary>
+[JsonConverter(typeof(JsonStringEnumConverter<DocumentLineMarker>))]
+public enum DocumentLineMarker
+{
+    Context,
+    Added,
+    Removed,
+    Warning,
+    Error,
+}
+
+/// <summary>A line of a <see cref="DocumentLinesBlock"/>, optionally marked and labelled.</summary>
+public sealed record DocumentLine(string Text)
+{
+    /// <summary>Diff or severity marker, or <c>null</c> for a plain line.</summary>
+    public DocumentLineMarker? Marker { get; init; }
+
+    /// <summary>Author-written gutter label: a line number, a timestamp. Never parsed by the engine.</summary>
+    public string? Label { get; init; }
+}
+
+/// <summary>A row of a <see cref="DocumentTableBlock"/>; cell count must match the columns.</summary>
+public sealed record DocumentRow(IReadOnlyList<string> Cells);
+
+/// <summary>
+/// A block of document body. The set is deliberately closed at three shapes —
+/// prose, lines, table — because that is the smallest vocabulary that still lets
+/// a client render each nature correctly: a table renders as a table, a diff and
+/// a log as marked lines, a memo or an email as prose under headers. Going
+/// further would mean shipping a markup language, which the engine has no
+/// business interpreting; stopping at a single free string would throw away
+/// structure that carries meaning.
+/// </summary>
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
+[JsonDerivedType(typeof(DocumentParagraphBlock), "paragraph")]
+[JsonDerivedType(typeof(DocumentLinesBlock), "lines")]
+[JsonDerivedType(typeof(DocumentTableBlock), "table")]
+public abstract record DocumentBlock;
+
+public sealed record DocumentParagraphBlock(string Text) : DocumentBlock;
+
+public sealed record DocumentLinesBlock(IReadOnlyList<DocumentLine> Lines) : DocumentBlock;
+
+public sealed record DocumentTableBlock(
+    IReadOnlyList<string> Columns,
+    IReadOnlyList<DocumentRow> Rows) : DocumentBlock;
+
+/// <summary>
+/// A document the scenario shows to the player: the memo that was only ever
+/// alluded to, the blocked diff, the table of 412 applications. The content is
+/// carried by the scenario itself, so it is versioned, hashed and replayed like
+/// everything else — the engine never fetches anything.
+/// </summary>
+public sealed record PresentedDocument(
+    string Title,
+    DocumentNature Nature,
+    IReadOnlyList<DocumentBlock> Blocks)
+{
+    /// <summary>Ordered headers rendered above the body, or <c>null</c> when the nature has none.</summary>
+    public IReadOnlyList<DocumentHeader>? Headers { get; init; }
+
+    /// <summary>Sampling disclosure. <c>null</c> means the body is the document in full.</summary>
+    public DocumentExcerpt? Excerpt { get; init; }
+}
+
 public sealed record NarrativeNode(
     string Id,
     string Text,
@@ -129,6 +245,7 @@ public sealed record NarrativeChoice(
 [JsonDerivedType(typeof(QuizInteraction), "quiz")]
 [JsonDerivedType(typeof(CharacteristicGateInteraction), "characteristicGate")]
 [JsonDerivedType(typeof(FreeTextInteraction), "freeText")]
+[JsonDerivedType(typeof(DocumentInteraction), "document")]
 public abstract record StepInteraction(string Id)
 {
     /// <summary>
@@ -178,6 +295,27 @@ public sealed record FreeTextInteraction(
     IReadOnlyList<LocalGameEffect> AcceptedEffects,
     IReadOnlyList<LocalGameEffect> RejectedEffects) : StepInteraction(Id);
 
+/// <summary>
+/// Presents a <see cref="PresentedDocument"/> to the player. Consulting it is a
+/// single explicit command, recorded in the session's interaction history like
+/// every other interaction — which is what makes
+/// <see cref="ConsultedDocumentCondition"/> evaluable without introducing a
+/// second state system.
+/// </summary>
+public sealed record DocumentInteraction(
+    string Id,
+    string Prompt,
+    PresentedDocument Document,
+    IReadOnlyList<LocalGameEffect> ConsultEffects) : StepInteraction(Id)
+{
+    /// <summary>
+    /// The <see cref="InteractionHistoryEntry.InputId"/> written when the player
+    /// consults the document. It is the single source of truth read back by
+    /// <see cref="ConsultedDocumentCondition"/>.
+    /// </summary>
+    public const string ConsultedInputId = "consulted";
+}
+
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(AlwaysCondition), "always")]
 [JsonDerivedType(typeof(AllCondition), "all")]
@@ -191,6 +329,7 @@ public sealed record FreeTextInteraction(
 [JsonDerivedType(typeof(HasRewardCondition), "hasReward")]
 [JsonDerivedType(typeof(VisitedNodeCondition), "visitedNode")]
 [JsonDerivedType(typeof(CharacteristicAtLeastCondition), "characteristicAtLeast")]
+[JsonDerivedType(typeof(ConsultedDocumentCondition), "consultedDocument")]
 public abstract record ConditionExpression;
 
 public sealed record AlwaysCondition : ConditionExpression;
@@ -216,6 +355,14 @@ public sealed record HasRewardCondition(string Reward) : ConditionExpression;
 public sealed record VisitedNodeCondition(string NodeId) : ConditionExpression;
 
 public sealed record CharacteristicAtLeastCondition(string Name, int Value) : ConditionExpression;
+
+/// <summary>
+/// True once the player has consulted the <see cref="DocumentInteraction"/> with
+/// this id, at any point in the session. It reads the interaction history the
+/// engine already records and persists, so it adds no state, needs no save-format
+/// change, and replays exactly from the recorded commands.
+/// </summary>
+public sealed record ConsultedDocumentCondition(string InteractionId) : ConditionExpression;
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(AssignEffect), "assign")]
@@ -356,6 +503,7 @@ public enum InteractionKind
     CharacteristicGate,
     FreeText,
     Completed,
+    Document,
 }
 
 public sealed record CurrentStep(
@@ -388,6 +536,13 @@ public sealed record CurrentStep(
     /// the choices are carried by <see cref="Choices"/> as before.
     /// </summary>
     public IReadOnlyList<VisibleChoice> ExitChoices { get; init; } = [];
+
+    /// <summary>
+    /// The document to present, set only when <see cref="Kind"/> is
+    /// <see cref="InteractionKind.Document"/>. <c>null</c> everywhere else, so the
+    /// field is purely additive for every existing client.
+    /// </summary>
+    public PresentedDocument? Document { get; init; }
 }
 
 public sealed record TextAnalysisResult(

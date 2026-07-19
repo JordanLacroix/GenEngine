@@ -142,6 +142,45 @@ public sealed class NarrativeRuntime
         return AdvanceInteraction(scenario, node, state, world, nextTurn);
     }
 
+    /// <summary>
+    /// Consults the document standing at the current interaction: applies its
+    /// consult effects, records the consultation in the interaction history — which
+    /// is what makes <see cref="ConsultedDocumentCondition"/> become true — and
+    /// moves on, exactly as <see cref="Continue"/> does for a narration.
+    /// </summary>
+    /// <remarks>
+    /// Consulting is a player command like any other, so it takes a turn and it is
+    /// the caller's idempotency key, not the engine, that guarantees a retried
+    /// command applies its effects once. Because consulting advances the sequence,
+    /// the same document cannot be consulted twice while standing on it: a second
+    /// call no longer finds a document and is refused rather than doubling
+    /// anything.
+    /// </remarks>
+    public static GameState ConsultDocument(ScenarioDocument scenario, GameState state)
+    {
+        EnsureAwaitingInput(state);
+        NarrativeNode node = FindNode(scenario, state.CurrentNodeId);
+        StepInteraction interaction = GetCurrentInteraction(node, state);
+        if (interaction is not DocumentInteraction document)
+        {
+            throw new NarrativeException(
+                "interaction_not_document",
+                "The current interaction is not a document.");
+        }
+
+        WorldState world = Clone(state.World);
+        int nextTurn = checked(state.Turn + 1);
+        ApplyEffects(world, document.ConsultEffects, nextTurn);
+        ApplyDueEffects(world, nextTurn);
+        world.InteractionHistory.Add(new InteractionHistoryEntry(
+            node.Id,
+            document.Id,
+            DocumentInteraction.ConsultedInputId,
+            null,
+            nextTurn));
+        return AdvanceInteraction(scenario, node, state, world, nextTurn);
+    }
+
     public static GameState SubmitAnswer(
         ScenarioDocument scenario,
         GameState state,
@@ -385,6 +424,20 @@ public sealed class NarrativeRuntime
                     InteractionId = gate.Id,
                     Kind = InteractionKind.CharacteristicGate,
                     Media = node.Media,
+                },
+                DocumentInteraction document => new CurrentStep(
+                    node.Id,
+                    document.Prompt,
+                    state.Status,
+                    [],
+                    state.Turn)
+                {
+                    InteractionId = document.Id,
+                    Kind = InteractionKind.Document,
+                    Media = node.Media,
+                    Document = document.Document,
+                    IsOptional = isOptional,
+                    ExitChoices = exitChoices,
                 },
                 FreeTextInteraction freeText => new CurrentStep(
                     node.Id,
@@ -926,6 +979,13 @@ public static class ConditionEvaluator
             state,
             characteristic.Name,
             characteristic.Value),
+        ConsultedDocumentCondition consulted => Membership(
+            "consultedDocument",
+            state.InteractionHistory.Any(entry =>
+                string.Equals(entry.InteractionId, consulted.InteractionId, StringComparison.Ordinal)
+                && string.Equals(entry.InputId, DocumentInteraction.ConsultedInputId, StringComparison.Ordinal)),
+            "consulted document",
+            consulted.InteractionId),
         _ => throw new NarrativeException("condition_not_supported", "The condition type is not supported."),
     };
 
@@ -1085,6 +1145,8 @@ public static class ScenarioValidator
             ValidateInteractions(node, nodes, issues, scenario.SchemaVersion);
         }
 
+        ValidateConsultedDocumentConditions(scenario, issues);
+
         if (nodes.ContainsKey(scenario.InitialNodeId))
         {
             HashSet<string> reachable = FindReachable(nodes, scenario.InitialNodeId);
@@ -1213,6 +1275,9 @@ public static class ScenarioValidator
                 case FreeTextInteraction freeText:
                     ValidateFreeText(freeText, interactionPath, nodes, issues);
                     break;
+                case DocumentInteraction document:
+                    ValidateDocumentInteraction(document, interactionPath, nodes, issues, schemaVersion);
+                    break;
             }
         }
     }
@@ -1257,7 +1322,7 @@ public static class ScenarioValidator
             issues.Add(Error(
                 "optional_interaction_not_supported",
                 $"{path}.isOptional",
-                "Only a narration, a quiz or a free-text interaction can be optional."));
+                "Only a narration, a quiz, a free-text or a document interaction can be optional."));
             return;
         }
 
@@ -1267,6 +1332,328 @@ public static class ScenarioValidator
                 "optional_requires_exit_choice_set",
                 $"{path}.isOptional",
                 "An optional interaction requires its node to end with a choice set the player can take instead."));
+        }
+    }
+
+    private const int MaximumDocumentTitleLength = 200;
+    private const int MaximumDocumentTextLength = 4_000;
+    private const int MaximumDocumentBlocks = 64;
+    private const int MaximumDocumentLines = 200;
+    private const int MaximumDocumentRows = 200;
+    private const int MaximumDocumentColumns = 12;
+    private const int MaximumDocumentHeaders = 12;
+
+    /// <summary>
+    /// A document is player-facing content carried by the scenario, so validation
+    /// bounds it on three axes: the capability schema that introduced it, the size
+    /// of every collection — a scenario must not smuggle an unbounded payload into
+    /// a published snapshot — and the honesty of its excerpt disclosure.
+    /// </summary>
+    private static void ValidateDocumentInteraction(
+        DocumentInteraction interaction,
+        string path,
+        Dictionary<string, NarrativeNode> nodes,
+        List<ValidationIssue> issues,
+        int schemaVersion)
+    {
+        if (schemaVersion < NarrativeVersions.DocumentSchema)
+        {
+            issues.Add(Error(
+                "document_requires_schema_6",
+                path,
+                $"Document interactions require schema version {NarrativeVersions.DocumentSchema}."));
+        }
+
+        if (string.IsNullOrWhiteSpace(interaction.Prompt))
+        {
+            issues.Add(Error("document_prompt_required", path, "A document interaction requires a prompt."));
+        }
+
+        PresentedDocument document = interaction.Document;
+        string documentPath = $"{path}.document";
+        if (string.IsNullOrWhiteSpace(document.Title) || document.Title.Length > MaximumDocumentTitleLength)
+        {
+            issues.Add(Error(
+                "document_title_invalid",
+                $"{documentPath}.title",
+                $"A document title must be non-empty and at most {MaximumDocumentTitleLength} characters."));
+        }
+
+        if (document.Blocks.Count == 0 || document.Blocks.Count > MaximumDocumentBlocks)
+        {
+            issues.Add(Error(
+                "document_blocks_invalid",
+                $"{documentPath}.blocks",
+                $"A document requires between 1 and {MaximumDocumentBlocks} blocks."));
+        }
+
+        if (document.Headers is { } headers)
+        {
+            if (headers.Count == 0 || headers.Count > MaximumDocumentHeaders)
+            {
+                issues.Add(Error(
+                    "document_headers_invalid",
+                    $"{documentPath}.headers",
+                    $"Document headers must number between 1 and {MaximumDocumentHeaders}."));
+            }
+
+            if (headers.Any(header =>
+                string.IsNullOrWhiteSpace(header.Name)
+                || string.IsNullOrWhiteSpace(header.Value)
+                || header.Value.Length > MaximumDocumentTextLength))
+            {
+                issues.Add(Error(
+                    "document_header_invalid",
+                    $"{documentPath}.headers",
+                    "Every document header requires a non-empty name and a bounded value."));
+            }
+        }
+
+        ValidateDocumentExcerpt(document.Excerpt, $"{documentPath}.excerpt", issues);
+
+        for (int index = 0; index < document.Blocks.Count; index++)
+        {
+            ValidateDocumentBlock(document.Blocks[index], $"{documentPath}.blocks[{index}]", issues);
+        }
+
+        ValidateEffects(interaction.ConsultEffects, $"{path}.consultEffects", nodes, issues, 0);
+    }
+
+    /// <summary>
+    /// An excerpt claims "N of M": both counts must be positive and the shown count
+    /// cannot exceed the total. A document that shows everything declares no
+    /// excerpt at all rather than an excerpt covering itself, so the disclosure a
+    /// client renders is never a tautology.
+    /// </summary>
+    private static void ValidateDocumentExcerpt(
+        DocumentExcerpt? excerpt,
+        string path,
+        List<ValidationIssue> issues)
+    {
+        if (excerpt is null)
+        {
+            return;
+        }
+
+        if (excerpt.ShownUnits <= 0 || excerpt.TotalUnits <= 0 || excerpt.ShownUnits >= excerpt.TotalUnits)
+        {
+            issues.Add(Error(
+                "document_excerpt_invalid",
+                path,
+                "An excerpt must show a positive number of units, strictly fewer than the declared total."));
+        }
+    }
+
+    private static void ValidateDocumentBlock(DocumentBlock block, string path, List<ValidationIssue> issues)
+    {
+        switch (block)
+        {
+            case DocumentParagraphBlock paragraph:
+                if (string.IsNullOrWhiteSpace(paragraph.Text) || paragraph.Text.Length > MaximumDocumentTextLength)
+                {
+                    issues.Add(Error(
+                        "document_paragraph_invalid",
+                        path,
+                        $"A paragraph must be non-empty and at most {MaximumDocumentTextLength} characters."));
+                }
+
+                break;
+            case DocumentLinesBlock lines:
+                if (lines.Lines.Count == 0 || lines.Lines.Count > MaximumDocumentLines)
+                {
+                    issues.Add(Error(
+                        "document_lines_invalid",
+                        path,
+                        $"A lines block requires between 1 and {MaximumDocumentLines} lines."));
+                }
+
+                if (lines.Lines.Any(line => line.Text.Length > MaximumDocumentTextLength))
+                {
+                    issues.Add(Error(
+                        "document_line_too_long",
+                        path,
+                        $"A document line cannot exceed {MaximumDocumentTextLength} characters."));
+                }
+
+                break;
+            case DocumentTableBlock table:
+                if (table.Columns.Count == 0 || table.Columns.Count > MaximumDocumentColumns)
+                {
+                    issues.Add(Error(
+                        "document_columns_invalid",
+                        path,
+                        $"A table requires between 1 and {MaximumDocumentColumns} columns."));
+                    break;
+                }
+
+                if (table.Columns.Any(string.IsNullOrWhiteSpace))
+                {
+                    issues.Add(Error("document_column_invalid", path, "Every table column requires a header."));
+                }
+
+                if (table.Rows.Count == 0 || table.Rows.Count > MaximumDocumentRows)
+                {
+                    issues.Add(Error(
+                        "document_rows_invalid",
+                        path,
+                        $"A table requires between 1 and {MaximumDocumentRows} rows."));
+                }
+
+                // A ragged row would force every client to invent its own padding
+                // rule, and the rendering would differ between them.
+                if (table.Rows.Any(row => row.Cells.Count != table.Columns.Count))
+                {
+                    issues.Add(Error(
+                        "document_row_arity_mismatch",
+                        path,
+                        "Every table row must carry exactly one cell per declared column."));
+                }
+
+                break;
+            default:
+                issues.Add(Error("document_block_not_supported", path, "The document block type is not supported."));
+                break;
+        }
+    }
+
+    /// <summary>
+    /// A <see cref="ConsultedDocumentCondition"/> is checked in its own pass, over
+    /// every condition the scenario carries, because it is the only condition whose
+    /// validity depends on an interaction declared elsewhere in the document. It is
+    /// bound to <see cref="NarrativeVersions.DocumentSchema"/> — its own capability
+    /// constant — and its target must exist, since a typo would otherwise leave a
+    /// choice silently unreachable for the whole life of the published scenario.
+    /// </summary>
+    private static void ValidateConsultedDocumentConditions(
+        ScenarioDocument scenario,
+        List<ValidationIssue> issues)
+    {
+        HashSet<string> documentIds = new(StringComparer.Ordinal);
+        foreach (NarrativeNode node in scenario.Nodes)
+        {
+            foreach (StepInteraction interaction in node.Interactions ?? [])
+            {
+                if (interaction is DocumentInteraction document)
+                {
+                    documentIds.Add(document.Id);
+                }
+            }
+        }
+
+        foreach ((ConsultedDocumentCondition condition, string path) in CollectConsultedDocumentConditions(scenario))
+        {
+            if (scenario.SchemaVersion < NarrativeVersions.DocumentSchema)
+            {
+                issues.Add(Error(
+                    "consulted_document_requires_schema_6",
+                    path,
+                    $"The consulted-document condition requires schema version {NarrativeVersions.DocumentSchema}."));
+            }
+
+            if (string.IsNullOrWhiteSpace(condition.InteractionId))
+            {
+                issues.Add(Error("condition_value_required", path, "The condition requires a non-empty value."));
+                continue;
+            }
+
+            if (!documentIds.Contains(condition.InteractionId))
+            {
+                issues.Add(Error(
+                    "consulted_document_missing",
+                    path,
+                    $"Condition references missing document interaction '{condition.InteractionId}'."));
+            }
+        }
+    }
+
+    private static IEnumerable<(ConsultedDocumentCondition Condition, string Path)> CollectConsultedDocumentConditions(
+        ScenarioDocument scenario)
+    {
+        foreach (NarrativeNode node in scenario.Nodes)
+        {
+            string nodePath = $"nodes.{node.Id}";
+            foreach (var found in Walk(node.EnterCondition, $"{nodePath}.enterCondition"))
+            {
+                yield return found;
+            }
+
+            foreach (var found in WalkChoices(node.Choices, $"{nodePath}.choices"))
+            {
+                yield return found;
+            }
+
+            IReadOnlyList<StepInteraction> interactions = node.Interactions ?? [];
+            for (int index = 0; index < interactions.Count; index++)
+            {
+                string path = $"{nodePath}.interactions[{index}]";
+                switch (interactions[index])
+                {
+                    case ChoiceSetInteraction choiceSet:
+                        foreach (var found in WalkChoices(choiceSet.Choices, $"{path}.choices"))
+                        {
+                            yield return found;
+                        }
+
+                        break;
+                    case CharacteristicGateInteraction gate:
+                        foreach (var found in Walk(gate.Condition, $"{path}.condition"))
+                        {
+                            yield return found;
+                        }
+
+                        break;
+                }
+            }
+        }
+
+        static IEnumerable<(ConsultedDocumentCondition, string)> WalkChoices(
+            IReadOnlyList<NarrativeChoice> choices,
+            string path)
+        {
+            for (int index = 0; index < choices.Count; index++)
+            {
+                foreach (var found in Walk(choices[index].Condition, $"{path}[{index}].condition"))
+                {
+                    yield return found;
+                }
+            }
+        }
+
+        static IEnumerable<(ConsultedDocumentCondition, string)> Walk(ConditionExpression? condition, string path)
+        {
+            switch (condition)
+            {
+                case ConsultedDocumentCondition consulted:
+                    yield return (consulted, path);
+                    break;
+                case AllCondition all:
+                    for (int index = 0; index < all.Conditions.Count; index++)
+                    {
+                        foreach (var found in Walk(all.Conditions[index], $"{path}.conditions[{index}]"))
+                        {
+                            yield return found;
+                        }
+                    }
+
+                    break;
+                case AnyCondition any:
+                    for (int index = 0; index < any.Conditions.Count; index++)
+                    {
+                        foreach (var found in Walk(any.Conditions[index], $"{path}.conditions[{index}]"))
+                        {
+                            yield return found;
+                        }
+                    }
+
+                    break;
+                case NotCondition not:
+                    foreach (var found in Walk(not.Condition, $"{path}.condition"))
+                    {
+                        yield return found;
+                    }
+
+                    break;
+            }
         }
     }
 

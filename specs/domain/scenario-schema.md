@@ -1,6 +1,6 @@
 # Format de scénario
 
-Un `ScenarioDocument` contient `schemaVersion`, `title`, `initialNodeId` et une liste de nœuds. Le schéma v1 conserve les choix portés directement par le nœud. Le schéma v2 peut définir une séquence `interactions` typée. Le schéma v3 ajoute des médias optionnels sur les nœuds et les choix. Le schéma v4 ajoute le drapeau `isOptional` qui rend une interaction facultative. Le schéma v5 ajoute un objet `help` facultatif sur les nœuds et les choix ; les cinq formats restent exécutables.
+Un `ScenarioDocument` contient `schemaVersion`, `title`, `initialNodeId` et une liste de nœuds. Le schéma v1 conserve les choix portés directement par le nœud. Le schéma v2 peut définir une séquence `interactions` typée. Le schéma v3 ajoute des médias optionnels sur les nœuds et les choix. Le schéma v4 ajoute le drapeau `isOptional` qui rend une interaction facultative. Le schéma v5 ajoute un objet `help` facultatif sur les nœuds et les choix. Le schéma v6 ajoute l'interaction `document` et la condition `consultedDocument` ; les six formats restent exécutables.
 
 Les interactions v2 disponibles sont `narration`, `quiz`, `choiceSet`, `characteristicGate` et `freeText`. Une narration progresse par une commande continue, un quiz applique des effets corrects ou incorrects sans révéler la réponse dans l'état courant, et un ensemble de choix termine un nœud non final en ciblant le nœud suivant. Un gate évalue automatiquement une condition, applique les effets de réussite ou d'échec, puis entre dans la branche correspondante sans consommer un tour joueur. Une saisie libre compare de façon déterministe et insensible à la casse/aux accents les termes attendus ; son résultat doit être confirmé avant d'appliquer les effets. Un nœud final peut dérouler ses interactions avant de passer à `Completed`.
 
@@ -48,7 +48,7 @@ Une interaction `freeText` facultative laisse la session en `AwaitingExternalInp
 ### Validation
 
 - `optional_requires_schema_4` : `isOptional` déclaré sur un document antérieur au schéma v4 ;
-- `optional_interaction_not_supported` : `isOptional: true` sur un `choiceSet` ou un `characteristicGate`. Un `choiceSet` permet déjà de partir et un gate se résout sans entrée joueur : les rendre facultatifs rendrait la sortie ambiguë. Seuls `narration`, `quiz` et `freeText` sont concernés ;
+- `optional_interaction_not_supported` : `isOptional: true` sur un `choiceSet` ou un `characteristicGate`. Un `choiceSet` permet déjà de partir et un gate se résout sans entrée joueur : les rendre facultatifs rendrait la sortie ambiguë. Seuls `narration`, `quiz`, `freeText` et `document` sont concernés ;
 - `optional_requires_exit_choice_set` : `isOptional: true` dans un nœud qui ne se termine pas par un `choiceSet` — un nœud final, par exemple. Rien n'y serait sautable, donc le drapeau promettrait une sortie inexistante.
 
 Le drapeau est nullable et omis à la sérialisation lorsqu'il n'est pas renseigné : un document qui ne l'utilise pas produit exactement les mêmes octets canoniques et le même hash qu'avant son introduction. Une fixture golden fige le hash d'un snapshot v3 et son état final rejoué, tous deux calculés avec le moteur d'avant le changement.
@@ -76,6 +76,79 @@ C'est `PlayerExperience` qui les consomme, en relisant la version publiée via l
 - `help_text_invalid` : un champ d'aide vide ou de plus de 500 caractères. La borne évite qu'un document ne fasse transiter une charge non bornée vers un fournisseur d'IA.
 
 L'objet est nullable, comme chacun de ses champs, et omis à la sérialisation lorsqu'il n'est pas renseigné : un document qui ne l'utilise pas produit exactement les mêmes octets canoniques et le même hash qu'avant son introduction. Une fixture golden fige le hash d'un snapshot v4 et son état final rejoué, tous deux calculés avec le moteur d'avant le changement.
+
+## Documents (schéma v6)
+
+Les scénarios évoquaient jusqu'ici des documents — une note de service, un correctif bloqué, une table de 412 candidatures — sans jamais les montrer. L'interaction `document` les présente réellement. Le contenu est **porté par le scénario**, donc versionné, hashé et rejoué comme le reste : le moteur ne va rien chercher.
+
+```jsonc
+{
+  "$type": "document",
+  "id": "la-note",
+  "isOptional": true,
+  "prompt": "Ouvrir la note et la lire en entier",
+  "document": {
+    "title": "Réorganisation du périmètre Données",
+    "nature": "Memo",
+    "headers": [{ "name": "Objet", "value": "…" }],
+    "excerpt": { "shownUnits": 4, "totalUnits": 27, "unit": "Paragraphs" },
+    "blocks": [{ "$type": "paragraph", "text": "…" }]
+  },
+  "consultEffects": [{ "$type": "discoverEvidence", "evidence": "note-lue-integralement" }]
+}
+```
+
+### Nature
+
+`nature` nomme ce que le document **est** : `Memo`, `Email`, `Code`, `Diff`, `Log`, `Table`, `Conversation`, `Report`, et `Other`. La taxonomie est nommée pour qu'un client puisse rendre une note comme une note et un journal comme un journal ; `Other` la garde ouverte, pour qu'une nature imprévue n'impose pas une montée de schéma.
+
+### Corps
+
+Le corps est une liste de `blocks`, et le vocabulaire est **délibérément arrêté à trois formes** :
+
+| Bloc | Rend | Sert |
+|---|---|---|
+| `paragraph` | de la prose | note de service, courriel, commentaire |
+| `lines` | des lignes, chacune avec un `marker` et un `label` facultatifs | diff (`Added`, `Removed`, `Context`), journal applicatif (`Warning`, `Error`), extrait de code |
+| `table` | `columns` + `rows` | table de données |
+
+C'est le plus petit vocabulaire qui permet encore un rendu client correct — une table se rend en table, un diff en diff, un courriel avec ses en-têtes. Aller plus loin reviendrait à livrer un langage de balisage, que le moteur n'a pas à interpréter ; s'arrêter à une chaîne libre jetterait une structure qui porte du sens. Un même jeu de `marker` couvre le diff et le journal, ce qui évite deux types de blocs pour une seule forme.
+
+`headers` porte les en-têtes ordonnés (`De`, `Objet`, `Fichier`…), ou reste absent quand la nature n'en a pas.
+
+### Échantillon
+
+`excerpt` déclare honnêtement qu'on ne montre qu'une partie : `shownUnits` sur `totalUnits`, dans une `unit` (`Lines`, `Rows`, `Messages`, `Entries`, `Paragraphs`). Un client en tire « 6 lignes affichées sur 412 ». **Un échantillon présenté comme un tout serait un mensonge d'interface**, et le jeu porte précisément sur la lucidité face à l'information. Un document montré intégralement ne déclare **pas** d'`excerpt` : `shownUnits` doit être strictement inférieur à `totalUnits`, faute de quoi la mention ne dirait rien.
+
+### Consulter est facultatif, et conséquent
+
+Le document s'inscrit dans la mécanique `isOptional` du schéma v4, sans rien y ajouter : déclaré `isOptional: true`, il est présenté à côté des `exitChoices` du nœud, et **consulter n'est jamais obligatoire**.
+
+- **Consulter** applique `consultEffects`, inscrit la consultation dans `interactionHistory` sous l'`inputId` `consulted`, et avance à l'interaction suivante — exactement comme `continue` sur une narration.
+- **Ignorer** quitte le nœud par un choix de sortie et ne laisse aucune trace.
+
+La condition `consultedDocument` teste cette trace :
+
+```jsonc
+{ "$type": "consultedDocument", "interactionId": "la-note" }
+```
+
+Elle relit l'historique d'interactions que le moteur enregistre et persiste déjà : **aucun nouvel état, aucun changement de format de sauvegarde**, et un rejeu exact à partir des seules commandes enregistrées. Un joueur qui a lu la note peut donc se voir proposer des choix que celui qui ne l'a pas lue n'a pas — c'est ce qui donne sa valeur pédagogique à la mécanique ; un document purement décoratif n'apprendrait rien.
+
+Consulter est une commande joueur comme une autre : elle consomme un tour et porte une clé d'idempotence côté `Play`, donc une commande rejouée n'applique ses effets qu'une fois. Comme la consultation fait avancer la séquence, le même document ne peut pas être consulté deux fois depuis la même position : un second appel ne trouve plus de document et est refusé (`interaction_not_document`) plutôt que de doubler quoi que ce soit.
+
+### Validation
+
+- `document_requires_schema_6` et `consulted_document_requires_schema_6` : l'interaction ou la condition déclarée sur un document antérieur au schéma v6. Les deux moitiés sont conditionnées **séparément** à la constante de capacité `DocumentSchema`, jamais à `LatestSchema` ;
+- `consulted_document_missing` : la condition référence un `interactionId` qui n'est aucun `document` du scénario. Une faute de frappe rendrait sinon un choix définitivement inatteignable ;
+- `document_prompt_required`, `document_title_invalid`, `document_blocks_invalid`, `document_headers_invalid`, `document_header_invalid` ;
+- `document_paragraph_invalid`, `document_lines_invalid`, `document_line_too_long` ;
+- `document_columns_invalid`, `document_column_invalid`, `document_rows_invalid`, `document_row_arity_mismatch` — une ligne dépareillée forcerait chaque client à inventer sa propre règle de remplissage, et le rendu différerait de l'un à l'autre ;
+- `document_excerpt_invalid` : `shownUnits` ou `totalUnits` non positif, ou `shownUnits` supérieur ou égal à `totalUnits`.
+
+Toutes les collections sont bornées (64 blocs, 200 lignes, 200 rangées, 12 colonnes, 12 en-têtes, 4 000 caractères par texte) pour qu'un scénario ne fasse pas entrer une charge non bornée dans un snapshot publié.
+
+Les types sont entièrement nouveaux et l'interaction est opt-in : un document qui n'en déclare aucun produit exactement les mêmes octets canoniques et le même hash qu'avant leur introduction. Une fixture golden fige le hash d'un snapshot v5 et son état final rejoué, tous deux calculés avec le moteur d'avant le changement.
 
 Les brouillons v1 importés ou remplacés dans Authoring sont migrés en v2 avant stockage, sans réécriture rétroactive des snapshots déjà publiés. Les migrations refusent les versions et types JSON inconnus, mais restent distinctes de la validation métier afin qu'Authoring puisse conserver puis diagnostiquer un brouillon incomplet via `/validate`. Des fixtures golden figent un scénario v1, une sauvegarde v1 et l'état final attendu après migration puis replay, ainsi qu'un scénario v2, sa sauvegarde et son état final pour vérifier qu'un snapshot publié avant les médias rejoue à l'identique. `NarrativeTreeBuilder` projette un scénario et une sauvegarde en arbre complet avec nœuds courants, visités, inexplorés ou verrouillés.
 

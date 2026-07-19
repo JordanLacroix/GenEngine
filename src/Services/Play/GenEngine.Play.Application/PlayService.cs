@@ -232,6 +232,28 @@ public sealed class PlayService(
             NarrativeRuntime.Continue,
             cancellationToken).ConfigureAwait(false);
 
+    /// <summary>
+    /// Consults the document of the current step. It travels the same command
+    /// path as every other input, so it carries a command id and is replayed
+    /// rather than reapplied when the client retries: consulting twice never
+    /// doubles the document's consult effects.
+    /// </summary>
+    public async Task<InputResult> ConsultDocumentAsync(
+        Guid id,
+        string ownerId,
+        Guid commandId,
+        int expectedRevision,
+        CancellationToken cancellationToken) =>
+        await SubmitInputAsync(
+            id,
+            ownerId,
+            commandId,
+            expectedRevision,
+            DocumentInteraction.ConsultedInputId,
+            "DocumentConsulted",
+            NarrativeRuntime.ConsultDocument,
+            cancellationToken).ConfigureAwait(false);
+
     public async Task<InputResult> SubmitAnswerAsync(
         Guid id,
         string ownerId,

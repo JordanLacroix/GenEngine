@@ -13,6 +13,8 @@ public sealed record SubmitChoiceRequest(Guid CommandId, int ExpectedRevision, s
 
 public sealed record ContinueInteractionRequest(Guid CommandId, int ExpectedRevision);
 
+public sealed record ConsultDocumentRequest(Guid CommandId, int ExpectedRevision);
+
 public sealed record SubmitAnswerRequest(Guid CommandId, int ExpectedRevision, string AnswerId);
 
 public sealed record SubmitTextRequest(Guid CommandId, int ExpectedRevision, string Text);
