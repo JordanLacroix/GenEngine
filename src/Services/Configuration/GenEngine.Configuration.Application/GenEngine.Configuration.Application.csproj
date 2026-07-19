@@ -4,5 +4,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\GenEngine.Configuration.Domain\GenEngine.Configuration.Domain.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\GenEngine.Secrets\GenEngine.Secrets.csproj" />
   </ItemGroup>
 </Project>

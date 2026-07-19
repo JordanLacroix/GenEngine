@@ -89,6 +89,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GenEngine.Organization.Infr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GenEngine.Organization.Api", "src\Services\Organization\GenEngine.Organization.Api\GenEngine.Organization.Api.csproj", "{409EAAE5-2102-4EF6-9369-249FFC96BCCA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "GenEngine.Secrets", "src\BuildingBlocks\GenEngine.Secrets\GenEngine.Secrets.csproj", "{454858A2-6476-4788-AE59-9441F026BA3D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -483,6 +485,18 @@ Global
 		{409EAAE5-2102-4EF6-9369-249FFC96BCCA}.Release|x64.Build.0 = Release|Any CPU
 		{409EAAE5-2102-4EF6-9369-249FFC96BCCA}.Release|x86.ActiveCfg = Release|Any CPU
 		{409EAAE5-2102-4EF6-9369-249FFC96BCCA}.Release|x86.Build.0 = Release|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Debug|x64.Build.0 = Debug|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Debug|x86.Build.0 = Debug|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Release|x64.ActiveCfg = Release|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Release|x64.Build.0 = Release|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Release|x86.ActiveCfg = Release|Any CPU
+		{454858A2-6476-4788-AE59-9441F026BA3D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -529,5 +543,6 @@ Global
 		{F88810CC-C3E4-45A2-9463-865DCEDEE8E0} = {946C6459-E9BE-82F4-B64C-18C7DF3C0D5C}
 		{CB8951BD-6235-4D33-8C70-961005240489} = {946C6459-E9BE-82F4-B64C-18C7DF3C0D5C}
 		{409EAAE5-2102-4EF6-9369-249FFC96BCCA} = {946C6459-E9BE-82F4-B64C-18C7DF3C0D5C}
+		{454858A2-6476-4788-AE59-9441F026BA3D} = {90298CBA-BD6F-3A0A-69D5-97CAD7B05E7E}
 	EndGlobalSection
 EndGlobal

@@ -58,6 +58,14 @@ public sealed class PlayerProfile
 
     public IReadOnlyDictionary<string, string> FamiliarAxisSelections =>
         JsonSerializer.Deserialize<Dictionary<string, string>>(FamiliarAxisSelectionsJson) ?? [];
+
+    /// <summary>
+    /// Journey the player browses by default. Nullable on purpose: a profile created
+    /// before journeys existed, or a front publishing none, stays fully playable and
+    /// simply has no default. Validity against the published catalog is enforced by the
+    /// application layer, which is the only one that can read it.
+    /// </summary>
+    public Guid? DefaultJourneyId { get; private set; }
     public int Balance { get; private set; }
     public int Revision { get; private set; }
     public DateTimeOffset CreatedAt { get; private set; }
@@ -147,6 +155,19 @@ public sealed class PlayerProfile
     /// </summary>
     private static bool IsUnsafeNameCharacter(char character) =>
         char.IsControl(character) || character is '<' or '>' or '&';
+
+    /// <summary>
+    /// Selects the journey the player browses by default, or clears it when
+    /// <paramref name="journeyId"/> is null. Whether the journey exists, is visible and
+    /// has its prerequisites satisfied is decided against the published configuration
+    /// before this call.
+    /// </summary>
+    public void SelectDefaultJourney(Guid? journeyId, int expectedRevision, DateTimeOffset now)
+    {
+        EnsureRevision(expectedRevision);
+        DefaultJourneyId = journeyId;
+        Touch(now);
+    }
 
     public OnboardingState GetOrStartOnboarding(Guid tutorialId, int version, DateTimeOffset now)
     {
@@ -363,7 +384,9 @@ public sealed class ScenarioMastery
     public int TotalObjectives { get; private set; }
     public DateTimeOffset UpdatedAt { get; private set; }
     public IReadOnlyList<string> ChoiceIds => DeserializeStrings(ChoiceIdsJson);
-    public int DiscoveredObjectives => ChoiceIds.Count + DeserializeStrings(EndingIdsJson).Length;
+    public IReadOnlyList<string> NodeIds => DeserializeStrings(NodeIdsJson);
+    public IReadOnlyList<string> EndingIds => DeserializeStrings(EndingIdsJson);
+    public int DiscoveredObjectives => ChoiceIds.Count + EndingIds.Count;
     public int MasteryPercent => Math.Min(100, (int)Math.Round(DiscoveredObjectives * 100d / Math.Max(1, TotalObjectives)));
     internal static ScenarioMastery Create(Guid profileId, Guid scenarioId, Guid versionId, int total, DateTimeOffset now) => new(profileId, scenarioId, versionId, total, now);
     internal bool Record(Guid sessionId, string choiceId, string targetNodeId, bool completed, string? endingId, int total, string key, DateTimeOffset now)

@@ -35,12 +35,6 @@ public sealed record FinalePlan(
     string? MusicUrl,
     string? LabelKey);
 
-/// <summary>Minimal catalogue shape needed to say which scenarios a category holds.</summary>
-public sealed record CategoryPlan(Guid Id, IReadOnlyList<Guid> ScenarioIds);
-
-/// <summary>Minimal catalogue shape needed to say which categories a journey holds.</summary>
-public sealed record JourneyPlan(Guid Id, IReadOnlyList<Guid> CategoryIds);
-
 /// <summary>Progress of one condition, so a client can show what is left rather than a locked door.</summary>
 public sealed record FinaleConditionProgress(Guid Id, string Kind, string Description, bool Satisfied, int Current, int Target);
 
@@ -84,8 +78,8 @@ public static class FinaleEvaluator
     public static IReadOnlyList<FinaleConditionProgress> Evaluate(
         FinalePlan plan,
         IReadOnlyList<ScenarioProgress> progress,
-        IReadOnlyList<CategoryPlan> categories,
-        IReadOnlyList<JourneyPlan> journeys) =>
+        IReadOnlyList<CategoryCatalogEntry> categories,
+        IReadOnlyList<JourneyCatalogEntry> journeys) =>
         plan.Conditions.Select(condition => Evaluate(condition, progress, categories, journeys)).ToArray();
 
     public static bool IsSatisfied(FinalePlan plan, IReadOnlyList<FinaleConditionProgress> conditions) =>
@@ -96,8 +90,8 @@ public static class FinaleEvaluator
     private static FinaleConditionProgress Evaluate(
         FinaleCondition condition,
         IReadOnlyList<ScenarioProgress> progress,
-        IReadOnlyList<CategoryPlan> categories,
-        IReadOnlyList<JourneyPlan> journeys)
+        IReadOnlyList<CategoryCatalogEntry> categories,
+        IReadOnlyList<JourneyCatalogEntry> journeys)
     {
         (int current, int target) = condition.Kind switch
         {
@@ -149,9 +143,9 @@ public static class FinaleEvaluator
     /// as "done" would fire the finale on a freshly seeded instance, before the operator
     /// has attached a single scenario.
     /// </summary>
-    private static (int Current, int Target) CategoryProgress(Guid? categoryId, IReadOnlyList<ScenarioProgress> progress, IReadOnlyList<CategoryPlan> categories)
+    private static (int Current, int Target) CategoryProgress(Guid? categoryId, IReadOnlyList<ScenarioProgress> progress, IReadOnlyList<CategoryCatalogEntry> categories)
     {
-        CategoryPlan? category = categoryId is Guid id ? categories.FirstOrDefault(item => item.Id == id) : null;
+        CategoryCatalogEntry? category = categoryId is Guid id ? categories.FirstOrDefault(item => item.Id == id) : null;
         if (category is null || category.ScenarioIds.Count == 0) return (0, 1);
         HashSet<Guid> completed = CompletedScenarios(progress, category.ScenarioIds);
         return (completed.Count, category.ScenarioIds.Distinct().Count());
@@ -164,10 +158,10 @@ public static class FinaleEvaluator
     private static (int Current, int Target) JourneyProgress(
         Guid? journeyId,
         IReadOnlyList<ScenarioProgress> progress,
-        IReadOnlyList<CategoryPlan> categories,
-        IReadOnlyList<JourneyPlan> journeys)
+        IReadOnlyList<CategoryCatalogEntry> categories,
+        IReadOnlyList<JourneyCatalogEntry> journeys)
     {
-        JourneyPlan? journey = journeyId is Guid id ? journeys.FirstOrDefault(item => item.Id == id) : null;
+        JourneyCatalogEntry? journey = journeyId is Guid id ? journeys.FirstOrDefault(item => item.Id == id) : null;
         if (journey is null) return (0, 1);
         Guid[] scenarioIds = journey.CategoryIds
             .SelectMany(categoryId => categories.FirstOrDefault(item => item.Id == categoryId)?.ScenarioIds ?? [])

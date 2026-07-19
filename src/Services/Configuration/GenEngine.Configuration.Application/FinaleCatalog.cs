@@ -70,9 +70,18 @@ public static class FinaleCatalog
     public static Guid DiapasonFinaleId { get; } = Guid.Parse("5f2c8b41-7d10-4a63-9e58-3c17a4b6d201");
 
     /// <summary>
-    /// The Diapason finale: the third journey closed, the ten scenarios played, and
-    /// the two endings that state what the player chose to keep.
+    /// The Diapason finale: the last posture mastered, and most of the ten scenarios
+    /// played.
     /// </summary>
+    /// <remarks>
+    /// The content-referencing condition targets a <em>category</em> rather than a
+    /// journey, even though "Ce qui reste après toi" would read more naturally. Journeys
+    /// are explicitly meant to be recomposed by each client over the six postures — see
+    /// <c>specs/domain/diapason/</c> — so pinning the shipped default to one would make
+    /// a perfectly legitimate re-authoring of the journeys fail validation with an error
+    /// about the finale. The six categories are the stable axis. <c>JourneyCompleted</c>
+    /// stays fully supported for a configuration that does pin its own journeys.
+    /// </remarks>
     public static FinaleDefinition CreateDiapasonDefault() => new(
         DiapasonFinaleId,
         true,
@@ -83,9 +92,9 @@ public static class FinaleCatalog
         [
             new FinaleConditionDefinition(
                 Guid.Parse("5f2c8b41-7d10-4a63-9e58-3c17a4b6d211"),
-                FinaleConditionType.JourneyCompleted,
-                "Avoir terminé le parcours « Ce qui reste après toi ».",
-                JourneyId: DiapasonIds.CeQuiReste),
+                FinaleConditionType.CategoryCompleted,
+                "Avoir terminé la posture « Autonomie ».",
+                CategoryId: DiapasonIds.Autonomie),
             new FinaleConditionDefinition(
                 Guid.Parse("5f2c8b41-7d10-4a63-9e58-3c17a4b6d212"),
                 FinaleConditionType.ScenariosCompleted,

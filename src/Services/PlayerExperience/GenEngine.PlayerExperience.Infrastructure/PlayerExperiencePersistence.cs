@@ -179,9 +179,9 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
             offers,
             tutorial,
             assistantPolicy,
-            ReadFinale(document),
-            ReadCategories(document),
-            ReadJourneys(document));
+            GetJourneys(document),
+            GetCategories(document),
+            ReadFinale(document));
     }
 
     private static FamiliarAxis[]? ReadAxes(JsonElement familiar)
@@ -234,14 +234,41 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
             GetNullableString(finale, "labelKey"));
     }
 
-    private static CategoryPlan[] ReadCategories(JsonElement document) =>
-        document.TryGetProperty("categories", out JsonElement categories) && categories.ValueKind == JsonValueKind.Array
-            ? categories.EnumerateArray().Select(static category => new CategoryPlan(category.GetProperty("id").GetGuid(), GetGuids(category, "scenarioIds"))).ToArray()
+    /// <summary>
+    /// Journeys and categories are read defensively: a front published before journeys
+    /// existed simply has no such property, and the player experience must stay usable.
+    /// </summary>
+    private static JourneyCatalogEntry[] GetJourneys(JsonElement document) =>
+        document.TryGetProperty("journeys", out JsonElement journeys) && journeys.ValueKind == JsonValueKind.Array
+            ? journeys.EnumerateArray().Select(static item => new JourneyCatalogEntry(
+                item.GetProperty("id").GetGuid(),
+                GetString(item, "name"),
+                GetString(item, "description"),
+                GetString(item, "accent"),
+                GetNullableString(item, "imageUrl"),
+                item.GetProperty("order").GetInt32(),
+                item.GetProperty("isVisible").GetBoolean(),
+                GetGuids(item, "categoryIds"),
+                GetGuids(item, "prerequisiteJourneyIds"),
+                GetStrings(item, "tags"))).ToArray()
             : [];
 
-    private static JourneyPlan[] ReadJourneys(JsonElement document) =>
-        document.TryGetProperty("journeys", out JsonElement journeys) && journeys.ValueKind == JsonValueKind.Array
-            ? journeys.EnumerateArray().Select(static journey => new JourneyPlan(journey.GetProperty("id").GetGuid(), GetGuids(journey, "categoryIds"))).ToArray()
+    private static CategoryCatalogEntry[] GetCategories(JsonElement document) =>
+        document.TryGetProperty("categories", out JsonElement categories) && categories.ValueKind == JsonValueKind.Array
+            ? categories.EnumerateArray().Select(static item => new CategoryCatalogEntry(
+                item.GetProperty("id").GetGuid(),
+                GetString(item, "name"),
+                GetString(item, "description"),
+                GetString(item, "accent"),
+                item.GetProperty("order").GetInt32(),
+                item.GetProperty("isVisible").GetBoolean(),
+                GetNullableString(item, "imageUrl"),
+                GetGuids(item, "scenarioIds"))).ToArray()
+            : [];
+
+    private static Guid[] GetGuids(JsonElement element, string property) =>
+        element.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.Array
+            ? value.EnumerateArray().Select(static item => item.GetGuid()).ToArray()
             : [];
 
     private static int? GetNullableInt(JsonElement element, string property) =>
@@ -249,11 +276,6 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
 
     private static Guid? GetNullableGuid(JsonElement element, string property) =>
         element.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.String && value.TryGetGuid(out Guid parsed) ? parsed : null;
-
-    private static Guid[] GetGuids(JsonElement element, string property) =>
-        element.TryGetProperty(property, out JsonElement value) && value.ValueKind == JsonValueKind.Array
-            ? value.EnumerateArray().Where(static item => item.ValueKind == JsonValueKind.String).Select(static item => item.GetGuid()).ToArray()
-            : [];
 
     private static string GetString(JsonElement element, string property) =>
         element.TryGetProperty(property, out JsonElement value) ? value.GetString() ?? string.Empty : string.Empty;

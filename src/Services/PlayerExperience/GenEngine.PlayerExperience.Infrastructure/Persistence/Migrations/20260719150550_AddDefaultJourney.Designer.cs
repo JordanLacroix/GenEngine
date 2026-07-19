@@ -3,6 +3,7 @@ using System;
 using GenEngine.PlayerExperience.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GenEngine.PlayerExperience.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(PlayerExperienceDbContext))]
-    partial class PlayerExperienceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260719150550_AddDefaultJourney")]
+    partial class AddDefaultJourney
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -162,10 +165,6 @@ namespace GenEngine.PlayerExperience.Infrastructure.Persistence.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)");
 
-                    b.Property<string>("FamiliarAxisSelectionsJson")
-                        .IsRequired()
-                        .HasColumnType("jsonb");
-
                     b.Property<string>("FamiliarCustomName")
                         .IsRequired()
                         .HasMaxLength(80)
@@ -197,12 +196,6 @@ namespace GenEngine.PlayerExperience.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(120)
                         .HasColumnType("character varying(120)");
-
-                    b.Property<Guid?>("FinaleId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateTimeOffset?>("FinaleReachedAt")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("FrontId")
                         .IsRequired()

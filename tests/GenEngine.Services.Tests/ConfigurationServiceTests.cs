@@ -96,7 +96,13 @@ public sealed class ConfigurationServiceTests
         Assert.Equal("client-id", admin.Document.Authentication.EntraClientId);
         Assert.NotNull(admin.Document.Organization);
         Assert.NotEmpty(admin.Document.Organization!.Units);
-        Assert.Contains(admin.Document.AiProviders, static provider => provider.SecretReference == "azure-foundry-credential");
+        // The admin surface is the only one that keeps the reference. Its value is the
+        // default set by CreateDefault; assert the grammar too, so a future default that
+        // no resolver could ever read fails here rather than silently at runtime.
+        Assert.Contains(admin.Document.AiProviders, static provider => provider.SecretReference == "env:GENENGINE_AI_AZURE_FOUNDRY_KEY");
+        Assert.All(
+            admin.Document.AiProviders.Where(static provider => !string.IsNullOrWhiteSpace(provider.SecretReference)),
+            static provider => Assert.True(GenEngine.Secrets.SecretReferenceGrammar.IsWellFormed(provider.SecretReference)));
         Assert.Contains(admin.Document.AiProviders, static provider => provider.Endpoint.StartsWith("https://", StringComparison.Ordinal));
     }
 
@@ -384,6 +390,82 @@ public sealed class ConfigurationServiceTests
             service.UpsertAsync("default", null, document, CancellationToken.None));
 
         Assert.Equal("invalid_journey", exception.Code);
+    }
+
+    [Fact]
+    public async Task JourneyRejectsATwoStepPrerequisiteCycle()
+    {
+        var service = new ConfigurationService(new ConfigurationRepositoryStub(), TimeProvider.System);
+        ExperienceDocument baseline = ConfigurationService.CreateDefault("default");
+        Guid first = Guid.NewGuid();
+        Guid second = Guid.NewGuid();
+        ExperienceDocument document = baseline with
+        {
+            Journeys =
+            [
+                new JourneyDefinition(first, "Premier", "", "ember", null, 1, true, [], [second], []),
+                new JourneyDefinition(second, "Second", "", "ember", null, 2, true, [], [first], []),
+            ],
+        };
+
+        ConfigurationException exception = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            service.UpsertAsync("default", null, document, CancellationToken.None));
+
+        Assert.Equal("journey_cycle", exception.Code);
+    }
+
+    [Fact]
+    public async Task JourneyRejectsALongerPrerequisiteCycle()
+    {
+        var service = new ConfigurationService(new ConfigurationRepositoryStub(), TimeProvider.System);
+        ExperienceDocument baseline = ConfigurationService.CreateDefault("default");
+        Guid first = Guid.NewGuid();
+        Guid second = Guid.NewGuid();
+        Guid third = Guid.NewGuid();
+        ExperienceDocument document = baseline with
+        {
+            Journeys =
+            [
+                new JourneyDefinition(first, "A", "", "ember", null, 1, true, [], [third], []),
+                new JourneyDefinition(second, "B", "", "ember", null, 2, true, [], [first], []),
+                new JourneyDefinition(third, "C", "", "ember", null, 3, true, [], [second], []),
+            ],
+        };
+
+        ConfigurationException exception = await Assert.ThrowsAsync<ConfigurationException>(() =>
+            service.UpsertAsync("default", null, document, CancellationToken.None));
+
+        Assert.Equal("journey_cycle", exception.Code);
+    }
+
+    [Fact]
+    public async Task JourneysSharingACategoryStayValidOnAnAcyclicGraph()
+    {
+        var repository = new ConfigurationRepositoryStub();
+        var service = new ConfigurationService(repository, TimeProvider.System);
+        ExperienceDocument baseline = ConfigurationService.CreateDefault("default");
+        Guid shared = baseline.Categories[0].Id;
+        Guid other = baseline.Categories[1].Id;
+        Guid foundation = Guid.NewGuid();
+        Guid left = Guid.NewGuid();
+        Guid right = Guid.NewGuid();
+        ExperienceDocument document = baseline with
+        {
+            Journeys =
+            [
+                new JourneyDefinition(foundation, "Socle", "", "ember", null, 1, true, [shared], [], []),
+                new JourneyDefinition(left, "Branche gauche", "", "ember", null, 2, true, [shared, other], [foundation], []),
+                new JourneyDefinition(right, "Branche droite", "", "ember", null, 3, true, [shared], [foundation, left], []),
+            ],
+        };
+
+        ExperienceConfigurationView created = await service.UpsertAsync("default", null, document, CancellationToken.None);
+        await service.PublishAsync("default", created.Revision, CancellationToken.None);
+        JourneyCatalogView catalog = await service.GetJourneyCatalogAsync("default", CancellationToken.None);
+
+        Assert.Equal(3, catalog.Journeys.Count);
+        Assert.All(catalog.Journeys, journey => Assert.Contains(journey.Categories, category => category.Id == shared));
+        Assert.Equal(2, catalog.Journeys.Single(journey => journey.Id == right).Prerequisites.Count);
     }
 
     [Fact]

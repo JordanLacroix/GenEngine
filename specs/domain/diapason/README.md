@@ -80,7 +80,9 @@ Une fin de rupture n'est pas une punition et ne comporte aucun jugement sur le j
 
 ## Fin de partie globale
 
-Au-dessus des fins internes aux scénarios, Diapason déclare une **fin de jeu** dans sa configuration de référence : « Ce qui reste après vous ». Elle se déclenche en mode `All`, sur deux conditions — avoir terminé le parcours « Ce qui reste après toi », et avoir terminé au moins huit des dix scénarios.
+Au-dessus des fins internes aux scénarios, Diapason déclare une **fin de jeu** dans sa configuration de référence : « Ce qui reste après vous ». Elle se déclenche en mode `All`, sur deux conditions — avoir terminé la posture « Autonomie », et avoir terminé au moins huit des dix scénarios.
+
+La condition vise une **catégorie** plutôt que le parcours homonyme, alors que « Ce qui reste après toi » se lirait mieux. C'est délibéré : les parcours sont faits pour être recomposés par chaque client au-dessus des six postures, et y épingler la fin livrée par défaut rendrait invalide toute réécriture des parcours. Les six postures sont l'axe stable de Diapason ; les parcours sont une composition. Une configuration cliente qui fige ses propres parcours peut, elle, utiliser `JourneyCompleted`.
 
 Le texte de clôture assume la position du jeu : *« Vous n'avez pas gagné, et vous n'avez rien perdu non plus. »* Il énonce aussi la règle du moteur, qui est ici une règle de récit : **atteindre la fin ne ferme rien**. Les scénarios déjà joués gardent leurs branches non ouvertes, et le joueur y revient s'il le souhaite. La fin est un accord tenu, pas une porte.
 

@@ -20,13 +20,17 @@ public sealed class FinaleTests
     private static readonly Guid ScenarioTwo = Guid.Parse("aaaaaaaa-0002-4000-8000-000000000002");
     private static readonly Guid ScenarioThree = Guid.Parse("aaaaaaaa-0003-4000-8000-000000000003");
 
-    private static readonly CategoryPlan[] Categories =
+    private static readonly CategoryCatalogEntry[] Categories =
     [
-        new(CategoryA, [ScenarioOne, ScenarioTwo]),
-        new(CategoryB, [ScenarioThree]),
+        Category(CategoryA, [ScenarioOne, ScenarioTwo]),
+        Category(CategoryB, [ScenarioThree]),
     ];
 
-    private static readonly JourneyPlan[] Journeys = [new(JourneyId, [CategoryA, CategoryB])];
+    private static readonly JourneyCatalogEntry[] Journeys =
+        [new(JourneyId, "Parcours", "", "encre", null, 1, true, [CategoryA, CategoryB], [], [])];
+
+    private static CategoryCatalogEntry Category(Guid id, Guid[] scenarioIds) =>
+        new(id, "Catégorie", "", "encre", 1, true, null, scenarioIds);
 
     [Fact]
     public void ScenariosCompletedCountsOnlyFinishedScenarios()
@@ -57,7 +61,7 @@ public sealed class FinaleTests
         // A freshly seeded instance has categories with no scenario attached yet.
         // Treating "nothing to do" as "done" would fire the finale immediately.
         FinalePlan plan = Plan(FinaleMode.All, Condition(FinaleConditionKind.CategoryCompleted, categoryId: CategoryA));
-        CategoryPlan[] empty = [new(CategoryA, [])];
+        CategoryCatalogEntry[] empty = [Category(CategoryA, [])];
 
         Assert.False(Assert.Single(FinaleEvaluator.Evaluate(plan, [Done(ScenarioOne)], empty, Journeys)).Satisfied);
     }
@@ -290,13 +294,13 @@ public sealed class FinaleTests
                 [],
                 new OnboardingTutorial(Guid.NewGuid(), 1, true, true, false, []),
                 new AssistantPolicy(true, true, true, true, 2, ["hint"]),
+                Journeys,
+                Categories,
                 new FinalePlan(
                     Guid.Parse("5f2c8b41-7d10-4a63-9e58-3c17a4b6d201"), true,
                     "Ce qui reste après vous", "Vous avez traversé les postures.", "Rien ne se ferme.",
                     FinaleMode.All,
                     [new FinaleCondition(Guid.Parse("5f2c8b41-7d10-4a63-9e58-3c17a4b6d211"), FinaleConditionKind.ScenariosCompleted, "Terminer deux scénarios.", 2, null, null, [], [])],
-                    null, null, null),
-                Categories,
-                Journeys));
+                    null, null, null)));
     }
 }
