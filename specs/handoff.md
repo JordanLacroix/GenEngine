@@ -21,6 +21,7 @@ Dernière mise à jour : 18 juillet 2026.
 - `HRD-005` équipe l’appel `Play → Authoring` de résilience (timeouts, retry borné, circuit breaker) via `Microsoft.Extensions.Http.Resilience` : voir `specs/process/resilience.md`.
 - `HRD-006` livre la sauvegarde et la restauration chiffrées des trois PostgreSQL : scripts `scripts/backup-databases.sh`, `scripts/restore-database.sh` et `scripts/lib/age-crypto.sh` (chiffrement `age`, dumps `pg_dump -Fc`), procédure et test dans `specs/process/backup-restore.md`. Aucun code applicatif modifié.
 - La dernière PR fonctionnelle fusionnée est la PR GitHub `#40`, qui livre Organization et les affectations runtime scoped.
+- Le pack d'assets `diapason-core` est livré sous `assets/diapason/` : 62 fichiers, 640 Kio, tous CC0 1.0 et tous produits par Kenney. Il contient les éléments d'interface, icônes, sons d'interface et signatures courtes, avec un manifeste `asset-manifest.json`, un fichier `LICENSES.md` traçant chaque source, et le script sans dépendance `scripts/verify-asset-manifest.py`. Voir `specs/media-assets.md`. Aucun code C# n'est modifié : le pack est de la donnée statique, pas encore câblée dans le moteur ni exposée par une API.
 - Au moment du handoff, le dépôt était propre, synchronisé avec `origin/main`, la stack complète était active et tous ses conteneurs étaient sains.
 
 ## Démarrage rapide de reprise
@@ -109,6 +110,10 @@ Contexte livré au jalon 3 :
 - Toute évolution structurante nécessite un ADR.
 
 ## Zones à surveiller
+
+- Le pack `diapason-core` n'est référencé par aucun code : aucune configuration, étape de scénario ou API ne consomme encore `asset-manifest.json`. Le câblage moteur est un travail distinct ; ne présente pas les médias comme disponibles côté joueur.
+- Le pack ne contient **ni ambiance, ni illustration, ni musique longue** : Kenney n'en publie pas sous CC0. Ces manques sont déclarés dans le champ `gaps` du manifeste et ne doivent pas être comblés par une source dont la licence n'est pas vérifiée à la source.
+- L'usage attribué aux quatre `stinger.*` (champ `review` du manifeste) repose sur le nom des fichiers amont, pas sur une écoute ; une passe humaine reste à faire.
 
 - Bug hors périmètre repéré pendant `HRD-003` : `POST /auth/login` (Identity) renvoie `500 internal_error` sur identifiants invalides ou corps vide, au lieu de `401`. Ces 5xx polluent le budget d’erreur ; à corriger dans un lot dédié Identity.
 - `Play` appelle l’API interne d’`Authoring` ; cet appel est désormais protégé par une politique de résilience (`HRD-005`, `specs/process/resilience.md`).

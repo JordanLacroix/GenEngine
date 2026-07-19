@@ -1,0 +1,1270 @@
+{
+  "schemaVersion": 1,
+  "packId": "diapason-core",
+  "packVersion": "1.0.0",
+  "configurationKey": "diapason",
+  "description": "Pack d'interface et de sons pour la configuration de démonstration Diapason.",
+  "basePath": "assets/diapason",
+  "naming": "{kind}/{nom-amont}.{format}",
+  "palette": {
+    "ink": "#17344a",
+    "ivory": "#fffaf0",
+    "sage": "#7a9a55",
+    "gold": "#d7a746",
+    "azure": "#2f7fa0"
+  },
+  "recoloring": "Les visuels sont livrés en gris neutre amont. La teinte Diapason est appliquée côté client (CSS currentColor, filtre ou fill), jamais en modifiant les fichiers sources.",
+  "gaps": [
+    {
+      "kind": "ambience",
+      "status": "absent",
+      "reason": "Le catalogue audio de Kenney ne contient que des sons courts et des jingles ; aucune boucle d'ambiance ni musique longue n'y existe. Aucune source non CC0 n'a été substituée."
+    },
+    {
+      "kind": "illustrations",
+      "status": "absent",
+      "reason": "Kenney ne publie pas d'illustrations 2D peintes compatibles avec la direction artistique Diapason. Aucune source non CC0 n'a été substituée."
+    },
+    {
+      "kind": "music",
+      "status": "partiel",
+      "reason": "Seules des signatures courtes (stingers) sont disponibles ; les pistes musicales de 48 s par acte restent à produire."
+    }
+  ],
+  "sources": [
+    {
+      "sourceId": "kenney-ui-pack",
+      "name": "UI Pack (2.0)",
+      "author": "Kenney (Kenney Vleugels)",
+      "pageUrl": "https://kenney.nl/assets/ui-pack",
+      "downloadUrl": "https://kenney.nl/media/pages/assets/ui-pack/f651646eab-1718203990/kenney_ui-pack.zip",
+      "archiveSha256": "a8a14a234911eb648c062622915c93e79e94e97cb7f9f375a70f6617f1174318",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseFile": "licenses/kenney_ui-pack.License.txt",
+      "attribution": "UI Pack (2.0) par Kenney — www.kenney.nl — CC0 1.0"
+    },
+    {
+      "sourceId": "kenney-game-icons",
+      "name": "Game Icons",
+      "author": "Kenney (Kenney Vleugels)",
+      "pageUrl": "https://kenney.nl/assets/game-icons",
+      "downloadUrl": "https://kenney.nl/media/pages/assets/game-icons/1ebf9c14af-1677661579/kenney_game-icons.zip",
+      "archiveSha256": "7a86d8d58e0b851e22004b3c70bf90b003632bbf9ac633424daa3bb17d9e7e4e",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseFile": "licenses/kenney_game-icons.license.txt",
+      "attribution": "Game Icons par Kenney — www.kenney.nl — CC0 1.0"
+    },
+    {
+      "sourceId": "kenney-interface-sounds",
+      "name": "Interface Sounds (1.0)",
+      "author": "Kenney (Kenney Vleugels)",
+      "pageUrl": "https://kenney.nl/assets/interface-sounds",
+      "downloadUrl": "https://kenney.nl/media/pages/assets/interface-sounds/fa43c1dd4d-1677589452/kenney_interface-sounds.zip",
+      "archiveSha256": "f2193d072726d6758a5f7871b2dcc54dcce0d5c35c6f0a62f92549b327c81232",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseFile": "licenses/kenney_interface-sounds.License.txt",
+      "attribution": "Interface Sounds par Kenney — www.kenney.nl — CC0 1.0"
+    },
+    {
+      "sourceId": "kenney-music-jingles",
+      "name": "Music Jingles",
+      "author": "Kenney (Kenney Vleugels)",
+      "pageUrl": "https://kenney.nl/assets/music-jingles",
+      "downloadUrl": "https://kenney.nl/media/pages/assets/music-jingles/f37e530b9e-1677590399/kenney_music-jingles.zip",
+      "archiveSha256": "b729ba57959bd58793d2c5cafa348aaf2655d354f3da35ec4729e03ec77197b8",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseFile": "licenses/kenney_music-jingles.License.txt",
+      "attribution": "Music Jingles par Kenney — www.kenney.nl — CC0 1.0"
+    }
+  ],
+  "assets": [
+    {
+      "id": "ui.panel.frame",
+      "kind": "ui",
+      "role": "panel",
+      "path": "ui/button_rectangle_border.svg",
+      "bytes": 1010,
+      "sha256": "2e027b7631d7fb306381d49aaf7e068f0c38f0b4e58d94f7c17a6bb888b33734",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Cadre de panneau narratif plein écran (9-slice)",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 192,
+        "height": 64,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true,
+        "nineSliceInsets": {
+          "left": 8,
+          "right": 8,
+          "top": 8,
+          "bottom": 8
+        }
+      }
+    },
+    {
+      "id": "ui.panel.frame-depth",
+      "kind": "ui",
+      "role": "panel",
+      "path": "ui/button_rectangle_depth_border.svg",
+      "bytes": 2236,
+      "sha256": "709965b2fa42476b8dadf41a1849eec4e48a8657fd05d5b91da14c39e91862e7",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Cadre de panneau avec relief bas, en-têtes de HUD (9-slice)",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 192,
+        "height": 64,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true,
+        "nineSliceInsets": {
+          "left": 8,
+          "right": 8,
+          "top": 8,
+          "bottom": 12
+        }
+      }
+    },
+    {
+      "id": "ui.button.primary",
+      "kind": "ui",
+      "role": "button",
+      "path": "ui/button_rectangle_flat.svg",
+      "bytes": 854,
+      "sha256": "48bf9cae58d01b3ee3edd4d43cf7fefc19f82e319c05c17e3da77ee8ffbd06f3",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Bouton de choix principal, état par défaut",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 192,
+        "height": 64,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true,
+        "nineSliceInsets": {
+          "left": 8,
+          "right": 8,
+          "top": 8,
+          "bottom": 8
+        }
+      }
+    },
+    {
+      "id": "ui.button.primary-depth",
+      "kind": "ui",
+      "role": "button",
+      "path": "ui/button_rectangle_depth_flat.svg",
+      "bytes": 1002,
+      "sha256": "be71c445beb6968604a317d04616925b77c6bece00b9bba9746f4dbece3ba200",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Bouton de choix principal, état repos avec relief",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 192,
+        "height": 64,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true,
+        "nineSliceInsets": {
+          "left": 8,
+          "right": 8,
+          "top": 8,
+          "bottom": 12
+        }
+      }
+    },
+    {
+      "id": "ui.button.secondary",
+      "kind": "ui",
+      "role": "button",
+      "path": "ui/button_rectangle_line.svg",
+      "bytes": 1010,
+      "sha256": "bf95ab68c31ad7f71db21740b6c1039a14db3e1bff180a0f38a9a9a6a8fbc0d8",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Bouton secondaire ou tertiaire, contour seul",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 192,
+        "height": 64,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true,
+        "nineSliceInsets": {
+          "left": 8,
+          "right": 8,
+          "top": 8,
+          "bottom": 8
+        }
+      }
+    },
+    {
+      "id": "ui.button.round",
+      "kind": "ui",
+      "role": "button",
+      "path": "ui/button_round_depth_flat.svg",
+      "bytes": 1772,
+      "sha256": "af1cc483e60fb1f610e15c3faeb92c2b56492a80fdf9c326017d1d9a310793d5",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Bouton circulaire d'action rapide du HUD",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 64,
+        "height": 64,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.button.square",
+      "kind": "ui",
+      "role": "button",
+      "path": "ui/button_square_depth_flat.svg",
+      "bytes": 1872,
+      "sha256": "bf4dba47f962b26b24f4968636417d6dfda8f0723069200e29074222cbc789ca",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Bouton carré d'icône du HUD",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 64,
+        "height": 64,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.input.text",
+      "kind": "ui",
+      "role": "input",
+      "path": "ui/input_rectangle.svg",
+      "bytes": 825,
+      "sha256": "6e9e49a9de95e010c0b47f8ba4dbefe28266e412546baa333d69a045c3498a51",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Champ de saisie plein",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 192,
+        "height": 64,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true,
+        "nineSliceInsets": {
+          "left": 8,
+          "right": 8,
+          "top": 8,
+          "bottom": 8
+        }
+      }
+    },
+    {
+      "id": "ui.input.text-outline",
+      "kind": "ui",
+      "role": "input",
+      "path": "ui/input_outline_rectangle.svg",
+      "bytes": 773,
+      "sha256": "e4dc7cdeb451c257095aa395106ee202b5649da981756d3148bd46aa99d18a60",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Champ de saisie contour, sur fond clair",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 192,
+        "height": 64,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true,
+        "nineSliceInsets": {
+          "left": 8,
+          "right": 8,
+          "top": 8,
+          "bottom": 8
+        }
+      }
+    },
+    {
+      "id": "ui.divider.plain",
+      "kind": "ui",
+      "role": "divider",
+      "path": "ui/divider.svg",
+      "bytes": 275,
+      "sha256": "dca40e4b538ed9bc2ac3674ab808f8c9b1666f12effba0aa913c2b00e5ccd1c7",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Séparateur horizontal simple",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 64,
+        "height": 4,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.divider.edges",
+      "kind": "ui",
+      "role": "divider",
+      "path": "ui/divider_edges.svg",
+      "bytes": 273,
+      "sha256": "fc90d2190bd01769446a8a783473f5f7de307fc9c4123f1d6c7b55cafb2025e2",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Séparateur horizontal à extrémités marquées",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 64,
+        "height": 4,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.check.square",
+      "kind": "ui",
+      "role": "control",
+      "path": "ui/check_square_grey.svg",
+      "bytes": 642,
+      "sha256": "e2ff9b904390ebf1c1692738d0b9eafa2c636662d52dbb7f6eb1cc1f766e62d9",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Case à cocher carrée, état décoché",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 32,
+        "height": 32,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.check.square-checked",
+      "kind": "ui",
+      "role": "control",
+      "path": "ui/check_square_grey_checkmark.svg",
+      "bytes": 1610,
+      "sha256": "6890c1acf13875fa4b109f0aec886a829066d029eae9634c47341c0ded830b49",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Case à cocher carrée, état coché",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 32,
+        "height": 32,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.check.round",
+      "kind": "ui",
+      "role": "control",
+      "path": "ui/check_round_grey.svg",
+      "bytes": 985,
+      "sha256": "4053bd73b4944d2d7eaac9d4ff66cd7f36df2d14e364677f34f6048108059242",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Bouton radio, état non sélectionné",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 32,
+        "height": 32,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.check.round-selected",
+      "kind": "ui",
+      "role": "control",
+      "path": "ui/check_round_grey_circle.svg",
+      "bytes": 1659,
+      "sha256": "2f2c256dcadce521205d42d8c889edf1b9207371c4a0f35678150b7b777c94f1",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Bouton radio, état sélectionné",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 32,
+        "height": 32,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.slider.track",
+      "kind": "ui",
+      "role": "control",
+      "path": "ui/slide_horizontal_grey.svg",
+      "bytes": 1094,
+      "sha256": "bda26ef45528ae84428a29929cb470500f1ec47b13ab492d694f0ed77d5a49b3",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Rail de curseur horizontal (volume, vitesse de texte)",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 96,
+        "height": 16,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true,
+        "nineSliceInsets": {
+          "left": 8,
+          "right": 8,
+          "top": 0,
+          "bottom": 0
+        }
+      }
+    },
+    {
+      "id": "ui.slider.handle",
+      "kind": "ui",
+      "role": "control",
+      "path": "ui/slide_hangle.svg",
+      "bytes": 1202,
+      "sha256": "352360f81efca6224c3f7de26929b43204aca2c941f75a800ffa7603e0b64d32",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Poignée de curseur horizontal",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 24,
+        "height": 32,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.glyph.checkmark",
+      "kind": "ui",
+      "role": "glyph",
+      "path": "ui/icon_checkmark.svg",
+      "bytes": 996,
+      "sha256": "86c4df4a58ac1f8c672abaf7e2e55e6709689525ce9bd6424d00d1374664fd4b",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Glyphe de validation plein",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 20,
+        "height": 18,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.glyph.cross",
+      "kind": "ui",
+      "role": "glyph",
+      "path": "ui/icon_cross.svg",
+      "bytes": 1403,
+      "sha256": "52dbc06653a03cbbb04c05ee33cc7323f4c22770e82ac7b8b056d711e58c0758",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Glyphe de fermeture ou de refus plein",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 18,
+        "height": 18,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.glyph.checkmark-outline",
+      "kind": "ui",
+      "role": "glyph",
+      "path": "ui/icon_outline_checkmark.svg",
+      "bytes": 996,
+      "sha256": "386d499751294b70088408f873444e2a62d3fe3e71987ef30ed2cb02baa73804",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Glyphe de validation contour",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 20,
+        "height": 18,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.glyph.cross-outline",
+      "kind": "ui",
+      "role": "glyph",
+      "path": "ui/icon_outline_cross.svg",
+      "bytes": 1403,
+      "sha256": "9e40599838b3e1f56ea7ceeabf4bd14b6166140bc0a474496e2229e08243e924",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Glyphe de fermeture ou de refus contour",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 18,
+        "height": 18,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.glyph.star",
+      "kind": "ui",
+      "role": "glyph",
+      "path": "ui/star.svg",
+      "bytes": 2465,
+      "sha256": "f4b44bef576efa18664b378f74db4670d4d14af097c150daa4fbf3162dc047be",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Glyphe de mise en avant ou de récompense",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 64,
+        "height": 60,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.arrow.north",
+      "kind": "ui",
+      "role": "glyph",
+      "path": "ui/arrow_basic_n.svg",
+      "bytes": 1458,
+      "sha256": "461094ec7255695f1a75f346a0f83b69370aafdfad3d63de5196a3d0c3435bc3",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Flèche haut, navigation de liste",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 32,
+        "height": 32,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.arrow.south",
+      "kind": "ui",
+      "role": "glyph",
+      "path": "ui/arrow_basic_s.svg",
+      "bytes": 1432,
+      "sha256": "00373520111403dae00c09b89395e677b8f3bd5dd6a651091cd4967c9784de7c",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Flèche bas, navigation de liste",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 32,
+        "height": 32,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.arrow.east",
+      "kind": "ui",
+      "role": "glyph",
+      "path": "ui/arrow_basic_e.svg",
+      "bytes": 1355,
+      "sha256": "a89b37d8cef8f70c42ce52ef5cc328f019cf2b2143bf0e836be13c7eda956016",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Flèche droite, étape suivante",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 32,
+        "height": 32,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "ui.arrow.west",
+      "kind": "ui",
+      "role": "glyph",
+      "path": "ui/arrow_basic_w.svg",
+      "bytes": 1401,
+      "sha256": "67277a46d498a93b90a30119e576f6bec6d641b8cbe5d1065c4df5707c48dcbe",
+      "sourceId": "kenney-ui-pack",
+      "usage": "Flèche gauche, étape précédente",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 32,
+        "height": 32,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.settings",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/gear.png",
+      "bytes": 16228,
+      "sha256": "50b313ffe97db1733e529d5b0f5ac91eed5c0c8ffee1034bbb7766508e4f720c",
+      "sourceId": "kenney-game-icons",
+      "usage": "Paramètres de session",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.home",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/home.png",
+      "bytes": 15222,
+      "sha256": "1f6d39df47cb8849feb8f01aad329583f5f014c449c622b39aa154a3eca55160",
+      "sourceId": "kenney-game-icons",
+      "usage": "Retour à l'accueil de l'organisation",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.information",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/information.png",
+      "bytes": 15443,
+      "sha256": "dc6909b9d262528156a8afd6247696d0ea39ff533a722ca8d3432c5957544e05",
+      "sourceId": "kenney-game-icons",
+      "usage": "Information complémentaire non bloquante",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.question",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/question.png",
+      "bytes": 15636,
+      "sha256": "752c59d82a33e9bc4c3414ab43833e913b3a9f9966af663a70c42aff56f3735c",
+      "sourceId": "kenney-game-icons",
+      "usage": "Aide ou question ouverte",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.attention",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/exclamation.png",
+      "bytes": 15304,
+      "sha256": "60faed6673976798a058071fade4861fa246638d9619a5bd261e93e766c69928",
+      "sourceId": "kenney-game-icons",
+      "usage": "Point d'attention narratif",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.warning",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/warning.png",
+      "bytes": 15751,
+      "sha256": "dcd64b5bbf8073c222581e7da1ce74ad29d64762345ff5825300b823b3fba8f5",
+      "sourceId": "kenney-game-icons",
+      "usage": "Avertissement système ou erreur récupérable",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.confirm",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/checkmark.png",
+      "bytes": 15751,
+      "sha256": "00e3025322ddb4948598b7fb8d385762073de7b2b534d2cfd44372072608a92a",
+      "sourceId": "kenney-game-icons",
+      "usage": "Choix confirmé",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.cancel",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/cross.png",
+      "bytes": 15480,
+      "sha256": "8293e3758e7df2eb1c5bb8d6979cccc826e66c28f8c703e6cbb0a54a3c0efc33",
+      "sourceId": "kenney-game-icons",
+      "usage": "Annulation ou fermeture",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.highlight",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/star.png",
+      "bytes": 15648,
+      "sha256": "8e10578b82d6d46aff27a9939f4c1adccd1be6dc93c8302c9e28d281e126aae2",
+      "sourceId": "kenney-game-icons",
+      "usage": "Élément remarquable",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.reward-trophy",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/trophy.png",
+      "bytes": 15290,
+      "sha256": "9525a3a01eb4ffddbb1c6dd9444ffa20876d18843d7ddd44e6c80d28744e8714",
+      "sourceId": "kenney-game-icons",
+      "usage": "Récompense de fin de parcours",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.locked",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/locked.png",
+      "bytes": 15262,
+      "sha256": "b83e9f3d17e94a054fa0add775e89eb6973052dca9185a4b5fface1d14cf9cd1",
+      "sourceId": "kenney-game-icons",
+      "usage": "Contenu verrouillé par la configuration",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.unlocked",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/unlocked.png",
+      "bytes": 15264,
+      "sha256": "fd9e8d852f72f9c315eadf3448515bbfba229ec6ded636f647855f5317da6a80",
+      "sourceId": "kenney-game-icons",
+      "usage": "Contenu déverrouillé",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.save",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/save.png",
+      "bytes": 15155,
+      "sha256": "a8204ded82d12288c3510c8e0c0033e04f26958ef31aba3087f67288e3e1a7ed",
+      "sourceId": "kenney-game-icons",
+      "usage": "Sauvegarde ou reprise de session",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.exit",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/exit.png",
+      "bytes": 15378,
+      "sha256": "a59692fdb84e8c4f92d5da919cf8b7396a8bc8979007a19f9b2e6b63dc007f52",
+      "sourceId": "kenney-game-icons",
+      "usage": "Sortie de session",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.audio-on",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/audioOn.png",
+      "bytes": 15628,
+      "sha256": "aee49ff7b9151214178079eb860a341958ba54627c93d0b2636b05670a37a585",
+      "sourceId": "kenney-game-icons",
+      "usage": "Bruitages activés",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.audio-off",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/audioOff.png",
+      "bytes": 15311,
+      "sha256": "c82e3784acee369264aa9e6cfc91973729982db5a2154d6ecddfd1927414d676",
+      "sourceId": "kenney-game-icons",
+      "usage": "Bruitages coupés",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.music-on",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/musicOn.png",
+      "bytes": 15537,
+      "sha256": "9998567109c4ad007ad796091b4f1d7774779f6f96c8b4b615f215f7d74c5230",
+      "sourceId": "kenney-game-icons",
+      "usage": "Musique activée",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.music-off",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/musicOff.png",
+      "bytes": 15721,
+      "sha256": "ee0901ab81572df6dd47400b5694c0c41d8ccb1c3bf24485b4414dfb4c1172ea",
+      "sourceId": "kenney-game-icons",
+      "usage": "Musique coupée",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.back",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/return.png",
+      "bytes": 15821,
+      "sha256": "99b425ec6d8e49633ddcea55e7485adf44a4ca8614abf39e59b7a83602ee3866",
+      "sourceId": "kenney-game-icons",
+      "usage": "Retour à l'étape précédente",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "icon.menu",
+      "kind": "icon",
+      "role": "glyph",
+      "path": "icons/menuList.png",
+      "bytes": 15278,
+      "sha256": "50ef2bcb14b49f4ea652416caa1a91fcfc43d4c8a02dbcbcde4485f4963c74eb",
+      "sourceId": "kenney-game-icons",
+      "usage": "Ouverture du menu principal",
+      "mediaType": "image/png",
+      "image": {
+        "width": 100,
+        "height": 100,
+        "scalable": false,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "sfx.choice.hover",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/select_003.ogg",
+      "bytes": 6901,
+      "sha256": "9a612fd2f513d52a296906b41071c990f75defe56be3bee60d2d4e2423b51b8b",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Survol ou focus clavier d'un choix",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 1,
+        "durationSeconds": 0.383,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "sfx.choice.confirm",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/confirmation_001.ogg",
+      "bytes": 8968,
+      "sha256": "063564703b6094d70718a3e787a55cc9141611e4ecd6b6637f8828f79b4a8c3a",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Choix joueur confirmé et accepté par le moteur",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 1,
+        "durationSeconds": 0.29,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "sfx.ui.click",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/click_002.ogg",
+      "bytes": 4275,
+      "sha256": "adcd1f4adc35f1b41bc1b5bbefeff7aa44f2f3f0d96d3199b544140c7c1e761c",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Clic générique sur un contrôle du HUD",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 1,
+        "durationSeconds": 0.01,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "sfx.error.soft",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/error_006.ogg",
+      "bytes": 8288,
+      "sha256": "a97513d7fd2b12b1210c423be943b4c1ab0e899b11db95855e9b74836e646ae0",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Commande refusée ou saisie invalide, sans dramatisation",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 1,
+        "durationSeconds": 0.5,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "sfx.ui.back",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/back_001.ogg",
+      "bytes": 6997,
+      "sha256": "07db973f79f6ae0f2edc34561e7592e24d0577455919fb602cb8ecc0da991dcf",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Retour à l'étape ou au panneau précédent",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 1,
+        "durationSeconds": 0.064,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "sfx.panel.open",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/open_001.ogg",
+      "bytes": 9834,
+      "sha256": "a27c6bb0df7da1e6af5dd5937593c98bc58b6e513f42fe6a3254cd6a6949c648",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Ouverture d'un panneau plein écran",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 1,
+        "durationSeconds": 0.148,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "sfx.panel.close",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/close_001.ogg",
+      "bytes": 9915,
+      "sha256": "44af8249b933e0fd35ec957a638bb1a0b01f85b53fbe9674bf77bd3ca3168ef4",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Fermeture d'un panneau plein écran",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 1,
+        "durationSeconds": 0.148,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "sfx.card.deal",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/drop_002.ogg",
+      "bytes": 6411,
+      "sha256": "4ac4d1cef7e936965cbf795852ca2020300b9e2ba7daa59f2bf4f1f7bf416218",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Apparition d'une carte de contenu ou d'indice",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 2,
+        "durationSeconds": 0.191,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "sfx.card.flip",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/scroll_003.ogg",
+      "bytes": 29488,
+      "sha256": "c2fecaa6e37c73d7141d0bd303d1c2231428d97c19ce83d50236a56804818643",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Défilement ou retournement d'une carte",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 1,
+        "durationSeconds": 1.0,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "sfx.accent.glass",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/glass_001.ogg",
+      "bytes": 6103,
+      "sha256": "183eebee20eb0a532b0b85104d139cbf2673eb66d95c3cc733ac9ea98362e7e8",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Accent cristallin discret, rappel du motif du diapason",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 1,
+        "durationSeconds": 0.278,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "sfx.option.toggle",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/toggle_001.ogg",
+      "bytes": 7369,
+      "sha256": "ca1d2dde5f0b286abac4f070e23edab8f30927c8a533665cdf2ac6492a415e49",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Bascule d'une option d'accessibilité ou de son",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 1,
+        "durationSeconds": 0.139,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "sfx.progress.tick",
+      "kind": "sfx",
+      "role": "one-shot",
+      "path": "sfx/tick_002.ogg",
+      "bytes": 4514,
+      "sha256": "869442f54214be902ec7437f79e400dc91c1bfd90d18a6dd2d5b7e41ffbf457b",
+      "sourceId": "kenney-interface-sounds",
+      "usage": "Incrément de progression ou de compteur",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 1,
+        "durationSeconds": 0.023,
+        "loop": false,
+        "loopPoints": null
+      }
+    },
+    {
+      "id": "stinger.reward.primary",
+      "kind": "stinger",
+      "role": "one-shot",
+      "path": "stingers/jingles_STEEL00.ogg",
+      "bytes": 15691,
+      "sha256": "8799eb726d784ae0aa1a9df80648a873ac60015bc00aea12c8e2dd1431a2bd7d",
+      "sourceId": "kenney-music-jingles",
+      "usage": "Récompense principale de fin d'étape",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 2,
+        "durationSeconds": 0.933,
+        "loop": false,
+        "loopPoints": null
+      },
+      "review": "Attribution d'usage à confirmer lors d'une passe d'écoute."
+    },
+    {
+      "id": "stinger.reward.secondary",
+      "kind": "stinger",
+      "role": "one-shot",
+      "path": "stingers/jingles_STEEL04.ogg",
+      "bytes": 14951,
+      "sha256": "65be5fe4af66574f4725602e454b7ea8d2613ab536a4a719fcb3810a240fdecf",
+      "sourceId": "kenney-music-jingles",
+      "usage": "Récompense secondaire ou jalon intermédiaire",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 2,
+        "durationSeconds": 0.909,
+        "loop": false,
+        "loopPoints": null
+      },
+      "review": "Attribution d'usage à confirmer lors d'une passe d'écoute."
+    },
+    {
+      "id": "stinger.session.start",
+      "kind": "stinger",
+      "role": "one-shot",
+      "path": "stingers/jingles_STEEL09.ogg",
+      "bytes": 11145,
+      "sha256": "6eba3198a05a3388be4a1edc2d11135ac2b924d8418704e94636d3e0af3c2854",
+      "sourceId": "kenney-music-jingles",
+      "usage": "Ouverture de session",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 2,
+        "durationSeconds": 0.586,
+        "loop": false,
+        "loopPoints": null
+      },
+      "review": "Attribution d'usage à confirmer lors d'une passe d'écoute."
+    },
+    {
+      "id": "stinger.session.end",
+      "kind": "stinger",
+      "role": "one-shot",
+      "path": "stingers/jingles_STEEL13.ogg",
+      "bytes": 17122,
+      "sha256": "1eddde22f0894c2267d558198d7fbfb289423929d0a060a3c4f5e1b6ab83be49",
+      "sourceId": "kenney-music-jingles",
+      "usage": "Clôture de session",
+      "mediaType": "audio/ogg",
+      "audio": {
+        "codec": "vorbis",
+        "sampleRate": 44100,
+        "channels": 2,
+        "durationSeconds": 1.052,
+        "loop": false,
+        "loopPoints": null
+      },
+      "review": "Attribution d'usage à confirmer lors d'une passe d'écoute."
+    }
+  ]
+}
