@@ -104,6 +104,14 @@ La tranche suivante complète les périodes métier nommées, l'import de masse 
 - `install-diapason.sh` n'est pas idempotent : `POST /scenarios/import` crée toujours un nouveau brouillon ;
 - le seeder de configuration ne rejoue jamais sur une base non vide : une instance antérieure conserve son ancien document.
 
+### Tranche `feat/assistant-contextual-help`
+
+- Le schéma de scénario v5 ajoute un objet `help` facultatif sur les nœuds et les choix (`hint`, `objective`, `consequence`, `blocker`), purement de présentation. Migration chaînée `scenario-v4-to-v5`, validation conditionnée à `AuthorHelpSchema` et non à `LatestSchema`. Le hash canonique d'un snapshot v4 et son état final rejoué sont figés depuis le moteur d'avant le changement (`dbd5bd1d…c040`) et vérifiés par test.
+- `PlayerExperience` résout l'aide côté serveur : `scenarioVersionId`, `nodeId` et `choiceId`, jusqu'ici morts, servent à relire la version publiée via la route interne d'Authoring, avec la même famille de résilience que `Play → Authoring`. Authoring indisponible dégrade vers les règles hors ligne.
+- `source` et `isFallback` ne mentent plus : `source` désigne le message réellement retourné, `isFallback` n'est vrai que pour `OfflineRule`. La réponse porte en plus la modalité employée. Le niveau d'aide choisit la modalité, la fréquence d'intervention filtre la seule aide proactive.
+- Le port `IAssistantAiClient` est en place avec repli hors ligne garanti dans le service lui-même. **Aucun fournisseur réel n'est implémenté ni validé de bout en bout** : le défaut enregistré se déclare non configuré, et le branchement n'est couvert que par doubles (succès, erreur, dépassement de délai). Câbler un fournisseur réel reste à faire.
+- Un test vérifie qu'un appel d'aide n'écrit rien : ni sauvegarde, ni révision, ni journal, ni portefeuille.
+
 Contexte livré au jalon 3 :
 
 - `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.
