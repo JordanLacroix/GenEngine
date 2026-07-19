@@ -42,6 +42,12 @@ public static class ScenarioMigrationPipeline
                 // unset flag stays absent, so a migrated document keeps the exact
                 // sequencing it had: every interaction remains mandatory.
                 3 => document with { SchemaVersion = 4 },
+
+                // v5 only adds an optional "help" record on steps and choices.
+                // Help is presentation-only and unset here, so it stays absent
+                // from the canonical bytes and the migrated document plays and
+                // hashes exactly as it did.
+                4 => document with { SchemaVersion = 5 },
                 _ => throw new NarrativeException(
                     "scenario_migration_missing",
                     $"No migration is registered from scenario schema {document.SchemaVersion}."),

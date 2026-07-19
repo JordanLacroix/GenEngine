@@ -21,7 +21,7 @@ public sealed class NarrativeMigrationGoldenTests
         Assert.Equal(1, scenarioMigration.OriginalSchemaVersion);
         Assert.Equal(NarrativeVersions.LatestSchema, scenarioMigration.Document.SchemaVersion);
         Assert.Equal(
-            ["scenario-v1-to-v2", "scenario-v2-to-v3", "scenario-v3-to-v4"],
+            ["scenario-v1-to-v2", "scenario-v2-to-v3", "scenario-v3-to-v4", "scenario-v4-to-v5"],
             scenarioMigration.AppliedMigrations);
         Assert.Equal(GameSaveVersions.Current, save.FormatVersion);
         Assert.Equal(NarrativeVersions.Runtime, save.RuntimeVersion);
@@ -175,6 +175,72 @@ public sealed class NarrativeMigrationGoldenTests
         Assert.Empty(step.ExitChoices);
         Assert.Empty(step.Choices);
         Assert.Equal("choice_not_available", exception.Code);
+    }
+
+    /// <summary>
+    /// Canonical hash of <c>scenario-v4.json</c>, computed with the engine as it
+    /// was before author help existed: the fixture was hashed by the pre-change
+    /// binary on this branch, before <c>AuthorHelp</c>, <c>LatestSchema = 5</c> and
+    /// the v4→v5 migration were written. Freezing a value produced by the older
+    /// engine is the only assertion that proves the new <c>help</c> record stays
+    /// out of the canonical bytes of a document that does not declare it — an
+    /// expectation written against the new code would prove nothing.
+    /// </summary>
+    private const string PublishedSchemaFourHash =
+        "dbd5bd1d4470287c68f1561aeee12b96eb283c3f6f162ebca6fac0251127c040";
+
+    [Fact]
+    public void PublishedSchemaFourSnapshotKeepsItsCanonicalHashAfterTheHelpBump()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v4.json"));
+        string canonicalJson = System.Text.Encoding.UTF8.GetString(CanonicalSnapshot.GetCanonicalBytes(scenario));
+
+        Assert.Equal(PublishedSchemaFourHash, CanonicalSnapshot.ComputeHash(scenario));
+        Assert.DoesNotContain("help", canonicalJson, StringComparison.Ordinal);
+        Assert.True(ScenarioValidator.Validate(scenario).IsValid);
+    }
+
+    /// <summary>
+    /// The final state is the one the pre-change engine produced from
+    /// <c>save-v4.json</c>. A session published before this change must follow the
+    /// exact same sequence: same turn counter, same interaction history, same
+    /// world, byte for byte.
+    /// </summary>
+    [Fact]
+    public void SchemaFourSaveStillReplaysIdenticallyAfterTheHelpBump()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v4.json"));
+        GameSave save = GameSaveSerializer.Deserialize(ReadGolden("save-v4.json"), 42UL, DateTimeOffset.UnixEpoch);
+
+        GameState replayed = NarrativeRuntime.SubmitChoice(
+            scenario,
+            NarrativeRuntime.Continue(scenario, save.State),
+            "answer-the-hall");
+        GameState expected = NarrativeJson.Deserialize<GameState>(ReadGolden("scenario-v4-replay-final-state.json"));
+
+        Assert.Empty(save.AppliedMigrations);
+        Assert.Equal(4, save.ScenarioSchemaVersion);
+        Assert.Equal(NarrativeJson.Serialize(expected), NarrativeJson.Serialize(replayed));
+    }
+
+    /// <summary>
+    /// Help declared before schema 5 is refused, and the check is bound to its own
+    /// capability constant: a v4 document that legitimately uses <c>isOptional</c>
+    /// must not be invalidated by the bump.
+    /// </summary>
+    [Fact]
+    public void AuthorHelpDeclaredBeforeSchemaFiveIsRejected()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v4.json"));
+        ScenarioDocument withHelp = scenario with
+        {
+            Nodes = [scenario.Nodes[0] with { Help = new AuthorHelp { Hint = "Écoutez avant de répondre." } }, .. scenario.Nodes.Skip(1)],
+        };
+
+        ValidationReport report = ScenarioValidator.Validate(withHelp);
+
+        Assert.False(report.IsValid);
+        Assert.Contains(report.Issues, static issue => issue.Code == "help_requires_schema_5");
     }
 
     private static string ReadGolden(string name) =>

@@ -38,8 +38,16 @@ public static class Pagination
 }
 public sealed record RewardCommand(string FrontId, string UserId, string Trigger, string ReferenceId, string IdempotencyKey);
 public sealed record ProgressEventCommand(string FrontId, string UserId, string IdempotencyKey, string Type, string Title, string Summary, Guid? JourneyId, Guid? CategoryId, Guid? ScenarioId, Guid? ScenarioVersionId, Guid? SessionId, string? ReferenceId, string? ChoiceId, string? TargetNodeId, string? EndingId, bool Completed, int TotalObjectives, DateTimeOffset? OccurredAt = null);
-public sealed record ContextualHelpRequest(string Context, Guid? ScenarioVersionId, string? ChoiceId, bool AlreadyExplored, string? AuthorHint);
-public sealed record ContextualHelpView(string Source, string Message, bool IsFallback, string FamiliarName, string? AvatarUrl);
+public sealed record ContextualHelpRequest(string Context, Guid? ScenarioVersionId, string? ChoiceId, bool AlreadyExplored, string? AuthorHint, string? NodeId = null, bool Proactive = false);
+
+/// <summary>
+/// <paramref name="Source"/> names where <paramref name="Message"/> actually came
+/// from — one of <see cref="HelpSources"/> — and never a source that was merely
+/// consulted. <paramref name="IsFallback"/> is true only when the message is the
+/// built-in generic text, that is when nothing scenario-specific, authored or
+/// generated could be served.
+/// </summary>
+public sealed record ContextualHelpView(string Source, string Message, bool IsFallback, string FamiliarName, string? AvatarUrl, string Modality);
 
 public interface IPlayerExperienceRepository
 {
@@ -65,7 +73,12 @@ public interface IPlayerExperienceCatalogProvider
     Task<PlayerExperienceCatalog> GetAsync(string frontId, CancellationToken cancellationToken);
 }
 
-public sealed class PlayerExperienceService(IPlayerExperienceRepository repository, IPlayerExperienceCatalogProvider catalogs, TimeProvider timeProvider)
+public sealed class PlayerExperienceService(
+    IPlayerExperienceRepository repository,
+    IPlayerExperienceCatalogProvider catalogs,
+    TimeProvider timeProvider,
+    IScenarioHelpProvider scenarioHelp,
+    IAssistantAiClient aiClient)
 {
     public async Task<PlayerExperienceView> GetAsync(string userId, string frontId, CancellationToken cancellationToken)
     {
@@ -171,6 +184,18 @@ public sealed class PlayerExperienceService(IPlayerExperienceRepository reposito
         return Map(profile, catalog);
     }
 
+    /// <summary>
+    /// Contextual help is a presentation overlay, never a move. It reads the
+    /// profile and the published scenario content, and writes nothing: no session
+    /// state, no turn, no journal entry, no wallet mutation and no hash input. The
+    /// method never calls <see cref="IPlayerExperienceRepository.SaveChangesAsync"/>.
+    /// <para>
+    /// Resolution order: the known-path warning required by the policy, then the
+    /// AI provider, then the client override, then the author help carried by the
+    /// scenario version, and finally the built-in offline rules. Every step above
+    /// the last degrades silently into the next one.
+    /// </para>
+    /// </summary>
     public async Task<ContextualHelpView> GetContextualHelpAsync(string userId, string frontId, ContextualHelpRequest request, CancellationToken cancellationToken)
     {
         PlayerExperienceCatalog catalog = await catalogs.GetAsync(frontId, cancellationToken).ConfigureAwait(false);
@@ -178,17 +203,115 @@ public sealed class PlayerExperienceService(IPlayerExperienceRepository reposito
         FamiliarOption? definition = catalog.Familiars.FirstOrDefault(item => item.Id == profile.FamiliarId);
         definition ??= catalog.Familiars.Count > 0 ? catalog.Familiars[0] : null;
         string name = string.IsNullOrWhiteSpace(profile.FamiliarCustomName) ? definition?.Name ?? "Compagnon" : profile.FamiliarCustomName;
-        string message = request.AlreadyExplored && catalog.Assistant.WarnOnKnownPath
+        string? avatar = definition?.AvatarUrl ?? definition?.PortraitUrl;
+
+        ContextualHelpView Result(string source, string message, HelpModality modality, bool isFallback) =>
+            new(source, message, isFallback, name, avatar, modality.ToString());
+
+        // A disabled assistant, or a familiar asked to stay quiet, must not speak
+        // on its own initiative. A help the player explicitly asked for is still
+        // served: silence is about proactivity, not about refusing an answer.
+        if (!catalog.Assistant.Enabled
+            || (request.Proactive && (!profile.FamiliarProactive || profile.FamiliarInterventionFrequency <= 0)))
+        {
+            return Result(HelpSources.Suppressed, string.Empty, HelpModality.None, false);
+        }
+
+        // Re-reading a branch does not make the author's hint useless — in a
+        // teaching context, replay is an expected use. The warning is therefore
+        // prepended to whatever help resolves below, and only stands alone when
+        // nothing else does. The AI path is deliberately excluded: its context
+        // already carries AlreadyExplored, so prepending would say it twice.
+        string? knownPathWarning = request.AlreadyExplored && catalog.Assistant.WarnOnKnownPath
             ? "Vous avez déjà emprunté ce chemin. Vous pouvez le reprendre, ou tenter une option encore inconnue."
-            : !string.IsNullOrWhiteSpace(request.AuthorHint)
-                ? request.AuthorHint
-                : request.Context switch
-                {
-                    "map" => "Choisissez une catégorie pour découvrir les scénarios et leur progression.",
-                    "completion" => "Votre arbre conserve cette découverte. Rejouez pour révéler les branches encore inconnues.",
-                    _ => "Relisez votre objectif et observez ce qui a changé depuis votre dernier choix.",
-                };
-        return new ContextualHelpView(request.AuthorHint is null ? "OfflineRule" : "AuthorHint", message, true, name, definition?.AvatarUrl ?? definition?.PortraitUrl);
+            : null;
+
+        string Combine(string message) =>
+            knownPathWarning is null ? message : $"{knownPathWarning} {message}";
+
+        int helpLevel = profile.FamiliarId is null ? catalog.Assistant.DefaultFrequency : profile.FamiliarHelpLevel;
+        HelpModality preferred = HelpModalityPolicy.ForHelpLevel(helpLevel);
+
+        // Server-side resolution from the published content. Authoring being down
+        // must never fail a help request, so the provider yields null instead.
+        ScenarioHelpSnapshot? snapshot = null;
+        if (request.ScenarioVersionId is Guid versionId)
+        {
+            snapshot = await scenarioHelp.GetAsync(versionId, request.NodeId, request.ChoiceId, cancellationToken).ConfigureAwait(false);
+        }
+
+        // Choice help is more specific than step help, so it wins when the request
+        // names a choice and the author wrote something for it.
+        (HelpModality Modality, string Text)? authored =
+            HelpModalityPolicy.Resolve(snapshot?.ChoiceHelp, preferred)
+            ?? HelpModalityPolicy.Resolve(snapshot?.NodeHelp, preferred);
+
+        if (aiClient.IsConfigured && catalog.Assistant.Enabled)
+        {
+            AssistantAiContext context = new(
+                frontId,
+                request.Context,
+                authored?.Modality ?? preferred,
+                helpLevel,
+                snapshot?.Title ?? string.Empty,
+                snapshot?.NodeId,
+                snapshot?.NodeText,
+                snapshot?.VisibleChoiceTexts ?? [],
+                authored?.Text ?? request.AuthorHint,
+                request.AlreadyExplored,
+                name,
+                profile.FamiliarTone,
+                profile.FamiliarWritingStyle);
+
+            // Invariant: AI is optional. A provider that is unreachable, erroring,
+            // timing out or simply slow must degrade to the offline path, never
+            // surface to the player. The port is documented to return null rather
+            // than throw, but the guarantee is enforced here rather than trusted.
+            string? generated = null;
+            try
+            {
+                generated = await aiClient.GenerateAsync(context, cancellationToken).ConfigureAwait(false);
+            }
+            // A provider timeout surfaces as OperationCanceledException too, so the
+            // caller's own token is what separates the two: if the player did not
+            // cancel, the cancellation came from the provider and must degrade.
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                generated = null;
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                generated = null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(generated))
+            {
+                return Result(HelpSources.Ai, generated, context.Modality, false);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.AuthorHint))
+        {
+            return Result(HelpSources.AuthorHint, Combine(request.AuthorHint), preferred, false);
+        }
+
+        if (authored is { } resolved)
+        {
+            return Result(HelpSources.ScenarioHelp, Combine(resolved.Text), resolved.Modality, false);
+        }
+
+        if (knownPathWarning is not null)
+        {
+            return Result(HelpSources.KnownPathWarning, knownPathWarning, HelpModality.KnownPathWarning, false);
+        }
+
+        string generic = request.Context switch
+        {
+            "map" => "Choisissez une catégorie pour découvrir les scénarios et leur progression.",
+            "completion" => "Votre arbre conserve cette découverte. Rejouez pour révéler les branches encore inconnues.",
+            _ => "Relisez votre objectif et observez ce qui a changé depuis votre dernier choix.",
+        };
+        return Result(HelpSources.OfflineRule, generic, HelpModality.Objective, true);
     }
 
     public async Task<PlayerExperienceView> ApplyRewardAsync(RewardCommand command, CancellationToken cancellationToken)

@@ -5,7 +5,7 @@ namespace GenEngine.Narrative;
 public static class NarrativeVersions
 {
     public const int Schema = 1;
-    public const int LatestSchema = 4;
+    public const int LatestSchema = 5;
 
     /// <summary>Schema that introduced typed step interactions.</summary>
     public const int InteractionsSchema = 2;
@@ -15,6 +15,9 @@ public static class NarrativeVersions
 
     /// <summary>Schema that introduced skippable (optional) step interactions.</summary>
     public const int OptionalInteractionsSchema = 4;
+
+    /// <summary>Schema that introduced optional author-written help on steps and choices.</summary>
+    public const int AuthorHelpSchema = 5;
     public const string Runtime = "1.0.0";
     public const string HashFormat = "sha256-canonical-json-v1";
     public const string RngAlgorithm = "splitmix64-v1";
@@ -58,6 +61,39 @@ public sealed record ChoiceMedia
     public string? AnimationCue { get; init; }
 }
 
+/// <summary>
+/// Optional help written by the author for a step or a choice. It is pure
+/// presentation: the engine never reads it, never branches on it and never
+/// derives state from it, so a step must stay fully playable when a client — or
+/// the assistant policy — ignores the whole record.
+/// <para>
+/// Each property is one <em>modality</em> of help. They are kept separate rather
+/// than merged into a single blob so a policy can serve only what the player's
+/// help level allows: a discreet hint is not the same disclosure as spelling out
+/// a blocking condition.
+/// </para>
+/// <para>
+/// Every property is nullable, and the record itself is nullable on its owner, so
+/// a scenario authored before schema
+/// <see cref="NarrativeVersions.AuthorHelpSchema"/> serializes to exactly the same
+/// canonical bytes and keeps its published hash.
+/// </para>
+/// </summary>
+public sealed record AuthorHelp
+{
+    /// <summary>A discreet nudge that does not name the answer.</summary>
+    public string? Hint { get; init; }
+
+    /// <summary>The current objective restated in the player's terms.</summary>
+    public string? Objective { get; init; }
+
+    /// <summary>Consequences the player is already supposed to know about.</summary>
+    public string? Consequence { get; init; }
+
+    /// <summary>Why a visible option is currently unavailable.</summary>
+    public string? Blocker { get; init; }
+}
+
 public sealed record NarrativeNode(
     string Id,
     string Text,
@@ -69,6 +105,9 @@ public sealed record NarrativeNode(
     public IReadOnlyList<StepInteraction>? Interactions { get; init; }
 
     public StepMedia? Media { get; init; }
+
+    /// <summary>Author-written help for this step. See <see cref="AuthorHelp"/>.</summary>
+    public AuthorHelp? Help { get; init; }
 }
 
 public sealed record NarrativeChoice(
@@ -79,6 +118,9 @@ public sealed record NarrativeChoice(
     IReadOnlyList<LocalGameEffect> Effects)
 {
     public ChoiceMedia? Media { get; init; }
+
+    /// <summary>Author-written help for this choice. See <see cref="AuthorHelp"/>.</summary>
+    public AuthorHelp? Help { get; init; }
 }
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]

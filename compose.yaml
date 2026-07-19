@@ -208,6 +208,7 @@ services:
       <<: *api-environment
       ConnectionStrings__PlayerExperience: Host=player-experience-db;Database=genengine_player_experience;Username=player_experience;Password=${PLAYER_EXPERIENCE_DB_PASSWORD:-player-experience-local-password}
       Configuration__BaseUrl: http://configuration:8080
+      Services__Authoring: http://authoring:8080
       InternalApi__Key: ${GENENGINE_INTERNAL_KEY:-local-internal-key-change-me}
     ports:
       - "5205:8080"
@@ -215,6 +216,10 @@ services:
       player-experience-db:
         condition: service_healthy
       configuration:
+        condition: service_healthy
+      # Contextual help reads author help from published versions. Authoring being
+      # down only degrades help to its offline rules, never blocks the service.
+      authoring:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health/ready >/dev/null || exit 1"]
