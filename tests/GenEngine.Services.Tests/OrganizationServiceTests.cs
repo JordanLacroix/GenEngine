@@ -116,6 +116,96 @@ public sealed class OrganizationServiceTests
         public override DateTimeOffset GetUtcNow() => now;
     }
 
+    [Fact]
+    public async Task UnitsArePaginatedFlatAndKeepTheParentIdSoTheClientCanRebuildTheTree()
+    {
+        MemoryOrganizationRepository repository = new();
+        OrganizationService service = new(repository, new FixedTimeProvider(Now));
+        _ = await service.UpsertFrontAsync("default", "Académie", "School", true, null, default);
+        Guid rootId = Guid.NewGuid();
+        _ = await service.UpsertUnitAsync("default", rootId, null, "Académie centrale", "Campus", "ROOT", true, null, default);
+        for (int index = 0; index < 60; index++)
+        {
+            _ = await service.UpsertUnitAsync("default", Guid.NewGuid(), rootId, $"Classe {index:D2}", "Class", $"C{index:D2}", true, null, default);
+        }
+
+        PagedView<UnitView> firstPage = await service.ListUnitsAsync("default", null, 1, 25, default);
+        PagedView<UnitView> lastPage = await service.ListUnitsAsync("default", null, 3, 25, default);
+
+        Assert.Equal(61, firstPage.Total);
+        Assert.Equal(25, firstPage.Items.Count);
+
+        // Dernière page partielle : 61 = 25 + 25 + 11.
+        Assert.Equal(11, lastPage.Items.Count);
+
+        // La pagination est à plat : chaque unité porte son parent, l'arbre reste reconstructible.
+        Assert.All(firstPage.Items.Where(item => item.Id != rootId), item => Assert.Equal(rootId, item.ParentId));
+    }
+
+    [Fact]
+    public async Task UnitAndPeriodSearchFiltersOnNameAndCode()
+    {
+        MemoryOrganizationRepository repository = new();
+        OrganizationService service = new(repository, new FixedTimeProvider(Now));
+        _ = await service.UpsertFrontAsync("default", "Académie", "School", true, null, default);
+        _ = await service.UpsertUnitAsync("default", Guid.NewGuid(), null, "Classe Alpha", "Class", "ALPHA", true, null, default);
+        _ = await service.UpsertUnitAsync("default", Guid.NewGuid(), null, "Classe Beta", "Class", "BETA", true, null, default);
+        _ = await service.UpsertPeriodAsync("default", Guid.NewGuid(), "Trimestre Alpha", "T-ALPHA", Now, Now.AddDays(90), true, null, default);
+        _ = await service.UpsertPeriodAsync("default", Guid.NewGuid(), "Trimestre Beta", "T-BETA", Now, Now.AddDays(90), true, null, default);
+
+        PagedView<UnitView> byName = await service.ListUnitsAsync("default", "alpha", null, null, default);
+        PagedView<UnitView> byCode = await service.ListUnitsAsync("default", "BETA", null, null, default);
+        PagedView<PeriodView> periods = await service.ListPeriodsAsync("default", "t-alpha", null, null, default);
+
+        Assert.Equal("Classe Alpha", Assert.Single(byName.Items).Name);
+        Assert.Equal(1, byName.Total);
+        Assert.Equal("Classe Beta", Assert.Single(byCode.Items).Name);
+        Assert.Equal("Trimestre Alpha", Assert.Single(periods.Items).Name);
+    }
+
+    [Fact]
+    public async Task MembershipSearchFiltersOnTheAttachedUnit()
+    {
+        MemoryOrganizationRepository repository = new();
+        OrganizationService service = new(repository, new FixedTimeProvider(Now));
+        _ = await service.UpsertFrontAsync("default", "Académie", "School", true, null, default);
+        Guid alpha = Guid.NewGuid();
+        Guid beta = Guid.NewGuid();
+        _ = await service.UpsertUnitAsync("default", alpha, null, "Classe Alpha", "Class", "ALPHA", true, null, default);
+        _ = await service.UpsertUnitAsync("default", beta, null, "Classe Beta", "Class", "BETA", true, null, default);
+        _ = await service.UpsertMembershipAsync("default", Guid.NewGuid(), alpha, Guid.NewGuid(), null, MembershipKind.Participant, Now, null, true, null, default);
+        _ = await service.UpsertMembershipAsync("default", Guid.NewGuid(), beta, Guid.NewGuid(), null, MembershipKind.Participant, Now, null, true, null, default);
+
+        PagedView<MembershipView> matching = await service.ListMembershipsAsync("default", null, null, null, "alpha", null, null, default);
+        PagedView<MembershipView> all = await service.ListMembershipsAsync("default", null, null, null, null, null, null, default);
+
+        Assert.Equal(alpha, Assert.Single(matching.Items).UnitId);
+        Assert.Equal(1, matching.Total);
+        Assert.Equal(2, all.Total);
+    }
+
+    [Fact]
+    public async Task OrganizationListsClampPageSizeAndReturnEmptyPagesBeyondTheLastOne()
+    {
+        MemoryOrganizationRepository repository = new();
+        OrganizationService service = new(repository, new FixedTimeProvider(Now));
+        _ = await service.UpsertFrontAsync("default", "Académie", "School", true, null, default);
+        for (int index = 0; index < 5; index++)
+        {
+            _ = await service.UpsertUnitAsync("default", Guid.NewGuid(), null, $"Classe {index}", "Class", $"C{index}", true, null, default);
+        }
+
+        PagedView<UnitView> oversized = await service.ListUnitsAsync("default", null, 1, 10_000, default);
+        PagedView<UnitView> beyondLast = await service.ListUnitsAsync("default", null, 12, 10, default);
+        PagedView<UnitView> defaults = await service.ListUnitsAsync("default", null, null, null, default);
+
+        Assert.Equal(OrganizationService.MaxPageSize, oversized.PageSize);
+        Assert.Equal(5, oversized.Total);
+        Assert.Empty(beyondLast.Items);
+        Assert.Equal(5, beyondLast.Total);
+        Assert.Equal(OrganizationService.DefaultPageSize, defaults.PageSize);
+    }
+
     private sealed class MemoryOrganizationRepository : IOrganizationRepository
     {
         private readonly List<OrganizationFront> fronts = [];
@@ -132,12 +222,35 @@ public sealed class OrganizationServiceTests
         public Task<Membership?> GetMembershipByNaturalKeyAsync(string frontId, Guid userId, Guid unitId, DateTimeOffset startsAt, CancellationToken cancellationToken) => Task.FromResult(memberships.SingleOrDefault(item => item.FrontId == Normalize(frontId) && item.UserId == userId && item.UnitId == unitId && item.StartsAt == startsAt));
         public Task<ContentAssignment?> GetAssignmentAsync(string frontId, Guid id, CancellationToken cancellationToken) => Task.FromResult(assignments.SingleOrDefault(item => item.FrontId == Normalize(frontId) && item.Id == id));
         public Task<IReadOnlyList<OrganizationUnit>> ListUnitsAsync(string frontId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<OrganizationUnit>>(units.Where(item => item.FrontId == Normalize(frontId)).ToArray());
-        public Task<IReadOnlyList<OperatingPeriod>> ListPeriodsAsync(string frontId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<OperatingPeriod>>(periods.Where(item => item.FrontId == Normalize(frontId)).ToArray());
-        public Task<(IReadOnlyList<Membership> Items, int Total)> ListMembershipsAsync(string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, int offset, int limit, CancellationToken cancellationToken)
+        public Task<(IReadOnlyList<OrganizationUnit> Items, int Total)> SearchUnitsAsync(string frontId, string? query, int offset, int limit, CancellationToken cancellationToken)
         {
-            Membership[] found = memberships.Where(item => item.FrontId == Normalize(frontId) && (unitId is null || item.UnitId == unitId) && (userId is null || item.UserId == userId) && (kind is null || item.Kind == kind)).ToArray();
-            return Task.FromResult(((IReadOnlyList<Membership>)found.Skip(offset).Take(limit).ToArray(), found.Length));
+            OrganizationUnit[] found = [.. units
+                .Where(item => item.FrontId == Normalize(frontId))
+                .Where(item => query is null || Matches(item.Name, query) || Matches(item.Code, query))
+                .OrderBy(static item => item.Name)
+                .ThenBy(static item => item.Id)];
+            return Task.FromResult(((IReadOnlyList<OrganizationUnit>)[.. found.Skip(offset).Take(limit)], found.Length));
         }
+        public Task<(IReadOnlyList<OperatingPeriod> Items, int Total)> SearchPeriodsAsync(string frontId, string? query, int offset, int limit, CancellationToken cancellationToken)
+        {
+            OperatingPeriod[] found = [.. periods
+                .Where(item => item.FrontId == Normalize(frontId))
+                .Where(item => query is null || Matches(item.Name, query) || Matches(item.Code, query))
+                .OrderByDescending(static item => item.StartsAt)
+                .ThenBy(static item => item.Id)];
+            return Task.FromResult(((IReadOnlyList<OperatingPeriod>)[.. found.Skip(offset).Take(limit)], found.Length));
+        }
+        public Task<(IReadOnlyList<Membership> Items, int Total)> ListMembershipsAsync(string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, string? query, int offset, int limit, CancellationToken cancellationToken)
+        {
+            Membership[] found = [.. memberships
+                .Where(item => item.FrontId == Normalize(frontId) && (unitId is null || item.UnitId == unitId) && (userId is null || item.UserId == userId) && (kind is null || item.Kind == kind))
+                .Where(item => query is null || units.Any(unit => unit.Id == item.UnitId && unit.FrontId == Normalize(frontId) && (Matches(unit.Name, query) || Matches(unit.Code, query))))
+                .OrderByDescending(static item => item.IsActive)
+                .ThenBy(static item => item.UserId)
+                .ThenBy(static item => item.Id)];
+            return Task.FromResult(((IReadOnlyList<Membership>)[.. found.Skip(offset).Take(limit)], found.Length));
+        }
+        private static bool Matches(string value, string query) => value.Contains(query, StringComparison.OrdinalIgnoreCase);
         public Task<(IReadOnlyList<ContentAssignment> Items, int Total)> ListAssignmentsAsync(string frontId, Guid? unitId, AssignedContentType? contentType, int offset, int limit, CancellationToken cancellationToken)
         {
             ContentAssignment[] found = assignments.Where(item => item.FrontId == Normalize(frontId) && (unitId is null || item.UnitId == unitId) && (contentType is null || item.ContentType == contentType)).ToArray();

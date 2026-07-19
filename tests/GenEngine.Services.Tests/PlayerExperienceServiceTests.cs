@@ -70,12 +70,111 @@ public sealed class PlayerExperienceServiceTests
         Assert.Equal(25, progress.Masteries[0].MasteryPercent);
     }
 
+    [Fact]
+    public async Task JournalAggregatesCoverTheWholeFilteredSetNotThePage()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System);
+        await RecordJournalEntriesAsync(service, 30, 12);
+
+        JournalView firstPage = await service.GetJournalAsync("player-1", "default", null, null, null, null, 1, 10, CancellationToken.None);
+        JournalView secondPage = await service.GetJournalAsync("player-1", "default", null, null, null, null, 2, 10, CancellationToken.None);
+
+        // La page ne contient que 10 entrées, mais total et totaux par type portent sur les 42.
+        Assert.Equal(10, firstPage.Items.Count);
+        Assert.Equal(42, firstPage.Total);
+        Assert.Equal(30, firstPage.TotalsByType["ScenarioCompleted"]);
+        Assert.Equal(12, firstPage.TotalsByType["ChoiceMade"]);
+
+        // Les agrégats sont identiques d'une page à l'autre.
+        Assert.Equal(firstPage.Total, secondPage.Total);
+        Assert.Equal(firstPage.TotalsByType, secondPage.TotalsByType);
+        Assert.Empty(firstPage.Items.Select(static item => item.Id).Intersect(secondPage.Items.Select(static item => item.Id)));
+    }
+
+    [Fact]
+    public async Task JournalFilterRestrictsAggregatesAndReportsTheExactTotal()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System);
+        await RecordJournalEntriesAsync(service, 30, 12);
+
+        JournalView filtered = await service.GetJournalAsync("player-1", "default", "ChoiceMade", null, null, null, 1, 100, CancellationToken.None);
+
+        Assert.Equal(12, filtered.Total);
+        Assert.Equal(12, filtered.Items.Count);
+        Assert.Equal(new Dictionary<string, int> { ["ChoiceMade"] = 12 }, filtered.TotalsByType);
+    }
+
+    [Fact]
+    public async Task JournalPaginationClampsBoundsAndReturnsAnEmptyLastPage()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System);
+        await RecordJournalEntriesAsync(service, 25, 0);
+
+        JournalView partialLastPage = await service.GetJournalAsync("player-1", "default", null, null, null, null, 3, 10, CancellationToken.None);
+        JournalView beyondLastPage = await service.GetJournalAsync("player-1", "default", null, null, null, null, 9, 10, CancellationToken.None);
+        JournalView clamped = await service.GetJournalAsync("player-1", "default", null, null, null, null, 0, 10_000, CancellationToken.None);
+
+        Assert.Equal(5, partialLastPage.Items.Count);
+        Assert.Empty(beyondLastPage.Items);
+        Assert.Equal(25, beyondLastPage.Total);
+        Assert.Equal(1, clamped.Page);
+        Assert.Equal(Pagination.MaxPageSize, clamped.PageSize);
+    }
+
+    private static async Task RecordJournalEntriesAsync(PlayerExperienceService service, int completed, int choices)
+    {
+        DateTimeOffset origin = new(2026, 7, 1, 0, 0, 0, TimeSpan.Zero);
+        for (int index = 0; index < completed; index++)
+        {
+            await service.RecordProgressEventAsync(
+                new ProgressEventCommand("default", "player-1", $"completed-{index}", "ScenarioCompleted", $"Scénario {index}", "Terminé", null, null, null, null, null, null, null, null, null, true, 0, origin.AddMinutes(index)),
+                CancellationToken.None);
+        }
+
+        for (int index = 0; index < choices; index++)
+        {
+            await service.RecordProgressEventAsync(
+                new ProgressEventCommand("default", "player-1", $"choice-{index}", "ChoiceMade", $"Choix {index}", "Choisi", null, null, null, null, null, null, null, null, null, false, 0, origin.AddHours(1).AddMinutes(index)),
+                CancellationToken.None);
+        }
+    }
+
+    /// <summary>
+    /// Reproduit fidèlement la sémantique attendue du dépôt : filtres, tri, pagination et
+    /// agrégats calculés sur l'ensemble filtré et non sur la page renvoyée.
+    /// </summary>
     private sealed class RepositoryStub : IPlayerExperienceRepository
     {
         private PlayerProfile? profile;
         public Task<PlayerProfile?> GetAsync(string userId, string frontId, CancellationToken cancellationToken) => Task.FromResult(profile);
         public Task AddAsync(PlayerProfile value, CancellationToken cancellationToken) { profile = value; return Task.CompletedTask; }
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task<Guid?> FindProfileIdAsync(string userId, string frontId, CancellationToken cancellationToken) => Task.FromResult(profile?.Id);
+
+        public Task<JournalPage> ListJournalAsync(Guid profileId, JournalFilter filter, int offset, int limit, CancellationToken cancellationToken)
+        {
+            IEnumerable<PlayerJournalEntry> entries = profile?.JournalEntries ?? [];
+            if (filter.Type is not null) entries = entries.Where(entry => string.Equals(entry.Type, filter.Type, StringComparison.OrdinalIgnoreCase));
+            if (filter.JourneyId is Guid journeyId) entries = entries.Where(entry => entry.JourneyId == journeyId);
+            if (filter.CategoryId is Guid categoryId) entries = entries.Where(entry => entry.CategoryId == categoryId);
+            if (filter.ScenarioId is Guid scenarioId) entries = entries.Where(entry => entry.ScenarioId == scenarioId);
+            PlayerJournalEntry[] matching = [.. entries
+                .OrderByDescending(static entry => entry.OccurredAt)
+                .ThenByDescending(static entry => entry.Id)];
+            Dictionary<string, int> totalsByType = new(StringComparer.OrdinalIgnoreCase);
+            foreach (PlayerJournalEntry entry in matching)
+            {
+                totalsByType[entry.Type] = totalsByType.TryGetValue(entry.Type, out int existing) ? existing + 1 : 1;
+            }
+
+            return Task.FromResult(new JournalPage(
+                [.. matching.Skip(offset).Take(limit)],
+                matching.Length,
+                totalsByType));
+        }
     }
 
     private sealed class CatalogStub : IPlayerExperienceCatalogProvider

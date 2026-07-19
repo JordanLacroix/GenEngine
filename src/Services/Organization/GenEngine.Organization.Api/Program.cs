@@ -57,10 +57,10 @@ admin.MapPut("", async (string frontId, UpsertFrontRequest request, ClaimsPrinci
     RecordAudit(audit, actor, "front_upserted", "front", frontId);
     return Results.Ok(result);
 }).RequireAuthorization("front.manage");
-admin.MapGet("/units", async (string frontId, ClaimsPrincipal actor, OrganizationService service, CancellationToken cancellationToken) =>
+admin.MapGet("/units", async (string frontId, string? query, int? page, int? pageSize, ClaimsPrincipal actor, OrganizationService service, CancellationToken cancellationToken) =>
 {
     EnsureFrontScope(actor, frontId);
-    return Results.Ok(await service.ListUnitsAsync(frontId, cancellationToken).ConfigureAwait(false));
+    return Results.Ok(await service.ListUnitsAsync(frontId, query, page, pageSize, cancellationToken).ConfigureAwait(false));
 }).RequireAuthorization("unit.read");
 admin.MapPut("/units/{id:guid}", async (string frontId, Guid id, UpsertUnitRequest request, ClaimsPrincipal actor, OrganizationService service, IAuditLog audit, CancellationToken cancellationToken) =>
 {
@@ -69,10 +69,10 @@ admin.MapPut("/units/{id:guid}", async (string frontId, Guid id, UpsertUnitReque
     RecordAudit(audit, actor, "unit_upserted", "unit", id.ToString());
     return Results.Ok(result);
 }).RequireAuthorization("unit.manage");
-admin.MapGet("/periods", async (string frontId, ClaimsPrincipal actor, OrganizationService service, CancellationToken cancellationToken) =>
+admin.MapGet("/periods", async (string frontId, string? query, int? page, int? pageSize, ClaimsPrincipal actor, OrganizationService service, CancellationToken cancellationToken) =>
 {
     EnsureFrontScope(actor, frontId);
-    return Results.Ok(await service.ListPeriodsAsync(frontId, cancellationToken).ConfigureAwait(false));
+    return Results.Ok(await service.ListPeriodsAsync(frontId, query, page, pageSize, cancellationToken).ConfigureAwait(false));
 }).RequireAuthorization("period.read");
 admin.MapPut("/periods/{id:guid}", async (string frontId, Guid id, UpsertPeriodRequest request, ClaimsPrincipal actor, OrganizationService service, IAuditLog audit, CancellationToken cancellationToken) =>
 {
@@ -81,10 +81,10 @@ admin.MapPut("/periods/{id:guid}", async (string frontId, Guid id, UpsertPeriodR
     RecordAudit(audit, actor, "period_upserted", "operating_period", id.ToString());
     return Results.Ok(result);
 }).RequireAuthorization("period.manage");
-admin.MapGet("/memberships", async (string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, int? page, int? pageSize, ClaimsPrincipal actor, OrganizationService service, CancellationToken cancellationToken) =>
+admin.MapGet("/memberships", async (string frontId, Guid? unitId, Guid? userId, MembershipKind? kind, string? query, int? page, int? pageSize, ClaimsPrincipal actor, OrganizationService service, CancellationToken cancellationToken) =>
 {
     EnsureFrontScope(actor, frontId);
-    return Results.Ok(await service.ListMembershipsAsync(frontId, unitId, userId, kind, page ?? 1, pageSize ?? 25, cancellationToken).ConfigureAwait(false));
+    return Results.Ok(await service.ListMembershipsAsync(frontId, unitId, userId, kind, query, page, pageSize, cancellationToken).ConfigureAwait(false));
 }).RequireAuthorization("membership.read");
 admin.MapPut("/memberships/{id:guid}", async (string frontId, Guid id, UpsertMembershipRequest request, ClaimsPrincipal actor, OrganizationService service, IAuditLog audit, CancellationToken cancellationToken) =>
 {
@@ -110,7 +110,7 @@ admin.MapDelete("/memberships/{id:guid}", async (string frontId, Guid id, Claims
 admin.MapGet("/assignments", async (string frontId, Guid? unitId, AssignedContentType? contentType, int? page, int? pageSize, ClaimsPrincipal actor, OrganizationService service, CancellationToken cancellationToken) =>
 {
     EnsureFrontScope(actor, frontId);
-    return Results.Ok(await service.ListAssignmentsAsync(frontId, unitId, contentType, page ?? 1, pageSize ?? 25, cancellationToken).ConfigureAwait(false));
+    return Results.Ok(await service.ListAssignmentsAsync(frontId, unitId, contentType, page, pageSize, cancellationToken).ConfigureAwait(false));
 }).RequireAuthorization("assignment.read");
 admin.MapPut("/assignments/{id:guid}", async (string frontId, Guid id, UpsertAssignmentRequest request, ClaimsPrincipal actor, OrganizationService service, IAuditLog audit, CancellationToken cancellationToken) =>
 {

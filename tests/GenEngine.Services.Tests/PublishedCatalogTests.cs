@@ -45,10 +45,13 @@ public sealed class PublishedCatalogTests
         var repository = new CatalogRepository(scenario);
         var service = new AuthoringService(repository, TimeProvider.System);
 
-        PublishedScenarioView result = Assert.Single(
-            await service.ListPublishedAsync(12, null, null, CancellationToken.None));
+        PagedView<PublishedScenarioView> catalog =
+            await service.ListPublishedAsync(null, null, 1, 12, CancellationToken.None);
+        PublishedScenarioView result = Assert.Single(catalog.Items);
 
         Assert.Equal(12, repository.RequestedLimit);
+        Assert.Equal(0, repository.RequestedOffset);
+        Assert.Equal(1, catalog.Total);
         Assert.Equal(scenario.Id, result.ScenarioId);
         Assert.Equal(2, result.VersionNumber);
         Assert.Equal("Latest published title", result.Title);
@@ -73,6 +76,104 @@ public sealed class PublishedCatalogTests
         Assert.Single(scenario.Versions);
     }
 
+    [Fact]
+    public async Task CatalogReachesTheHundredAndFiftiethPublishedScenario()
+    {
+        // Régression : `limit` était plafonné à 100 sans `offset`, ce qui rendait tout scénario
+        // au-delà du centième définitivement inatteignable.
+        var repository = new CatalogRepository(CreatePublishedScenarios(200));
+        var service = new AuthoringService(repository, TimeProvider.System);
+
+        // 150ᵉ scénario du catalogue : page 3 d'une pagination par 50, dernier élément.
+        PagedView<PublishedScenarioView> page = await service.ListPublishedAsync(null, null, 3, 50, CancellationToken.None);
+
+        Assert.Equal(200, page.Total);
+        Assert.Equal(50, page.Items.Count);
+        Assert.Equal("Scénario 150", page.Items[^1].Title);
+    }
+
+    [Fact]
+    public async Task CatalogPaginationHandlesPartialLastPageAndOutOfRangePages()
+    {
+        var repository = new CatalogRepository(CreatePublishedScenarios(105));
+        var service = new AuthoringService(repository, TimeProvider.System);
+
+        PagedView<PublishedScenarioView> lastPage = await service.ListPublishedAsync(null, null, 3, 50, CancellationToken.None);
+        PagedView<PublishedScenarioView> beyondLastPage = await service.ListPublishedAsync(null, null, 4, 50, CancellationToken.None);
+
+        // Dernière page partielle : 105 = 50 + 50 + 5.
+        Assert.Equal(5, lastPage.Items.Count);
+        Assert.Equal(105, lastPage.Total);
+
+        // Page vide au-delà du dernier élément : le total reste celui de l'ensemble.
+        Assert.Empty(beyondLastPage.Items);
+        Assert.Equal(105, beyondLastPage.Total);
+        Assert.Equal(4, beyondLastPage.Page);
+    }
+
+    [Fact]
+    public async Task CatalogClampsPageAndPageSizeToTheDocumentedBounds()
+    {
+        var repository = new CatalogRepository(CreatePublishedScenarios(300));
+        var service = new AuthoringService(repository, TimeProvider.System);
+
+        PagedView<PublishedScenarioView> oversized = await service.ListPublishedAsync(null, null, 1, 5_000, CancellationToken.None);
+        PagedView<PublishedScenarioView> negative = await service.ListPublishedAsync(null, null, -3, 0, CancellationToken.None);
+        PagedView<PublishedScenarioView> defaults = await service.ListPublishedAsync(null, null, null, null, CancellationToken.None);
+
+        Assert.Equal(Pagination.MaxPageSize, oversized.PageSize);
+        Assert.Equal(Pagination.MaxPageSize, oversized.Items.Count);
+
+        Assert.Equal(1, negative.Page);
+        Assert.Equal(Pagination.MinPageSize, negative.PageSize);
+
+        Assert.Equal(1, defaults.Page);
+        Assert.Equal(Pagination.DefaultPageSize, defaults.PageSize);
+    }
+
+    [Fact]
+    public async Task ScenarioVersionsArePaginated()
+    {
+        DateTimeOffset now = new(2026, 7, 18, 12, 0, 0, TimeSpan.Zero);
+        ScenarioDocument document = CreateDocument("Versioned", "Opening");
+        Scenario scenario = Scenario.Create("owner", document.Title, NarrativeJson.Serialize(document), now);
+        for (int index = 0; index < 12; index++)
+        {
+            scenario.Publish(
+                NarrativeJson.Serialize(document),
+                CanonicalSnapshot.ComputeHash(document),
+                scenario.Revision,
+                now.AddMinutes(index));
+            scenario.UpdateDraft(document.Title, NarrativeJson.Serialize(document), scenario.Revision, now.AddMinutes(index));
+        }
+
+        var repository = new CatalogRepository(scenario);
+        var service = new AuthoringService(repository, TimeProvider.System);
+
+        PagedView<ScenarioVersionView> secondPage = await service.ListVersionsAsync(scenario.Id, "owner", 2, 5, CancellationToken.None);
+
+        Assert.Equal(12, secondPage.Total);
+        Assert.Equal(5, secondPage.Items.Count);
+        Assert.Equal(6, secondPage.Items[0].Number);
+    }
+
+    private static Scenario[] CreatePublishedScenarios(int count)
+    {
+        DateTimeOffset origin = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        Scenario[] scenarios = new Scenario[count];
+        for (int index = 0; index < count; index++)
+        {
+            // Publication du plus récent au plus ancien : « Scénario 1 » est en tête de catalogue.
+            DateTimeOffset publishedAt = origin.AddMinutes(count - index);
+            ScenarioDocument document = CreateDocument($"Scénario {index + 1}", "Opening");
+            Scenario scenario = Scenario.Create("owner", document.Title, NarrativeJson.Serialize(document), publishedAt);
+            scenario.Publish(NarrativeJson.Serialize(document), CanonicalSnapshot.ComputeHash(document), 1, publishedAt);
+            scenarios[index] = scenario;
+        }
+
+        return scenarios;
+    }
+
     private static ScenarioDocument CreateDocument(string title, string openingText) =>
         new(
             NarrativeVersions.Schema,
@@ -90,6 +191,8 @@ public sealed class PublishedCatalogTests
 
         public int RequestedLimit { get; private set; }
 
+        public int RequestedOffset { get; private set; }
+
         public Task AddAsync(Scenario scenario, CancellationToken cancellationToken)
         {
             AddedScenario = scenario;
@@ -99,18 +202,53 @@ public sealed class PublishedCatalogTests
         public Task<Scenario?> GetAsync(Guid id, string ownerId, CancellationToken cancellationToken) =>
             Task.FromResult(scenarios.SingleOrDefault(scenario => scenario.Id == id));
 
-        public Task<IReadOnlyList<Scenario>> ListPublishedAsync(
-            int limit,
+        public Task<(IReadOnlyList<PublishedScenarioRecord> Items, int Total)> ListPublishedAsync(
             Guid? categoryId,
             string? query,
+            int offset,
+            int limit,
             CancellationToken cancellationToken)
         {
+            RequestedOffset = offset;
             RequestedLimit = limit;
-            return Task.FromResult<IReadOnlyList<Scenario>>(scenarios.Take(limit).ToArray());
+            Scenario[] published = [.. scenarios
+                .Where(static scenario => !scenario.IsArchived && scenario.Versions.Count != 0)
+                .Where(scenario => categoryId is null || scenario.CategoryId == categoryId)
+                .Where(scenario => query is null || scenario.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(static scenario => scenario.Versions.Max(version => version.PublishedAt))
+                .ThenByDescending(static scenario => scenario.Id)];
+            PublishedScenarioRecord[] page = [.. published.Skip(offset).Take(limit).Select(ToRecord)];
+            return Task.FromResult<(IReadOnlyList<PublishedScenarioRecord>, int)>((page, published.Length));
+        }
+
+        public Task<(IReadOnlyList<ScenarioVersion> Items, int Total)> ListVersionsAsync(Guid scenarioId, string ownerId, int offset, int limit, CancellationToken cancellationToken)
+        {
+            RequestedOffset = offset;
+            RequestedLimit = limit;
+            ScenarioVersion[] versions = [.. scenarios
+                .Where(scenario => scenario.Id == scenarioId)
+                .SelectMany(static scenario => scenario.Versions)
+                .OrderBy(static version => version.Number)];
+            return Task.FromResult<(IReadOnlyList<ScenarioVersion>, int)>(
+                ([.. versions.Skip(offset).Take(limit)], versions.Length));
         }
 
         public Task<(IReadOnlyList<Scenario> Items, int Total)> ListOwnedAsync(string ownerId, string? query, Guid? categoryId, bool includeArchived, int offset, int limit, CancellationToken cancellationToken) =>
-            Task.FromResult<(IReadOnlyList<Scenario>, int)>((scenarios, scenarios.Length));
+            Task.FromResult<(IReadOnlyList<Scenario>, int)>(([.. scenarios.Skip(offset).Take(limit)], scenarios.Length));
+
+        private static PublishedScenarioRecord ToRecord(Scenario scenario)
+        {
+            ScenarioVersion version = scenario.Versions.MaxBy(static candidate => candidate.Number)!;
+            return new PublishedScenarioRecord(
+                scenario.Id,
+                scenario.FrontId,
+                scenario.CategoryId,
+                version.Id,
+                version.Number,
+                version.PublishedAt,
+                version.SnapshotJson,
+                version.SnapshotHash);
+        }
 
         public Task<ScenarioVersion?> GetVersionAsync(Guid versionId, CancellationToken cancellationToken) =>
             Task.FromResult<ScenarioVersion?>(null);

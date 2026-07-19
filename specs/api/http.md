@@ -18,6 +18,43 @@ Le bloc `media` porte le paramétrage sonore et visuel de l'instance : `enabled`
 
 Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs utilisent Problem Details. Les routes métier exigent un JWT Bearer sauf inscription, connexion, catalogue public et contrat interne explicitement protégé.
 
+## Pagination et recherche
+
+**Une seule convention** s'applique à toutes les listes, quel que soit le service. Les conventions `offset`/`limit` qui coexistaient sur le catalogue et le journal sont supprimées : deux grammaires concurrentes obligeaient chaque client à savoir laquelle s'applique à quelle route, sans rien apporter.
+
+Paramètres de requête :
+
+| Paramètre | Type | Défaut | Bornes | Rôle |
+|---|---|---|---|---|
+| `page` | entier | `1` | ramené à `1` si `< 1` | numéro de page, **base 1** |
+| `pageSize` | entier | `25` | clampé à `[1, 100]` | taille de page |
+| `query` | texte | absent | — | sous-chaîne recherchée, insensible à la casse (`ILIKE %terme%`). Les accents ne sont **pas** normalisés : « eleve » ne trouve pas « élève » |
+
+Réponse : toute liste renvoie la **même enveloppe**, jamais un tableau nu.
+
+```json
+{ "items": [], "page": 1, "pageSize": 25, "total": 0 }
+```
+
+`total` est le nombre d'éléments de l'**ensemble filtré**, pas de la page. Une `page` au-delà du dernier élément renvoie `items` vide et le `total` réel — ce n'est pas une erreur. Le journal joueur ajoute `totalsByType` à cette enveloppe ; cet agrégat porte lui aussi sur l'ensemble filtré et reste identique d'une page à l'autre.
+
+Les filtres et les agrégats sont évalués en base : aucune surface ne matérialise une collection complète pour la découper ensuite en mémoire.
+
+### Rupture de contrat introduite par cette convention
+
+Quatre routes renvoyaient un **tableau nu** et renvoient désormais l'enveloppe. Un client qui désérialise une liste directement casse tant qu'il n'est pas mis à jour :
+
+| Route | Avant | Après |
+|---|---|---|
+| `GET /catalog` | `[PublishedScenarioView]` | `{ items, page, pageSize, total }` |
+| `GET /scenarios/{id}/versions` | `[ScenarioVersionView]` | `{ items, page, pageSize, total }` |
+| `GET /admin/organization/{frontId}/units` | `[UnitView]` | `{ items, page, pageSize, total }` |
+| `GET /admin/organization/{frontId}/periods` | `[PeriodView]` | `{ items, page, pageSize, total }` |
+
+Les paramètres `offset` et `limit` de `GET /catalog` et `GET /me/experience/journal` sont remplacés par `page` et `pageSize` ; ils ne sont plus acceptés. `GET /me/experience/journal` conserve sa forme d'objet et gagne `page` et `pageSize` — l'ajout de champs est compatible.
+
+Le client iOS (dépôt `GenEngine.IOS`) consomme les quatre routes ci-dessus ainsi que `journal?limit=100` : il doit être mis à jour dans un lot dédié, ce dépôt ne le contenant pas.
+
 ## Identity — port 5203
 
 - `POST /auth/register`
@@ -31,7 +68,7 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 
 ## Authoring — port 5201
 
-- `GET /catalog?limit=20&categoryId={categoryId}` — dernières versions publiées, filtrables par catégorie
+- `GET /catalog?page=1&pageSize=25&categoryId={categoryId}&query={texte}` — dernières versions publiées, triées par date de publication décroissante, filtrables par catégorie et par titre. Paginé : tout scénario publié est atteignable quel que soit le volume du catalogue
 - `POST /scenarios/generate` — brouillon contextualisé par jeu, histoire globale, catégorie et prompt, via offline ou Azure AI Foundry
 - `POST /scenarios/import` — migre le brouillon vers le schéma courant avant stockage
 - `GET /scenarios/{id}`
@@ -40,7 +77,7 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 - `POST /scenarios/{id}/analyze` — boucles, sorties garanties, risques d'impasse conditionnelle et fins inatteignables
 - `POST /scenarios/{id}/preview` — prévisualisation depuis un nœud, un tour et un jour logique choisis avec état joueur injecté
 - `POST /scenarios/{id}/publish`
-- `GET /scenarios/{id}/versions`
+- `GET /scenarios/{id}/versions?page=1&pageSize=25` — versions publiées d'un scénario, par numéro croissant
 - `GET /internal/scenario-versions/{versionId}` — clé interservice
 
 ## Play — port 5202
@@ -67,7 +104,7 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 - `POST /me/experience/onboarding/steps/{stepId}/complete?frontId={frontId}` — progression idempotente d'une étape
 - `POST /me/experience/onboarding/skip?frontId={frontId}` — passage idempotent si autorisé
 - `POST /me/experience/onboarding/reset?frontId={frontId}` — recommence le tutoriel courant
-- `GET /me/experience/journal?frontId={frontId}` — journal filtrable et agrégats personnels
+- `GET /me/experience/journal?frontId={frontId}&page=1&pageSize=25&type={type}&journeyId={id}&categoryId={id}&scenarioId={id}` — journal filtrable et agrégats personnels. Filtres, pagination, `total` et `totalsByType` sont évalués en base : un joueur ayant traversé des centaines de scénarios ne charge jamais son historique complet
 - `POST /me/experience/assistant/contextual-help?frontId={frontId}` — aide déterministe hors ligne et avertissement de chemin connu
 - `POST /me/experience/shop/purchases?frontId={frontId}` — achat idempotent
 - `POST /internal/rewards` — applique une règle de récompense idempotente depuis un événement narratif
@@ -76,12 +113,20 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 ## Organization — port 5206
 
 - `GET|PUT /admin/organization/{frontId}` — front opérationnel, filtré par portée signée
-- `GET|PUT /admin/organization/{frontId}/units[/{id}]` — unités hiérarchiques école/entreprise/formation
-- `GET|PUT /admin/organization/{frontId}/periods[/{id}]` — années, semestres, campagnes ou exercices versionnés
-- `GET|PUT|DELETE /admin/organization/{frontId}/memberships[/{id}]` — participants et encadrants temporisés et rattachables à une période
+- `GET|PUT /admin/organization/{frontId}/units[/{id}]` — unités hiérarchiques école/entreprise/formation. La liste est paginée et cherchable sur le nom et le code
+- `GET|PUT /admin/organization/{frontId}/periods[/{id}]` — années, semestres, campagnes ou exercices versionnés. La liste est paginée et cherchable sur le nom et le code
+- `GET|PUT|DELETE /admin/organization/{frontId}/memberships[/{id}]` — participants et encadrants temporisés et rattachables à une période. `query` porte sur le nom et le code de l'unité de rattachement, une affectation n'ayant aucun champ texte propre
 - `POST /admin/organization/{frontId}/memberships/import` — prévalidation ou import atomique et idempotent de 1 à 500 lignes
 - `GET|PUT|DELETE /admin/organization/{frontId}/assignments[/{id}]` — scénarios, catégories ou parcours affectés avec disponibilité et échéance
 - `GET /me/organization/{frontId}` — contexte effectif du joueur
+
+### Pagination des unités hiérarchiques
+
+Les unités forment un arbre, mais `GET /admin/organization/{frontId}/units` les pagine **à plat**, triées par nom, chaque élément exposant son `parentId`. Le client reconstruit l'arborescence à partir des `parentId` ; tant que toutes les pages sont parcourues, l'arbre obtenu est complet et `total` reste le nombre d'unités du front.
+
+Conséquence assumée : un parent peut se trouver sur une page ultérieure à celle de son enfant. Un client qui affiche l'arbre doit donc rattacher les nœuds orphelins au fur et à mesure, et non supposer que le parent est déjà connu.
+
+L'alternative — paginer par niveau ou par sous-arbre — a été écartée : elle coupe une fratrie au milieu d'une page, rend `total` ambigu (total des racines ? de l'arbre entier ?) et impose au serveur de connaître l'état de dépliage du client. La pagination à plat garde un contrat unique pour toutes les listes ; un front qui a besoin de charger une branche précise filtre déjà par `query`.
 - `GET /internal/access/{frontId}/users/{userId}` — résolution interservice protégée par clé ; Play l'utilise avant de créer une session
 
 L'OpenAPI généré par chaque service reste la source de vérité exécutable.
