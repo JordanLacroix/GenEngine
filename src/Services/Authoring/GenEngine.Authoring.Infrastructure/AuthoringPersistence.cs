@@ -30,6 +30,10 @@ public sealed class AuthoringDbContext(DbContextOptions<AuthoringDbContext> opti
             entity.Property(static scenario => scenario.Revision).IsConcurrencyToken();
             entity.HasIndex(static scenario => scenario.OwnerId);
             entity.HasIndex(static scenario => new { scenario.FrontId, scenario.CategoryId });
+
+            // Tri de la liste « mes scénarios » et filtrage du catalogue publié.
+            entity.HasIndex(static scenario => new { scenario.OwnerId, scenario.UpdatedAt });
+            entity.HasIndex(static scenario => new { scenario.IsArchived, scenario.CategoryId });
             entity.HasMany(static scenario => scenario.Versions)
                 .WithOne()
                 .HasForeignKey(static version => version.ScenarioId)
@@ -44,6 +48,9 @@ public sealed class AuthoringDbContext(DbContextOptions<AuthoringDbContext> opti
             entity.Property(static version => version.SnapshotHash).HasMaxLength(64).IsRequired();
             entity.HasIndex(static version => new { version.ScenarioId, version.Number }).IsUnique();
             entity.HasIndex(static version => version.SnapshotHash);
+
+            // Sous-requête `MAX(published_at)` du tri du catalogue publié.
+            entity.HasIndex(static version => new { version.ScenarioId, version.PublishedAt });
         });
     }
 }
@@ -60,21 +67,74 @@ internal sealed class AuthoringRepository(AuthoringDbContext dbContext) : IAutho
                 scenario => scenario.Id == id && scenario.OwnerId == ownerId,
                 cancellationToken);
 
-    public async Task<IReadOnlyList<Scenario>> ListPublishedAsync(
-        int limit,
+    public async Task<(IReadOnlyList<PublishedScenarioRecord> Items, int Total)> ListPublishedAsync(
         Guid? categoryId,
         string? query,
-        CancellationToken cancellationToken) =>
-        await dbContext.Scenarios
+        int offset,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        IQueryable<Scenario> filtered = dbContext.Scenarios
             .AsNoTracking()
             .Where(static scenario => scenario.Versions.Count != 0 && !scenario.IsArchived)
-            .Where(scenario => categoryId == null || scenario.CategoryId == categoryId)
-            .Where(scenario => string.IsNullOrWhiteSpace(query) || EF.Functions.ILike(scenario.Title, $"%{query}%"))
+            .Where(scenario => categoryId == null || scenario.CategoryId == categoryId);
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            string pattern = $"%{query.Trim()}%";
+            filtered = filtered.Where(scenario => EF.Functions.ILike(scenario.Title, pattern));
+        }
+
+        int total = await filtered.CountAsync(cancellationToken).ConfigureAwait(false);
+
+        // Aucun `Include` : seule la dernière version de chaque scénario est projetée, sinon
+        // trier le catalogue matérialiserait toutes les versions de tous les scénarios.
+        PublishedScenarioRecord[] items = await filtered
             .OrderByDescending(static scenario => scenario.Versions.Max(version => version.PublishedAt))
-            .Include(static scenario => scenario.Versions)
+            .ThenByDescending(static scenario => scenario.Id)
+            .Skip(offset)
+            .Take(limit)
+            .Select(static scenario => new PublishedScenarioRecord(
+                scenario.Id,
+                scenario.FrontId,
+                scenario.CategoryId,
+                scenario.Versions.OrderByDescending(version => version.Number).First().Id,
+                scenario.Versions.OrderByDescending(version => version.Number).First().Number,
+                scenario.Versions.OrderByDescending(version => version.Number).First().PublishedAt,
+                scenario.Versions.OrderByDescending(version => version.Number).First().SnapshotJson,
+                scenario.Versions.OrderByDescending(version => version.Number).First().SnapshotHash))
+            .ToArrayAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return (items, total);
+    }
+
+    public async Task<(IReadOnlyList<ScenarioVersion> Items, int Total)> ListVersionsAsync(
+        Guid scenarioId,
+        string ownerId,
+        int offset,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        bool owned = await dbContext.Scenarios
+            .AsNoTracking()
+            .AnyAsync(scenario => scenario.Id == scenarioId && scenario.OwnerId == ownerId, cancellationToken)
+            .ConfigureAwait(false);
+        if (!owned)
+        {
+            throw new AuthoringException("scenario_not_found", "The scenario was not found.");
+        }
+
+        IQueryable<ScenarioVersion> filtered = dbContext.ScenarioVersions
+            .AsNoTracking()
+            .Where(version => version.ScenarioId == scenarioId);
+        int total = await filtered.CountAsync(cancellationToken).ConfigureAwait(false);
+        ScenarioVersion[] items = await filtered
+            .OrderBy(static version => version.Number)
+            .Skip(offset)
             .Take(limit)
             .ToArrayAsync(cancellationToken)
             .ConfigureAwait(false);
+        return (items, total);
+    }
 
     public async Task<(IReadOnlyList<Scenario> Items, int Total)> ListOwnedAsync(
         string ownerId,

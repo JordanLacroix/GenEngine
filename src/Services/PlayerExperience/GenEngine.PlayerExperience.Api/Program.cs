@@ -111,12 +111,12 @@ experience.MapGet("/journal", async (
     Guid? journeyId,
     Guid? categoryId,
     Guid? scenarioId,
-    int? offset,
-    int? limit,
+    int? page,
+    int? pageSize,
     ClaimsPrincipal user,
     PlayerExperienceService service,
     CancellationToken cancellationToken) =>
-    Results.Ok(await service.GetJournalAsync(GetUserId(user), frontId ?? "default", type, journeyId, categoryId, scenarioId, offset ?? 0, limit ?? 30, cancellationToken).ConfigureAwait(false)))
+    Results.Ok(await service.GetJournalAsync(GetUserId(user), frontId ?? "default", type, journeyId, categoryId, scenarioId, page, pageSize, cancellationToken).ConfigureAwait(false)))
     .RequireAuthorization("journal.read.own");
 experience.MapPost("/assistant/contextual-help", async (
     string? frontId,

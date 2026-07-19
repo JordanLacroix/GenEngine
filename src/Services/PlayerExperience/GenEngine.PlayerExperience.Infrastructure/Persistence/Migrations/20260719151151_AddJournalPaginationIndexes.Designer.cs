@@ -3,6 +3,7 @@ using System;
 using GenEngine.PlayerExperience.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GenEngine.PlayerExperience.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(PlayerExperienceDbContext))]
-    partial class PlayerExperienceDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260719151151_AddJournalPaginationIndexes")]
+    partial class AddJournalPaginationIndexes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -161,9 +164,6 @@ namespace GenEngine.PlayerExperience.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("DefaultJourneyId")
-                        .HasColumnType("uuid");
 
                     b.Property<string>("FamiliarAccent")
                         .IsRequired()

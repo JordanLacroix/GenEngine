@@ -9,9 +9,11 @@ public interface IAuthoringRepository
 
     Task<Scenario?> GetAsync(Guid id, string ownerId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<Scenario>> ListPublishedAsync(int limit, Guid? categoryId, string? query, CancellationToken cancellationToken);
+    Task<(IReadOnlyList<PublishedScenarioRecord> Items, int Total)> ListPublishedAsync(Guid? categoryId, string? query, int offset, int limit, CancellationToken cancellationToken);
 
     Task<(IReadOnlyList<Scenario> Items, int Total)> ListOwnedAsync(string ownerId, string? query, Guid? categoryId, bool includeArchived, int offset, int limit, CancellationToken cancellationToken);
+
+    Task<(IReadOnlyList<ScenarioVersion> Items, int Total)> ListVersionsAsync(Guid scenarioId, string ownerId, int offset, int limit, CancellationToken cancellationToken);
 
     Task<ScenarioVersion?> GetVersionAsync(Guid versionId, CancellationToken cancellationToken);
 
@@ -32,7 +34,39 @@ public sealed record ScenarioView(
     string CreationBrief,
     bool IsArchived,
     DateTimeOffset UpdatedAt);
-public sealed record PagedScenariosView(IReadOnlyList<ScenarioView> Items, int Page, int PageSize, int Total);
+/// <summary>Enveloppe paginée commune à toutes les listes de l'API Authoring.</summary>
+public sealed record PagedView<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
+
+/// <summary>
+/// Projection minimale d'un scénario publié et de sa dernière version. Évite de charger
+/// l'intégralité des versions d'un scénario pour construire le catalogue.
+/// </summary>
+public sealed record PublishedScenarioRecord(
+    Guid ScenarioId,
+    string FrontId,
+    Guid? CategoryId,
+    Guid VersionId,
+    int VersionNumber,
+    DateTimeOffset PublishedAt,
+    string SnapshotJson,
+    string SnapshotHash);
+
+/// <summary>Bornes de pagination partagées par toutes les routes de l'API Authoring.</summary>
+public static class Pagination
+{
+    public const int DefaultPageSize = 25;
+
+    public const int MinPageSize = 1;
+
+    public const int MaxPageSize = 100;
+
+    public static (int Page, int PageSize, int Offset) Normalize(int? page, int? pageSize)
+    {
+        int normalizedPage = Math.Max(1, page ?? 1);
+        int normalizedPageSize = Math.Clamp(pageSize ?? DefaultPageSize, MinPageSize, MaxPageSize);
+        return (normalizedPage, normalizedPageSize, (normalizedPage - 1) * normalizedPageSize);
+    }
+}
 
 public sealed record ScenarioVersionView(
     Guid Id,
@@ -161,26 +195,25 @@ public sealed class AuthoringService(
         return Map(scenario);
     }
 
-    public async Task<PagedScenariosView> ListOwnedAsync(
+    public async Task<PagedView<ScenarioView>> ListOwnedAsync(
         string ownerId,
         string? query,
         Guid? categoryId,
         bool includeArchived,
-        int page,
-        int pageSize,
+        int? page,
+        int? pageSize,
         CancellationToken cancellationToken)
     {
-        page = Math.Max(1, page);
-        pageSize = Math.Clamp(pageSize, 10, 100);
+        (int normalizedPage, int normalizedPageSize, int offset) = Pagination.Normalize(page, pageSize);
         (IReadOnlyList<Scenario> items, int total) = await repository.ListOwnedAsync(
             ownerId,
             string.IsNullOrWhiteSpace(query) ? null : query.Trim(),
             categoryId,
             includeArchived,
-            (page - 1) * pageSize,
-            pageSize,
+            offset,
+            normalizedPageSize,
             cancellationToken).ConfigureAwait(false);
-        return new PagedScenariosView(items.Select(Map).ToArray(), page, pageSize, total);
+        return new PagedView<ScenarioView>(items.Select(Map).ToArray(), normalizedPage, normalizedPageSize, total);
     }
 
     public async Task ArchiveAsync(Guid id, string ownerId, int expectedRevision, CancellationToken cancellationToken)
@@ -258,24 +291,42 @@ public sealed class AuthoringService(
         return Map(version);
     }
 
-    public async Task<IReadOnlyList<ScenarioVersionView>> ListVersionsAsync(
+    public async Task<PagedView<ScenarioVersionView>> ListVersionsAsync(
         Guid id,
         string ownerId,
+        int? page,
+        int? pageSize,
         CancellationToken cancellationToken)
     {
-        Scenario scenario = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
-        return scenario.Versions.OrderBy(static version => version.Number).Select(Map).ToArray();
+        (int normalizedPage, int normalizedPageSize, int offset) = Pagination.Normalize(page, pageSize);
+        (IReadOnlyList<ScenarioVersion> items, int total) = await repository.ListVersionsAsync(
+            id,
+            ownerId,
+            offset,
+            normalizedPageSize,
+            cancellationToken).ConfigureAwait(false);
+        return new PagedView<ScenarioVersionView>(items.Select(Map).ToArray(), normalizedPage, normalizedPageSize, total);
     }
 
-    public async Task<IReadOnlyList<PublishedScenarioView>> ListPublishedAsync(
-        int limit,
+    public async Task<PagedView<PublishedScenarioView>> ListPublishedAsync(
         Guid? categoryId,
         string? query,
+        int? page,
+        int? pageSize,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<Scenario> scenarios = await repository.ListPublishedAsync(limit, categoryId, query, cancellationToken)
-            .ConfigureAwait(false);
-        return scenarios.Select(MapPublished).ToArray();
+        (int normalizedPage, int normalizedPageSize, int offset) = Pagination.Normalize(page, pageSize);
+        (IReadOnlyList<PublishedScenarioRecord> items, int total) = await repository.ListPublishedAsync(
+            categoryId,
+            string.IsNullOrWhiteSpace(query) ? null : query.Trim(),
+            offset,
+            normalizedPageSize,
+            cancellationToken).ConfigureAwait(false);
+        return new PagedView<PublishedScenarioView>(
+            items.Select(MapPublished).ToArray(),
+            normalizedPage,
+            normalizedPageSize,
+            total);
     }
 
     public async Task<PublishedSnapshot> GetPublishedSnapshotAsync(
@@ -341,11 +392,9 @@ public sealed class AuthoringService(
     private static ScenarioVersionView Map(ScenarioVersion version) =>
         new(version.Id, version.ScenarioId, version.Number, version.SnapshotHash, version.PublishedAt);
 
-    private static PublishedScenarioView MapPublished(Scenario scenario)
+    private static PublishedScenarioView MapPublished(PublishedScenarioRecord record)
     {
-        ScenarioVersion version = scenario.Versions.MaxBy(static candidate => candidate.Number)
-            ?? throw new AuthoringException("version_not_found", "The published scenario version was not found.");
-        ScenarioDocument document = Deserialize(version.SnapshotJson);
+        ScenarioDocument document = Deserialize(record.SnapshotJson);
         NarrativeNode? openingNode = document.Nodes.FirstOrDefault(
             node => string.Equals(node.Id, document.InitialNodeId, StringComparison.Ordinal));
         string description = openingNode?.Text ?? string.Empty;
@@ -356,16 +405,16 @@ public sealed class AuthoringService(
 
         int estimatedMinutes = Math.Max(3, (int)Math.Ceiling(document.Nodes.Count * 1.5));
         return new PublishedScenarioView(
-            scenario.Id,
-            version.Id,
-            version.Number,
-            scenario.FrontId,
-            scenario.CategoryId,
+            record.ScenarioId,
+            record.VersionId,
+            record.VersionNumber,
+            record.FrontId,
+            record.CategoryId,
             document.Title,
             description,
             estimatedMinutes,
-            version.PublishedAt,
-            version.SnapshotHash);
+            record.PublishedAt,
+            record.SnapshotHash);
     }
 
     private sealed class UnavailableExperienceProvider : IStoryExperienceProvider
