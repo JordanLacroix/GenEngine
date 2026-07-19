@@ -1,0 +1,337 @@
+{
+  "schemaVersion": 2,
+  "title": "Le modèle interdit",
+  "initialNodeId": "annonce",
+  "nodes": [
+    {
+      "id": "annonce",
+      "text": "Vendredi 17 h 55. Une notification réglementaire.",
+      "onEnterEffects": [
+        { "$type": "setCharacteristic", "name": "discernement", "value": 1 },
+        { "$type": "assign", "name": "jours", "value": 3 }
+      ],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "ouverture",
+          "text": "L'entreprise où vous êtes en alternance exploite un service d'aide au diagnostic pour des mutuelles. Le cœur du service appelle un modèle hébergé hors de l'Union. À 17 h 55, l'autorité de régulation publie une décision d'exécution : ce modèle, dans cette catégorie d'usage, ne peut plus être exploité sur le territoire à compter de lundi 0 h. Quatre-vingt-onze heures.",
+          "continueEffects": []
+        },
+        {
+          "$type": "narration",
+          "id": "reunion",
+          "text": "À 18 h 20, six personnes dans une salle. Le directeur technique dit qu'on bascule sur un modèle européen d'ici dimanche. Le juriste dit que la décision vise la catégorie d'usage, pas le fournisseur. Le commercial dit qu'on ne peut pas couper : trois mutuelles, quatre-vingt mille assurés. Votre tutrice se tourne vers vous : « Tu es le seul ici à avoir lu le texte en entier. Qu'est-ce qu'il dit exactement ? »",
+          "continueEffects": [
+            { "$type": "collect", "item": "texte-integral" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "premiere-lecture",
+          "prompt": "Cinq personnes vous regardent. Vous avez lu le texte une fois, en diagonale.",
+          "choices": [
+            {
+              "id": "affirmer",
+              "text": "Répondre tout de suite avec ce dont vous vous souvenez",
+              "targetNodeId": "affirmation-hative",
+              "effects": [
+                { "$type": "increment", "name": "erreurs", "amount": 1 }
+              ]
+            },
+            {
+              "id": "delimiter",
+              "text": "Dire ce que vous savez, ce que vous croyez, et ce qu'il faut vérifier — en trois listes séparées",
+              "targetNodeId": "cadrage",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 }
+              ]
+            },
+            {
+              "id": "esquiver",
+              "text": "Dire que ce n'est pas à un apprenti de répondre",
+              "targetNodeId": "fin-rupture-esquive",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "affirmation-hative",
+      "text": "Vous répondez.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "erreur",
+          "text": "Vous dites que la décision vise le fournisseur. C'est faux : elle vise l'usage d'aide à la décision médicale, quel que soit le fournisseur. La salle vous croit, parce que vous êtes celui qui a lu. À 19 h, le plan de bascule est acté vers un modèle européen qui, appliqué au même usage, tombe sous exactement la même interdiction. Deux jours de travail partent dans cette direction.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Une réponse assurée a orienté six personnes.", "scope": "consequence" },
+            { "$type": "increment", "name": "jours", "amount": -2 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "rattraper",
+          "prompt": "Samedi 14 h, vous relisez le texte et vous comprenez.",
+          "choices": [
+            {
+              "id": "corriger",
+              "text": "Appeler votre tutrice immédiatement et dire que vous vous êtes trompé",
+              "targetNodeId": "cadrage",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "taire",
+              "text": "Attendre : quelqu'un d'autre le verra sûrement",
+              "targetNodeId": "fin-rupture-derive",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cadrage",
+      "text": "Trois colonnes au tableau.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "tri",
+          "text": "Établi : la décision vise une catégorie d'usage — l'aide à la décision médicale à destination d'un assureur — et non un fournisseur. Probable : notre service entre dans cette catégorie, parce qu'il produit une recommandation lue par un gestionnaire de sinistre. À vérifier : si le service se limitait à extraire des données sans recommander, sortirait-il de la catégorie ? Personne dans la salle ne connaît la réponse. C'est la seule question qui décide de tout le week-end.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "categorie-d-usage-pas-fournisseur" }
+          ]
+        },
+        {
+          "$type": "quiz",
+          "id": "objet-interdiction",
+          "prompt": "Une interdiction qui vise une catégorie d'usage se contourne en…",
+          "answers": [
+            { "id": "fournisseur", "text": "changeant de fournisseur de modèle" },
+            { "id": "usage", "text": "changeant ce que le produit fait et ce dont il répond" },
+            { "id": "hebergement", "text": "relocalisant l'hébergement dans l'Union" }
+          ],
+          "correctAnswerId": "usage",
+          "correctEffects": [
+            { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 },
+            { "$type": "discoverEvidence", "evidence": "conformite-porte-sur-l-usage" }
+          ],
+          "incorrectEffects": [
+            { "$type": "increment", "name": "erreurs", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "orientation",
+          "prompt": "Samedi 9 h. Il faut choisir une direction et la tenir.",
+          "choices": [
+            {
+              "id": "swap",
+              "text": "Basculer vers un modèle européen et garder le produit tel quel",
+              "targetNodeId": "swap",
+              "effects": [
+                { "$type": "increment", "name": "jours", "amount": -2 }
+              ]
+            },
+            {
+              "id": "degrader",
+              "text": "Couper la recommandation, ne garder que l'extraction, et le dire aux mutuelles",
+              "targetNodeId": "degradation",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "attendre",
+              "text": "Ne rien changer : la décision sera sûrement suspendue en référé",
+              "targetNodeId": "fin-rupture-pari",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "swap",
+      "text": "Dimanche 22 h.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "mur",
+          "text": "La bascule technique fonctionne : le modèle européen répond, les latences tiennent, les tests passent. Puis le juriste relit la décision une dernière fois et pose la question que personne n'a posée depuis samedi matin : est-ce que le produit fait toujours de l'aide à la décision médicale ? Oui. Vous avez changé le moteur d'une voiture interdite de circuler. Il reste deux heures.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Deux jours passés à répondre à la mauvaise question.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "deux-heures",
+          "prompt": "22 h 05. Quatre-vingt mille assurés, trois mutuelles, deux heures.",
+          "choices": [
+            {
+              "id": "degrader",
+              "text": "Couper la recommandation dans le produit et prévenir les mutuelles cette nuit",
+              "targetNodeId": "degradation",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "livrer",
+              "text": "Livrer quand même : la bascule est faite, on verra lundi",
+              "targetNodeId": "fin-rupture-livraison",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "degradation",
+      "text": "Ce qu'on choisit de perdre.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "arbitrage",
+          "text": "Vous coupez la couche de recommandation. Le service continue d'extraire, de structurer et de présenter les pièces d'un dossier ; il ne conclut plus rien. Les gestionnaires devront reprendre une décision qu'ils avaient déléguée depuis deux ans. Le temps de traitement va doubler. Vous écrivez le message aux trois mutuelles à 23 h 10 : ce que le service ne fait plus, à partir de quand, pourquoi, et ce qu'elles doivent réorganiser dès lundi matin. Personne n'aime ce message. Il est exact.",
+          "continueEffects": [
+            { "$type": "collect", "item": "note-de-degradation" },
+            { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "characteristicGate",
+          "id": "solidite",
+          "condition": {
+            "$type": "all",
+            "conditions": [
+              { "$type": "hasEvidence", "evidence": "conformite-porte-sur-l-usage" },
+              { "$type": "characteristicAtLeast", "name": "discernement", "value": 2 }
+            ]
+          },
+          "satisfiedTargetNodeId": "fin-accord",
+          "failedTargetNodeId": "fin-partielle",
+          "satisfiedEffects": [
+            { "$type": "grantReward", "reward": "frequence-des-biais" }
+          ],
+          "failedEffects": [
+            { "$type": "recordNotableEvent", "label": "La bonne décision, prise sans comprendre pourquoi, ne se reproduira pas.", "scope": "discernement" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-accord",
+      "text": "Fin — Lundi 0 h 01",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Le service tourne, diminué, conforme, et personne n'est surpris parce que tout le monde a été prévenu. Une interdiction n'est presque jamais une question technique : elle porte sur ce qu'un produit prétend faire et sur qui en répond. La réponse d'ingénieur — changer de fournisseur — arrive vite et rate la cible ; la réponse juste consiste à identifier la promesse qui est devenue illégale, puis à choisir explicitement ce qu'on abandonne. Vous avez perdu une fonctionnalité et gardé un service.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : conformité traitée comme un arbitrage de produit.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-partielle",
+      "text": "Fin — Conforme sans savoir pourquoi",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Le service est conforme lundi matin. Vous avez suivi une intuition et elle était bonne. Mais si on vous demande en avril pourquoi la couche de recommandation a sauté, vous n'aurez pas la phrase exacte — celle qui dit que l'interdiction vise l'usage et non le fournisseur. Une décision juste qu'on ne sait pas justifier se défait à la première pression. Rejouez : cherchez la phrase.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : décision correcte, raisonnement non consolidé.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-esquive",
+      "text": "Rupture — Pas à mon niveau",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous étiez la seule personne de la salle à avoir ouvert le texte. Ce n'est pas une question de niveau hiérarchique : c'est une question d'information disponible. Vous avez rendu au groupe une décision qu'il a prise sans la donnée que vous déteniez, et il a pris la mauvaise. Reprenez vendredi 18 h 20 : vous n'êtes pas obligé de conclure, vous êtes obligé de dire ce que vous avez lu.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : information retenue par confort hiérarchique.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-derive",
+      "text": "Rupture — Quelqu'un le verra",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Personne ne l'a vu. Six personnes ont travaillé quarante heures sur une direction que vous saviez fausse depuis samedi 14 h. Le service est en infraction lundi matin, l'entreprise reçoit une mise en demeure, et l'erreur initiale — pardonnable, humaine, faite en trente secondes de fatigue — est devenue un mensonge par omission de trente-quatre heures. Reprenez vendredi 18 h 20.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : une erreur non corrigée devient une décision.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-pari",
+      "text": "Rupture — Le référé",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Le référé a été déposé. Il sera examiné en septembre. Lundi 0 h, le service tourne, illégalement, sur quatre-vingt mille assurés, et chaque heure d'exploitation est désormais un fait établi et horodaté dans vos propres journaux. Parier sur la suspension d'une norme, c'est transformer un risque juridique en preuve à charge. Reprenez vendredi 18 h 20.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : pari réglementaire documenté par vos propres traces.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-livraison",
+      "text": "Rupture — On verra lundi",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Deux jours de bascule impeccable, livrés à 23 h 50, sur un produit qui reste interdit. Le travail était bon ; il ne portait sur rien. Vous avez eu l'occasion, à 22 h 05, de perdre deux jours de travail pour sauver le service, et vous avez préféré ne pas les perdre. C'est presque toujours la manière dont on choisit mal : en refusant d'admettre ce qui est déjà perdu. Reprenez vendredi 18 h 20.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : coût irrécupérable défendu jusqu'au bout.", "scope": "rupture" }
+          ]
+        }
+      ]
+    }
+  ]
+}

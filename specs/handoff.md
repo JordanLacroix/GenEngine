@@ -88,6 +88,21 @@ La hiérarchie d'organisation est désormais opérationnelle dans un service aut
 
 La tranche suivante complète les périodes métier nommées, l'import de masse prévalidé et idempotent, l'historique des memberships, la résolution d'une affectation de parcours complet et le catalogue filtré dans les clients. Restent l'export de masse, l'héritage multi-portée global, l'isolation systématique des services autres qu'Organization/Play, le snapshot de session de l'assistant, le metering/quota IA et l'import Codex Pets.
 
+### Tranche `feat/diapason-reference-configuration` — vérifiée le 19 juillet 2026
+
+- La configuration de référence **Le Diapason** remplace « Les braises sous la brume ». `ConfigurationService.CreateDefault` porte désormais six catégories de posture (Lucidité, Discernement, Arbitrage, Courage, Transmission, Autonomie), trois parcours chaînés par `PrerequisiteJourneyIds`, l'économie `ACCORD` et le scénario de démo `la-note-de-service`.
+- Dix scénarios `schemaVersion` 2 sous [`content/diapason/scenarios/`](../content/diapason/scenarios/), un manifeste, et la bible d'univers sous [`specs/domain/diapason/`](domain/diapason/).
+- `DiapasonContentTests` valide les dix documents via `ScenarioMigrationPipeline` + `ScenarioValidator`, vérifie l'absence d'impasse via `ScenarioAnalyzer.Explore`, et fige la règle de rotation quotidienne. 126 tests backend au vert.
+- `scripts/install-diapason.sh` importe, valide, analyse et publie les dix scénarios sur une instance vivante, puis les rattache à leur catégorie. Exécuté réellement sur la stack Compose.
+- Aucun code du moteur narratif modifié. `scripts/smoke-test.sh` mis à jour (`BRAISE` → `ACCORD`) et repassé.
+
+**Manques identifiés, non traités ici** (tâches `DIA-008` à `DIA-011`) :
+
+- le moteur ne distingue pas une fin d'échec d'une fin de réussite — `isEnding` est le seul concept terminal, et une partie perdue arrive en `Completed` exactement comme une partie gagnée. Vérifié en jouant `fin-rupture-silence` de bout en bout. Diapason contourne par convention de nommage (`fin-rupture-*`), ce qui n'est pas opposable côté service ni exploitable par `PlayerProjectionBuilder` ou l'économie ;
+- la rotation quotidienne est documentée et testée mais non exposée : le modèle de configuration n'a aucun champ de mise en avant, et en ajouter un relève d'une décision produit ;
+- `install-diapason.sh` n'est pas idempotent : `POST /scenarios/import` crée toujours un nouveau brouillon ;
+- le seeder de configuration ne rejoue jamais sur une base non vide : une instance antérieure conserve son ancien document.
+
 Contexte livré au jalon 3 :
 
 - `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.

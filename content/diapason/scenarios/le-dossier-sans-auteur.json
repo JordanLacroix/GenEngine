@@ -1,0 +1,358 @@
+{
+  "schemaVersion": 2,
+  "title": "Le dossier sans auteur",
+  "initialNodeId": "remise",
+  "nodes": [
+    {
+      "id": "remise",
+      "text": "Lundi. Vous recevez le cahier des charges du module de facturation.",
+      "onEnterEffects": [
+        { "$type": "setCharacteristic", "name": "lucidite", "value": 1 },
+        { "$type": "assign", "name": "jours", "value": 9 }
+      ],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "ouverture",
+          "text": "Quarante-deux pages. Votre tuteur vous l'envoie à 17 h 40 avec une phrase : « C'est carré, tu peux attaquer demain. » Vous lisez le soir, dans le train. C'est effectivement carré. Chaque section a le bon nombre de sous-sections, chaque exigence commence par « le système doit », chaque tableau est complet. À la page trente et une, vous vous rendez compte que vous avez lu vingt pages sans rien comprendre de ce que le module fait réellement.",
+          "continueEffects": []
+        },
+        {
+          "$type": "narration",
+          "id": "contradiction",
+          "text": "Vous revenez en arrière. Section 4.2 : « Une facture est émise au terme du mois d'usage. » Section 7.1 : « Une facture est émise à la validation de la commande. » Les deux sont écrites avec la même assurance. Aucune des deux ne renvoie à l'autre. Il n'y a pas d'arbitrage, parce qu'il n'y a jamais eu de désaccord : personne n'a tenu ces deux phrases en même temps dans sa tête.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "deux-regles-incompatibles" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "premier-geste",
+          "prompt": "Il est 22 h. Vous devez « attaquer » demain matin.",
+          "choices": [
+            {
+              "id": "coder",
+              "text": "Commencer à coder : on tranchera les détails en route",
+              "targetNodeId": "developpement-aveugle",
+              "effects": [
+                { "$type": "increment", "name": "jours", "amount": -3 }
+              ]
+            },
+            {
+              "id": "recenser",
+              "text": "Passer la soirée à recenser toutes les contradictions du document",
+              "targetNodeId": "recensement",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 },
+                { "$type": "increment", "name": "jours", "amount": -1 }
+              ]
+            },
+            {
+              "id": "demander",
+              "text": "Écrire à votre tuteur : « qui a écrit ce document ? »",
+              "targetNodeId": "reponse-tuteur",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reponse-tuteur",
+      "text": "Mardi, 8 h 30.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "aveu",
+          "text": "« Bonne question. » Il rit à moitié. « On a donné les notes de l'atelier client à l'assistant et on lui a demandé un cahier des charges complet. Il a sorti ça en quatre minutes. On l'a relu en diagonale, ça avait l'air très bien. » Il vous regarde. « Pourquoi, il y a un problème ? » Vous comprenez à cet instant que la question n'est pas « qui a écrit », mais « qui a décidé ». La réponse est : personne.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "aucune-decision-humaine" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "suite",
+          "prompt": "Il attend votre réponse.",
+          "choices": [
+            {
+              "id": "recenser",
+              "text": "« Oui. Donnez-moi la journée, je vous rends la liste de ce qui n'est pas décidé. »",
+              "targetNodeId": "recensement",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 }
+              ]
+            },
+            {
+              "id": "rassurer",
+              "text": "« Non, non, c'est bon. »",
+              "targetNodeId": "developpement-aveugle",
+              "effects": [
+                { "$type": "increment", "name": "jours", "amount": -3 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "recensement",
+      "text": "Le travail que personne n'a fait.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "travail",
+          "text": "Vous ne cherchez pas les fautes : vous cherchez les endroits où le document parle sans que personne n'ait tranché. Vous en trouvez onze. Deux règles de facturation incompatibles. Trois seuils numériques qui n'apparaissent nulle part ailleurs. Un « le cas échéant » qui recouvre toute la gestion des avoirs. Une exigence de performance chiffrée à la milliseconde près, sans mesure d'origine. Et cinq passages qui décrivent une fonctionnalité que le client n'a jamais demandée dans les notes de l'atelier.",
+          "continueEffects": [
+            { "$type": "collect", "item": "liste-des-onze-trous" },
+            { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "quiz",
+          "id": "nature-du-document",
+          "prompt": "Ce cahier des charges est avant tout…",
+          "answers": [
+            { "id": "mauvais", "text": "un mauvais document, mal rédigé" },
+            { "id": "incomplet", "text": "un document complet qui n'a jamais engagé personne" },
+            { "id": "brouillon", "text": "un brouillon qu'il faut finir" }
+          ],
+          "correctAnswerId": "incomplet",
+          "correctEffects": [
+            { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 },
+            { "$type": "discoverEvidence", "evidence": "completude-sans-engagement" }
+          ],
+          "incorrectEffects": [
+            { "$type": "increment", "name": "erreurs", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "usage",
+          "prompt": "Vous avez la liste. Comment vous en servez-vous ?",
+          "choices": [
+            {
+              "id": "atelier",
+              "text": "Demander une heure avec le client et votre tuteur, liste en main",
+              "targetNodeId": "atelier",
+              "effects": [
+                { "$type": "increment", "name": "jours", "amount": -1 }
+              ]
+            },
+            {
+              "id": "trancher-seul",
+              "text": "Trancher vous-même les onze points : c'est plus rapide et vous connaissez le métier",
+              "targetNodeId": "fin-rupture-arbitre-solitaire",
+              "effects": []
+            },
+            {
+              "id": "envoyer",
+              "text": "Envoyer la liste par mail et attendre les réponses",
+              "targetNodeId": "attente-mail",
+              "effects": [
+                { "$type": "increment", "name": "jours", "amount": -4 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attente-mail",
+      "text": "Jeudi de la semaine suivante.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "silence",
+          "text": "Onze questions dans un mail, c'est un mail auquel on ne répond pas. Vous avez reçu deux réponses partielles et un « on en parle bientôt ». Il vous reste quatre jours. La liste était bonne ; le canal ne l'était pas. Une question écrite se traite quand quelqu'un est en face et doit dire oui ou non.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Onze questions sans destinataire responsable.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "recuperer",
+          "prompt": "Il reste quatre jours.",
+          "choices": [
+            {
+              "id": "forcer",
+              "text": "Poser une réunion d'une heure, même sans invitation",
+              "targetNodeId": "atelier",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "coder",
+              "text": "Coder l'interprétation la plus probable",
+              "targetNodeId": "developpement-aveugle",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "atelier",
+      "text": "Une heure, trois personnes, onze points au tableau.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "characteristicGate",
+          "id": "preparation",
+          "condition": { "$type": "hasItem", "item": "liste-des-onze-trous" },
+          "satisfiedTargetNodeId": "arbitrages",
+          "failedTargetNodeId": "developpement-aveugle",
+          "satisfiedEffects": [
+            { "$type": "recordNotableEvent", "label": "Vous êtes arrivé avec des questions fermées, pas avec un malaise.", "scope": "transmission" }
+          ],
+          "failedEffects": [
+            { "$type": "recordNotableEvent", "label": "Une réunion sans questions précises devient une réunion d'ambiance.", "scope": "transmission" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arbitrages",
+      "text": "Ce qui se décide en une heure.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "seance",
+          "text": "Le client tranche la facturation en quarante secondes : au terme du mois, toujours, c'est comme ça depuis douze ans. Les trois seuils numériques n'existent pas ; personne ne sait d'où ils viennent. Le « cas échéant » sur les avoirs cache trois semaines de travail que personne n'avait chiffrées. Les cinq fonctionnalités inventées sont supprimées d'un trait. À la fin de l'heure, le document fait vingt-neuf pages et chaque page a quelqu'un derrière elle.",
+          "continueEffects": [
+            { "$type": "grantReward", "reward": "frequence-du-doute" },
+            { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "cloture",
+          "prompt": "Il vous reste sept jours de développement.",
+          "choices": [
+            {
+              "id": "terminer",
+              "text": "Commencer",
+              "targetNodeId": "fin-accord",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "developpement-aveugle",
+      "text": "Vous codez.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "derive",
+          "text": "Les premiers jours sont excellents. Le document répond à toutes vos questions, puisqu'il a été écrit pour ne jamais laisser de blanc. Chaque fois que vous hésitez, vous choisissez l'interprétation qui vous arrange, et vous avancez. Au neuvième jour, le module est complet. Il facture à la validation de la commande, parce que c'était la section la plus détaillée. Le client facture au mois depuis douze ans.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Neuf jours de travail sur une règle que personne n'avait choisie.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "recette",
+          "prompt": "La recette client est dans deux heures.",
+          "choices": [
+            {
+              "id": "prevenir",
+              "text": "Prévenir tout de suite, avec la liste des points que le document n'avait pas tranchés",
+              "targetNodeId": "fin-rupture-tardive",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "esperer",
+              "text": "Laisser la recette se dérouler et voir",
+              "targetNodeId": "fin-rupture-recette",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-accord",
+      "text": "Fin — Vingt-neuf pages qui engagent",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Un document généré n'a pas de trous : c'est exactement ce qui le rend dangereux. Là où un humain aurait écrit « à préciser », la machine écrit une phrase assurée, et cette phrase traverse la chaîne sans que personne ne la revendique. Votre travail n'a pas été d'écrire mieux, mais de rendre visibles les endroits où aucune décision n'avait été prise, puis d'obliger quelqu'un à la prendre. Une spécification vaut par ce qu'elle engage, pas par ce qu'elle couvre.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : vous avez transformé une complétude apparente en décisions assumées.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-arbitre-solitaire",
+      "text": "Rupture — L'arbitre solitaire",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous avez tranché onze points seul, correctement pour huit d'entre eux. Les trois autres portaient sur des règles métier que le client applique depuis douze ans et que vous ne pouviez pas connaître. Vous avez remplacé une machine qui décidait sans autorité par un apprenti qui décidait sans autorité. Le problème n'était pas l'auteur du document : c'était l'absence de quelqu'un pour en répondre. Reprenez lundi soir, dans le train.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : vous avez pris la place vide au lieu de la faire remplir.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-tardive",
+      "text": "Rupture — Deux heures avant",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous avez eu raison de parler. Vous aviez neuf jours pour le faire et vous avez utilisé le dernier. La liste que vous présentez est juste ; elle aurait coûté une heure au premier jour et coûte maintenant un sprint entier. Signaler tard n'est pas signaler : c'est se dédouaner. Reprenez lundi soir.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : alerte juste, moment perdu.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-recette",
+      "text": "Rupture — La recette",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Le client ouvre le module, lance une commande, et voit une facture. Il ne dit rien pendant quatre secondes. Puis : « Pourquoi il y a une facture ? » Vous n'avez pas de réponse, parce que la réponse est dans un document que personne n'a écrit. Vous avez attendu que le réel arbitre à votre place ; il l'a fait, devant le client. Reprenez lundi soir, dans le train.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : le réel a tranché en public.", "scope": "rupture" }
+          ]
+        }
+      ]
+    }
+  ]
+}

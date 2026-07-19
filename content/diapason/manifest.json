@@ -1,0 +1,66 @@
+{
+  "configurationId": "diapason",
+  "title": "Le Diapason",
+  "description": "Configuration de référence de GenEngine. Dix scénarios répartis en six postures et trois parcours.",
+  "frontId": "default",
+  "categories": [
+    { "id": "2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e01", "key": "lucidite", "name": "Lucidité" },
+    { "id": "2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e02", "key": "discernement", "name": "Discernement" },
+    { "id": "2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e03", "key": "arbitrage", "name": "Arbitrage" },
+    { "id": "2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e04", "key": "courage", "name": "Courage" },
+    { "id": "2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e05", "key": "transmission", "name": "Transmission" },
+    { "id": "2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e06", "key": "autonomie", "name": "Autonomie" }
+  ],
+  "journeys": [
+    {
+      "id": "7d4c2a10-1b3e-4f52-8a6d-9c0e2f4a6b01",
+      "key": "premier-accord",
+      "name": "Le premier accord",
+      "categoryKeys": ["lucidite", "discernement"],
+      "prerequisiteJourneyKeys": []
+    },
+    {
+      "id": "7d4c2a10-1b3e-4f52-8a6d-9c0e2f4a6b02",
+      "key": "chaine-de-decision",
+      "name": "La chaîne de décision",
+      "categoryKeys": ["arbitrage", "courage"],
+      "prerequisiteJourneyKeys": ["premier-accord"]
+    },
+    {
+      "id": "7d4c2a10-1b3e-4f52-8a6d-9c0e2f4a6b03",
+      "key": "ce-qui-reste",
+      "name": "Ce qui reste après toi",
+      "categoryKeys": ["transmission", "autonomie"],
+      "prerequisiteJourneyKeys": ["chaine-de-decision"]
+    }
+  ],
+  "scenarios": [
+    { "slug": "la-note-de-service", "title": "La note de service", "categoryKey": "lucidite", "journeyKey": "premier-accord", "act": "avenement", "order": 1, "estimatedMinutes": 18 },
+    { "slug": "le-dossier-sans-auteur", "title": "Le dossier sans auteur", "categoryKey": "lucidite", "journeyKey": "premier-accord", "act": "extinction", "order": 2, "estimatedMinutes": 20 },
+    { "slug": "identite-non-reconnue", "title": "Identité non reconnue", "categoryKey": "discernement", "journeyKey": "premier-accord", "act": "extinction", "order": 3, "estimatedMinutes": 22 },
+    { "slug": "le-modele-interdit", "title": "Le modèle interdit", "categoryKey": "discernement", "journeyKey": "premier-accord", "act": "resistance", "order": 4, "estimatedMinutes": 20 },
+    { "slug": "la-revue-automatique", "title": "La revue automatique", "categoryKey": "arbitrage", "journeyKey": "chaine-de-decision", "act": "extinction", "order": 5, "estimatedMinutes": 18 },
+    { "slug": "le-tri-des-candidatures", "title": "Le tri des candidatures", "categoryKey": "arbitrage", "journeyKey": "chaine-de-decision", "act": "observatoire", "order": 6, "estimatedMinutes": 22 },
+    { "slug": "la-reunion-ou-personne-ne-doute", "title": "La réunion où personne ne doute", "categoryKey": "courage", "journeyKey": "chaine-de-decision", "act": "avenement", "order": 7, "estimatedMinutes": 16 },
+    { "slug": "le-signalement", "title": "Le signalement", "categoryKey": "courage", "journeyKey": "chaine-de-decision", "act": "resistance", "order": 8, "estimatedMinutes": 24 },
+    { "slug": "la-specification-avant-le-code", "title": "La spécification avant le code", "categoryKey": "transmission", "journeyKey": "ce-qui-reste", "act": "resistance", "order": 9, "estimatedMinutes": 24 },
+    { "slug": "la-competence-qui-s-efface", "title": "La compétence qui s'efface", "categoryKey": "autonomie", "journeyKey": "ce-qui-reste", "act": "observatoire", "order": 10, "estimatedMinutes": 20 }
+  ],
+  "dailyRotation": {
+    "rule": "pool[((dayIndex * size) + offset) % pool.length] pour offset dans [0, size)",
+    "dayIndexSource": "logicalDay",
+    "size": 3,
+    "pool": [
+      "la-note-de-service",
+      "le-dossier-sans-auteur",
+      "identite-non-reconnue",
+      "le-modele-interdit",
+      "la-revue-automatique",
+      "le-tri-des-candidatures",
+      "la-reunion-ou-personne-ne-doute",
+      "le-signalement",
+      "la-specification-avant-le-code",
+      "la-competence-qui-s-efface"
+    ]
+  }
+}

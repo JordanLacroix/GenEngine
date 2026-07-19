@@ -134,6 +134,27 @@ public sealed record ExperienceDocument(
     JournalPolicyDefinition? Journal = null,
     MediaDefinition? Media = null);
 
+/// <summary>
+/// Stable identifiers of the Diapason reference configuration.
+/// They must stay in sync with <c>content/diapason/manifest.json</c>, which carries the playable
+/// scenarios and their category/journey mapping. See <c>specs/domain/diapason/</c>.
+/// </summary>
+public static class DiapasonIds
+{
+    public const string DemoScenarioSlug = "la-note-de-service";
+
+    public static Guid Lucidite { get; } = Guid.Parse("2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e01");
+    public static Guid Discernement { get; } = Guid.Parse("2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e02");
+    public static Guid Arbitrage { get; } = Guid.Parse("2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e03");
+    public static Guid Courage { get; } = Guid.Parse("2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e04");
+    public static Guid Transmission { get; } = Guid.Parse("2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e05");
+    public static Guid Autonomie { get; } = Guid.Parse("2b0f1f8c-6f2f-4a1e-9c4a-0f3a1d5b7e06");
+
+    public static Guid PremierAccord { get; } = Guid.Parse("7d4c2a10-1b3e-4f52-8a6d-9c0e2f4a6b01");
+    public static Guid ChaineDeDecision { get; } = Guid.Parse("7d4c2a10-1b3e-4f52-8a6d-9c0e2f4a6b02");
+    public static Guid CeQuiReste { get; } = Guid.Parse("7d4c2a10-1b3e-4f52-8a6d-9c0e2f4a6b03");
+}
+
 public sealed record ExperienceConfigurationView(Guid Id, int Revision, int PublishedVersion, DateTimeOffset UpdatedAt, DateTimeOffset? PublishedAt, ExperienceDocument Document);
 public sealed record PublishedExperienceView(int Version, DateTimeOffset PublishedAt, ExperienceDocument Document);
 
@@ -212,7 +233,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         [
             new OrganizationUnitDefinition(Guid.Parse("efc447ef-fdd6-42e6-b3d8-5de6841d9bce"), null, "Organization", "Structure principale", "ROOT", "Racine des classes, équipes ou groupes.", 1, true),
         ]),
-        new GameDefinition("Les Chroniques de la Brume", "Une expérience narrative où chaque décision transforme le monde.", "La Brume efface les souvenirs du royaume. Les joueurs restaurent son histoire, fragment après fragment.", "fr-FR", "Europe/Paris"),
+        new GameDefinition("Le Diapason", "Dix situations professionnelles de 2026 où il faut décider sans pouvoir tout vérifier.", "Les systèmes d'intelligence artificielle décident partout, vite, et de façon plausible. Étudiant ingénieur en alternance, vous êtes souvent la seule personne à détenir le fait qui manque. Chaque scénario vous demande ce que vous en faites.", "fr-FR", "Europe/Paris"),
         new GameLanguageDefinition(CreateDefaultLabels()),
         new AuthenticationDefinition(AuthenticationMode.LocalOnly, true, false, null, null),
         [
@@ -220,19 +241,24 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             new AiProviderDefinition(Guid.Parse("43b164f2-5a7d-48c0-b5c6-0dd7a3d44ea4"), "Azure AI Foundry", AiProviderType.AzureAiFoundry, false, "https://resource.openai.azure.com/openai/v1/", "gpt-4.1-mini", "EntraId", "azure-foundry-credential", ["chat", "scenario-generation", "input-analysis"]),
         ],
         [
-            new CategoryDefinition(Guid.Parse("8dc4d13b-f6ca-4e16-bf52-a78cdf755f9e"), "Mystères", "Enquêtes, indices et vérités enfouies.", "ember", 1, true),
-            new CategoryDefinition(Guid.Parse("00a575d4-9de8-47df-b713-35176969d410"), "Exploration", "Mondes inconnus et chemins alternatifs.", "verdigris", 2, true),
+            new CategoryDefinition(DiapasonIds.Lucidite, "Lucidité", "Voir ce qui est réellement là avant d'interpréter.", "encre", 1, true),
+            new CategoryDefinition(DiapasonIds.Discernement, "Discernement", "Trier ce qui compte quand tout est plausible.", "azur", 2, true),
+            new CategoryDefinition(DiapasonIds.Arbitrage, "Arbitrage", "Décider sous contrainte et assumer ce qu'on perd.", "or", 3, true),
+            new CategoryDefinition(DiapasonIds.Courage, "Courage", "Parler, refuser ou signaler quand c'est coûteux.", "cuivre", 4, true),
+            new CategoryDefinition(DiapasonIds.Transmission, "Transmission", "Rendre son raisonnement utilisable par d'autres.", "sauge", 5, true),
+            new CategoryDefinition(DiapasonIds.Autonomie, "Autonomie", "Garder une compétence qu'on pourrait déléguer.", "aube", 6, true),
         ],
         [
             new FamiliarDefinition(Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "Lueur", "Un éclat curieux qui pose les bonnes questions.", "spark", "Socratic", "Warm", "amber", 2, ["hint", "recap", "rephrase"], ["spark", "owl", "fox"], ["Warm", "Playful", "Direct", "Mysterious"], "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=900&q=85", null, null, "Unsplash", "Photo de démonstration — remplacer avant production"),
         ],
-        new EconomyDefinition("BRAISE", "Braises", "✦", 0,
+        new EconomyDefinition("ACCORD", "Accords", "♪", 0,
             [
                 new RewardRuleDefinition("ScenarioCompleted", "*", 25, "Terminer un scénario"),
-                new RewardRuleDefinition("ChoiceSelected", "courageous-choice", 5, "Faire un choix courageux"),
+                new RewardRuleDefinition("RewardGranted", "frequence-du-doute", 15, "Avoir suspendu une conclusion trop fluide"),
+                new RewardRuleDefinition("RewardGranted", "frequence-des-biais", 15, "Avoir identifié ce qu'un système mesure réellement"),
             ],
             [
-                new OfferDefinition(Guid.Parse("370b6f82-a264-45cc-a0d0-2d71e58be15e"), "Plumage nocturne", "Une apparence rare pour le familier.", 80, "FamiliarCosmetic", "nocturnal-plumage", true),
+                new OfferDefinition(Guid.Parse("370b6f82-a264-45cc-a0d0-2d71e58be15e"), "Sourdine de cuivre", "Une apparence rare pour le familier.", 80, "FamiliarCosmetic", "copper-mute", true),
             ]),
         [
             new ModuleDefinition("play", "Jouer", "Accéder aux histoires publiées.", true, ["session.play"]),
@@ -242,21 +268,43 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         ],
         [
             new JourneyDefinition(
-                Guid.Parse("b1eeb069-dcca-4db1-a5fb-a787299d4958"),
-                "Les traces de la Brume",
-                "Un parcours progressif pour comprendre le royaume et retrouver ses souvenirs.",
-                "ember",
+                DiapasonIds.PremierAccord,
+                "Le premier accord",
+                "Établir les faits avant de les interpréter, et distinguer ce qu'un système mesure de ce qu'il prétend constater.",
+                "encre",
                 null,
                 1,
                 true,
-                [Guid.Parse("8dc4d13b-f6ca-4e16-bf52-a78cdf755f9e"), Guid.Parse("00a575d4-9de8-47df-b713-35176969d410")],
+                [DiapasonIds.Lucidite, DiapasonIds.Discernement],
                 [],
-                ["découverte", "mystère"]),
+                ["provenance", "preuve"]),
+            new JourneyDefinition(
+                DiapasonIds.ChaineDeDecision,
+                "La chaîne de décision",
+                "Décider sous contrainte, assumer ce qu'on perd, et parler au bon moment dans la bonne forme.",
+                "or",
+                null,
+                2,
+                true,
+                [DiapasonIds.Arbitrage, DiapasonIds.Courage],
+                [DiapasonIds.PremierAccord],
+                ["arbitrage", "alerte"]),
+            new JourneyDefinition(
+                DiapasonIds.CeQuiReste,
+                "Ce qui reste après toi",
+                "Écrire ce qui doit être vrai, et garder les compétences qu'on pourrait déléguer.",
+                "sauge",
+                null,
+                3,
+                true,
+                [DiapasonIds.Transmission, DiapasonIds.Autonomie],
+                [DiapasonIds.ChaineDeDecision],
+                ["spécification", "autonomie"]),
         ],
         [],
         CreateDefaultIntro(),
         CreateDefaultPlayerShell(),
-        new DemoExperienceDefinition(true, "les-braises-sous-la-brume", 15, Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "demo.createAccount"),
+        new DemoExperienceDefinition(true, DiapasonIds.DemoScenarioSlug, 18, Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "demo.createAccount"),
         CreateDefaultHelp(),
         CreateDefaultOnboarding(),
         CreateDefaultAssistantPolicy(),
@@ -515,7 +563,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             Assignments = document.Assignments ?? [],
             Intro = document.Intro ?? CreateDefaultIntro(),
             PlayerShell = document.PlayerShell ?? CreateDefaultPlayerShell(),
-            Demo = document.Demo ?? new DemoExperienceDefinition(true, "les-braises-sous-la-brume", 15, document.Familiars.Count > 0 ? document.Familiars[0].Id : null, "demo.createAccount"),
+            Demo = document.Demo ?? new DemoExperienceDefinition(true, DiapasonIds.DemoScenarioSlug, 18, document.Familiars.Count > 0 ? document.Familiars[0].Id : null, "demo.createAccount"),
             Help = document.Help ?? CreateDefaultHelp(),
             Onboarding = document.Onboarding ?? CreateDefaultOnboarding(),
             AssistantPolicy = document.AssistantPolicy ?? CreateDefaultAssistantPolicy(),
@@ -532,9 +580,9 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         [
             new IntroSceneDefinition(
                 Guid.Parse("59ee8932-281f-4fbc-a02b-90221d0a0ad4"),
-                "Les Chroniques de la Brume",
-                "Le monde se souvient de chacun de vos choix.",
-                "Traversez la Brume, retrouvez les fragments oubliés et écrivez une histoire qui vous appartient.",
+                "Le Diapason",
+                "Une réponse fluide n'est pas une réponse vérifiée.",
+                "2026. Vous êtes étudiant ingénieur en alternance. Personne autour de vous n'a le temps de douter, et vous êtes souvent la seule personne à détenir le fait qui manque. Ce que vous en faites vous appartient.",
                 "https://images.unsplash.com/photo-1511497584788-876760111969?auto=format&fit=crop&w=1800&q=85",
                 1),
         ]);

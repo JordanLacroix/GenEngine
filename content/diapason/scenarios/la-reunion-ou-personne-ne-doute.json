@@ -1,0 +1,432 @@
+{
+  "schemaVersion": 2,
+  "title": "La réunion où personne ne doute",
+  "initialNodeId": "salle",
+  "nodes": [
+    {
+      "id": "salle",
+      "text": "Comité de pilotage, 14 h. Neuf personnes, un apprenti.",
+      "onEnterEffects": [
+        { "$type": "setCharacteristic", "name": "courage", "value": 1 },
+        { "$type": "assign", "name": "minutes", "value": 60 }
+      ],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "ouverture",
+          "text": "On décide aujourd'hui de la migration du système de gestion des stocks. Deux options ont été étudiées pendant six semaines. Pour trancher, la direction a demandé une analyse à l'assistant d'entreprise : quatre-vingts pages de documents internes en entrée, une recommandation de trois pages en sortie. Elle recommande l'option B, avec un raisonnement clair, chiffré et articulé en quatre points. Tout le monde a lu. Tout le monde est d'accord.",
+          "continueEffects": []
+        },
+        {
+          "$type": "narration",
+          "id": "detail",
+          "text": "Vous aussi, vous étiez d'accord, jusqu'à hier soir. C'est le troisième point qui vous gêne : « la migration B permet de conserver les intégrations existantes avec les quatre entrepôts régionaux ». Vous avez passé février à câbler ces intégrations. Il y a cinq entrepôts. Le cinquième, ouvert en janvier, n'apparaît dans aucun des quatre-vingts documents fournis à l'analyse, parce que sa documentation est encore sur le partage de l'équipe logistique. Avec cinq entrepôts, le calcul de coût du point 3 change de signe.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "cinquieme-entrepot" }
+          ]
+        },
+        {
+          "$type": "narration",
+          "id": "climat",
+          "text": "Le directeur des opérations conclut son tour de table : « On est tous alignés, c'est rare, j'en profite. » Rires. Il regarde la salle. « Objection ? » Personne. Vous êtes le plus jeune de la pièce de dix-neuf ans, vous êtes là depuis huit mois, et vous êtes la seule personne du bâtiment à avoir câblé ces intégrations de vos mains.",
+          "continueEffects": []
+        },
+        {
+          "$type": "choiceSet",
+          "id": "objection",
+          "prompt": "Il attend deux secondes. Puis il prend son stylo pour signer.",
+          "choices": [
+            {
+              "id": "parler",
+              "text": "Parler maintenant, devant tout le monde",
+              "targetNodeId": "prise-de-parole",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "apres",
+              "text": "Attendre la fin et en parler à votre tutrice en privé",
+              "targetNodeId": "apres-reunion",
+              "effects": [
+                { "$type": "increment", "name": "minutes", "amount": -40 }
+              ]
+            },
+            {
+              "id": "rien",
+              "text": "Se taire : neuf personnes expérimentées ont lu la même analyse",
+              "targetNodeId": "fin-rupture-consensus",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "prise-de-parole",
+      "text": "Vous levez la main.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "silence",
+          "text": "Neuf visages se tournent. Le directeur repose son stylo, patient, un peu amusé. Ce qui va se jouer dans les vingt prochaines secondes ne dépend pas du fait que vous ayez raison — vous avez raison — mais entièrement de la forme que vous donnez à la première phrase.",
+          "continueEffects": []
+        },
+        {
+          "$type": "choiceSet",
+          "id": "formulation",
+          "prompt": "Votre première phrase.",
+          "choices": [
+            {
+              "id": "attaque",
+              "text": "« Je pense que l'analyse est fausse. »",
+              "targetNodeId": "affrontement",
+              "effects": []
+            },
+            {
+              "id": "fait",
+              "text": "« Le point 3 parle de quatre entrepôts. Il y en a cinq depuis janvier. »",
+              "targetNodeId": "fait-pose",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 },
+                { "$type": "collect", "item": "fait-verifiable" }
+              ]
+            },
+            {
+              "id": "excuse",
+              "text": "« Désolé, c'est peut-être une question bête, mais… »",
+              "targetNodeId": "minimisation",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fait-pose",
+      "text": "Une phrase, un fait, aucune accusation.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "effet",
+          "text": "Il n'y a rien à contester dans votre phrase : il y a cinq entrepôts, c'est vérifiable en trente secondes, et personne dans la salle ne peut soutenir le contraire. Le directeur des opérations ne se défend pas, parce que vous ne l'avez pas attaqué. Il demande : « Le cinquième était dans les documents fournis ? » Quelqu'un vérifie. Non. « Donc l'analyse est exacte sur les données qu'elle a reçues. » Oui. Et c'est précisément le problème.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "exact-sur-donnees-incompletes" }
+          ]
+        },
+        {
+          "$type": "quiz",
+          "id": "nature-de-l-erreur",
+          "prompt": "L'analyse a produit une recommandation erronée. La cause première est…",
+          "answers": [
+            { "id": "modele", "text": "un défaut du modèle utilisé" },
+            { "id": "perimetre", "text": "un périmètre d'entrée incomplet que personne n'a interrogé" },
+            { "id": "prompt", "text": "une question mal posée à l'assistant" }
+          ],
+          "correctAnswerId": "perimetre",
+          "correctEffects": [
+            { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 },
+            { "$type": "discoverEvidence", "evidence": "perimetre-jamais-interroge" }
+          ],
+          "incorrectEffects": [
+            { "$type": "increment", "name": "erreurs", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "characteristicGate",
+          "id": "suite-de-seance",
+          "condition": { "$type": "hasEvidence", "evidence": "perimetre-jamais-interroge" },
+          "satisfiedTargetNodeId": "report",
+          "failedTargetNodeId": "report-partiel",
+          "satisfiedEffects": [
+            { "$type": "recordNotableEvent", "label": "La question posée n'était pas « le modèle a-t-il tort » mais « qu'a-t-il vu ».", "scope": "courage" }
+          ],
+          "failedEffects": []
+        }
+      ]
+    },
+    {
+      "id": "report",
+      "text": "14 h 20.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "decision",
+          "text": "Le directeur repousse la signature de quinze jours et demande deux choses. Refaire l'analyse avec le périmètre complet — c'est évident. Et surtout : établir la liste de ce qui n'a pas été fourni, et pourquoi. C'est cette seconde demande qui compte. En six semaines d'étude, neuf personnes ont vérifié le raisonnement de l'analyse ; aucune n'a vérifié son alimentation. À la relecture, il manquait aussi deux contrats fournisseurs et l'intégralité du dossier de conformité incendie.",
+          "continueEffects": [
+            { "$type": "grantReward", "reward": "frequence-du-doute" },
+            { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "cloture",
+          "prompt": "La réunion se termine à 14 h 35.",
+          "choices": [
+            {
+              "id": "terminer",
+              "text": "Sortir",
+              "targetNodeId": "fin-accord",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "report-partiel",
+      "text": "14 h 20, à moitié.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "correction",
+          "text": "On corrige le point 3 et on signe quand même, quinze minutes plus tard, avec le calcul rectifié à la main sur un coin de tableau. Votre objection a servi à réparer une ligne. Elle n'a pas servi à poser la question dont cette ligne était le symptôme : personne ne sait ce que l'analyse a réellement eu sous les yeux. Les deux contrats fournisseurs manquants ressortiront en septembre.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Le symptôme corrigé, la cause intacte.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "insister",
+          "prompt": "Le stylo est de nouveau en main.",
+          "choices": [
+            {
+              "id": "elargir",
+              "text": "« Attendez. Qu'est-ce qu'on lui a donné exactement ? »",
+              "targetNodeId": "report",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "laisser",
+              "text": "Vous avez déjà pris la parole une fois. Laisser signer.",
+              "targetNodeId": "fin-partielle",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "affrontement",
+      "text": "« L'analyse est fausse. »",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "reaction",
+          "text": "La phrase met en cause six semaines de travail et neuf lectures attentives. Le directeur des opérations se redresse : « Fausse sur quoi ? » Vous expliquez les entrepôts, et c'est juste, mais la salle n'écoute plus le contenu — elle écoute un apprenti dire à neuf cadres qu'ils se sont trompés. Deux personnes qui auraient pu vous soutenir se taisent, parce que vous soutenir revient maintenant à choisir un camp.",
+          "continueEffects": []
+        },
+        {
+          "$type": "choiceSet",
+          "id": "reprise",
+          "prompt": "Vous avez encore une phrase.",
+          "choices": [
+            {
+              "id": "recentrer",
+              "text": "« Pardon. Reprenons juste le point 3 : il parle de quatre entrepôts, il y en a cinq. »",
+              "targetNodeId": "fait-pose",
+              "effects": [
+                { "$type": "collect", "item": "fait-verifiable" }
+              ]
+            },
+            {
+              "id": "insister",
+              "text": "Défendre votre formulation : vous avez raison sur le fond",
+              "targetNodeId": "fin-rupture-raison",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "minimisation",
+      "text": "« C'est peut-être une question bête… »",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "effacement",
+          "text": "Vous avez donné à la salle la permission de ne pas vous écouter, et elle l'utilise. Le directeur répond gentiment que le sujet des entrepôts a été traité en semaine trois, ce qui est vrai et sans rapport. On passe au point suivant. Une information exacte, présentée comme négligeable par celui qui l'apporte, est traitée comme négligeable.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Une objection présentée comme bête est reçue comme bête.", "scope": "courage" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "reprise",
+          "prompt": "Il vous reste dix secondes avant que le sujet ne soit clos.",
+          "choices": [
+            {
+              "id": "recentrer",
+              "text": "« Non, attendez. Le point 3 dit quatre entrepôts. Il y en a cinq depuis janvier. »",
+              "targetNodeId": "fait-pose",
+              "effects": [
+                { "$type": "collect", "item": "fait-verifiable" }
+              ]
+            },
+            {
+              "id": "abandonner",
+              "text": "Laisser passer",
+              "targetNodeId": "fin-rupture-consensus",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "apres-reunion",
+      "text": "15 h 10, couloir.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "tard",
+          "text": "Votre tutrice vous écoute, comprend immédiatement, et dit ce qu'il faut dire : « Il fallait le dire tout à l'heure. » Le document est signé. Le défaire suppose maintenant de rouvrir une décision actée devant neuf personnes, ce qui coûte à quelqu'un — à elle, en l'occurrence. Dire en privé ce qu'il fallait dire en public, c'est déplacer le coût de son propre courage sur quelqu'un d'autre.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Le coût de l'objection reporté sur un tiers.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "suite",
+          "prompt": "Elle vous demande ce que vous voulez faire.",
+          "choices": [
+            {
+              "id": "assumer",
+              "text": "Écrire vous-même au comité, ce soir, avec le fait et le calcul rectifié",
+              "targetNodeId": "fin-tardive",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "laisser",
+              "text": "La laisser gérer",
+              "targetNodeId": "fin-rupture-delegation",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-accord",
+      "text": "Fin — Une phrase vérifiable",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Un consensus n'est pas une vérification : c'est neuf personnes qui ont lu le même raisonnement et l'ont trouvé cohérent. Un raisonnement cohérent sur des données incomplètes est cohérent et faux, et rien dans sa forme ne le signale. Vous n'aviez pas d'autorité, pas d'ancienneté et pas de titre ; vous aviez un fait vérifiable en trente secondes, et vous l'avez énoncé sans mettre personne en accusation. C'est le format le moins coûteux et le plus difficile à écarter.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : un consensus interrompu par un fait, pas par une opinion.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-partielle",
+      "text": "Fin — Une ligne corrigée",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous avez parlé, et c'était déjà beaucoup. Le point 3 est juste, la décision est signée, et personne ne sait toujours ce qui a été fourni à l'analyse. Vous avez arrêté au premier succès, au moment exact où votre crédit dans la salle était le plus élevé. Rejouez : la question qui comptait n'était pas « ce chiffre est-il bon », mais « qu'est-ce qu'on ne lui a pas donné ».",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : symptôme traité, périmètre non interrogé.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-tardive",
+      "text": "Fin — Le courriel de 21 h",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous avez écrit vous-même, et c'était la bonne réparation : vous avez repris le coût que vous aviez posé sur votre tutrice. La décision a été rouverte, plus difficilement qu'à 14 h, devant des gens qui avaient déjà annoncé la signature en interne. Parler dans la salle coûte vingt secondes d'inconfort ; parler après coûte à tout le monde. Rejouez, et levez la main.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : objection portée, mais après la décision.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-consensus",
+      "text": "Rupture — Neuf personnes expérimentées",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "La migration B démarre en juin. Le cinquième entrepôt tombe le premier week-end, quatre jours d'arrêt logistique, et la question « comment personne ne l'a vu » circule pendant des semaines. Vous, vous l'aviez vu. Neuf personnes expérimentées avaient lu un raisonnement, pas les données ; vous étiez le seul à connaître les données, et c'est exactement ce qui rendait votre silence coûteux. L'expérience des autres n'est pas une information que vous possédez : c'en est une que vous supposez. Reprenez à 14 h.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : silence justifié par l'autorité supposée des autres.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-raison",
+      "text": "Rupture — Avoir raison",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous avez défendu votre formulation jusqu'au bout, et vous aviez raison sur le fond du début à la fin. La réunion s'est terminée sur une décision inchangée et sur l'idée que l'apprenti manque de recul. Le cinquième entrepôt tombera quand même en juin. Tenir à sa formulation plutôt qu'à son objectif, c'est préférer avoir raison à obtenir un effet. Reprenez à 14 h.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : la forme a coûté le fond.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-delegation",
+      "text": "Rupture — Elle gérera",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Elle a géré. Elle a rouvert seule, devant le comité, une décision signée, en portant une information dont elle n'était pas la source et qu'elle ne pouvait pas défendre en détail. On lui a demandé pourquoi elle n'avait rien dit en séance. Elle n'a pas donné votre nom. Vous avez transformé votre silence en dette pour quelqu'un d'autre. Reprenez à 14 h.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : courage sous-traité.", "scope": "rupture" }
+          ]
+        }
+      ]
+    }
+  ]
+}

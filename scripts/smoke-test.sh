@@ -22,7 +22,7 @@ for endpoint in "$IDENTITY_URL/health/ready" "$AUTHORING_URL/health/ready" "$PLA
 done
 
 experience=$(curl --fail --silent --show-error "$CONFIGURATION_URL/experience/default")
-jq -e '.version >= 1 and .document.game.name != "" and (.document.categories | length) > 0 and (.document.familiars | length) > 0 and .document.economy.currencyCode == "BRAISE" and (.document.aiProviders[] | select(.type == "AzureAiFoundry") | .secretReference) == null' <<<"$experience" >/dev/null
+jq -e '.version >= 1 and .document.game.name != "" and (.document.categories | length) > 0 and (.document.familiars | length) > 0 and .document.economy.currencyCode == "ACCORD" and (.document.aiProviders[] | select(.type == "AzureAiFoundry") | .secretReference) == null' <<<"$experience" >/dev/null
 
 credentials=$(jq -n --arg userName "$USER_NAME" --arg password "$PASSWORD" '{userName:$userName,password:$password}')
 if [[ -z "${GENENGINE_SMOKE_USER_NAME:-}" ]]; then
@@ -120,7 +120,7 @@ jq -e '.dryRun == false and .created == 1 and .errors == []' <<<"$apply_import" 
 replay_import=$(jq '.dryRun = false' <<<"$import_payload" | curl --fail --silent --show-error -H "Authorization: Bearer $token" -H 'Content-Type: application/json' --data-binary @- "$ORGANIZATION_URL/admin/organization/default/memberships/import")
 jq -e '.created == 0 and .unchanged == 1 and .errors == []' <<<"$replay_import" >/dev/null
 wallet=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$PLAYER_EXPERIENCE_URL/me/experience?frontId=default")
-jq -e '.currencyCode == "BRAISE" and .balance >= 0' <<<"$wallet" >/dev/null
+jq -e '.currencyCode == "ACCORD" and .balance >= 0' <<<"$wallet" >/dev/null
 
 bootstrap=$(curl --fail --silent --show-error -H "Authorization: Bearer $token" "$PLAYER_EXPERIENCE_URL/me/experience/bootstrap?frontId=default")
 jq -e '.nextAction != null and .experience.onboarding.status != null and .tutorial.steps != null and .assistant.offlineCapabilities != null' <<<"$bootstrap" >/dev/null

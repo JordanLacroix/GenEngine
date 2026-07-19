@@ -1,0 +1,402 @@
+{
+  "schemaVersion": 2,
+  "title": "La revue automatique",
+  "initialNodeId": "blocage",
+  "nodes": [
+    {
+      "id": "blocage",
+      "text": "Jeudi 16 h 40. La chaîne d'intégration est rouge.",
+      "onEnterEffects": [
+        { "$type": "setCharacteristic", "name": "arbitrage", "value": 1 },
+        { "$type": "assign", "name": "minutes", "value": 320 }
+      ],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "ouverture",
+          "text": "Votre correctif est prêt depuis trois heures. Il répare une fuite mémoire qui fait tomber le service de paiement une fois par nuit depuis dix jours. Deux lignes. La mise en production est à 22 h. Entre les deux, la revue automatique, obligatoire depuis mars : un modèle relit chaque changement et bloque tant qu'il n'a pas donné son accord. Il ne le donne pas.",
+          "continueEffects": []
+        },
+        {
+          "$type": "narration",
+          "id": "verdict",
+          "text": "Le commentaire fait onze lignes. Il vous explique que votre correctif « introduit une condition de concurrence potentielle sur un accès partagé » et recommande un verrou. Le ton est impeccable, la référence au fichier exacte, l'explication cohérente de bout en bout. Vous relisez votre code trois fois. Le champ concerné n'est jamais écrit ailleurs : il n'y a pas d'accès partagé. Le modèle décrit un bug qui n'existe pas, avec une précision qui donne envie d'y croire.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "commentaire-plausible-et-faux" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "premiere-reaction",
+          "prompt": "Il est 16 h 45. La production est à 22 h.",
+          "choices": [
+            {
+              "id": "obeir",
+              "text": "Ajouter le verrou demandé : c'est trois minutes et la chaîne passe",
+              "targetNodeId": "obeissance",
+              "effects": [
+                { "$type": "increment", "name": "minutes", "amount": -10 }
+              ]
+            },
+            {
+              "id": "prouver",
+              "text": "Écrire un test qui prouve qu'il n'y a pas d'accès concurrent",
+              "targetNodeId": "preuve",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 },
+                { "$type": "increment", "name": "minutes", "amount": -50 }
+              ]
+            },
+            {
+              "id": "contourner",
+              "text": "Demander la dérogation d'urgence qui court-circuite la revue",
+              "targetNodeId": "derogation",
+              "effects": [
+                { "$type": "increment", "name": "minutes", "amount": -20 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "obeissance",
+      "text": "Le verrou.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "consequence",
+          "text": "Vous ajoutez le verrou. La chaîne passe au vert en quatre minutes. À 22 h 10, le correctif part en production. À 3 h 40, le service de paiement se fige : le verrou que vous avez ajouté est pris dans le chemin d'écriture le plus chaud du système, et sous la charge nocturne des prélèvements, il sérialise ce qui était parallèle. La fuite mémoire est réparée. Le service est indisponible quarante minutes de plus qu'avant.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Un correctif suggéré, appliqué sans être compris, a créé une panne plus grave.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "post-mortem",
+          "prompt": "Vendredi 9 h, post-mortem. On vous demande pourquoi ce verrou.",
+          "choices": [
+            {
+              "id": "assumer",
+              "text": "« Parce que la revue automatique l'a demandé et que je ne l'ai pas vérifié. »",
+              "targetNodeId": "fin-rupture-obeissance",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "reporter",
+              "text": "« La revue l'exigeait, je ne pouvais pas passer sans. »",
+              "targetNodeId": "fin-rupture-delegation",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "derogation",
+      "text": "Le formulaire d'urgence.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "cout",
+          "text": "La dérogation existe et elle est faite pour ça. Elle demande une justification écrite, la signature de deux personnes d'astreinte et une revue humaine sous 48 h. Vous ouvrez le formulaire. Champ « justification » : vous écrivez « faux positif de la revue automatique ». Le champ attend une démonstration, pas une opinion — et à cet instant vous n'en avez pas.",
+          "continueEffects": []
+        },
+        {
+          "$type": "choiceSet",
+          "id": "choix",
+          "prompt": "Il est 17 h 05.",
+          "choices": [
+            {
+              "id": "prouver",
+              "text": "Aller chercher la démonstration d'abord",
+              "targetNodeId": "preuve",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "forcer",
+              "text": "Écrire « faux positif » et faire signer : tout le monde est pressé, personne ne relira",
+              "targetNodeId": "fin-rupture-derogation",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "preuve",
+      "text": "Cinquante minutes.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "travail",
+          "text": "Vous n'essayez pas de convaincre : vous essayez d'établir. Vous écrivez un test qui lance deux cents écritures concurrentes sur le champ incriminé et vérifie l'invariant. Il passe, mille fois. Puis vous faites l'inverse, ce qui compte davantage : vous introduisez volontairement l'accès partagé que le modèle décrit, et le test échoue immédiatement. Vous avez maintenant deux choses — la preuve que le bug n'existe pas, et la preuve que votre test l'aurait attrapé s'il existait.",
+          "continueEffects": [
+            { "$type": "collect", "item": "test-de-non-concurrence" },
+            { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "quiz",
+          "id": "valeur-du-test",
+          "prompt": "Pourquoi le second test — celui qui échoue volontairement — compte-t-il plus que le premier ?",
+          "answers": [
+            { "id": "rapide", "text": "parce qu'il s'exécute plus vite" },
+            { "id": "sensible", "text": "parce qu'il montre que le test aurait détecté le problème s'il existait" },
+            { "id": "couverture", "text": "parce qu'il augmente la couverture de code" }
+          ],
+          "correctAnswerId": "sensible",
+          "correctEffects": [
+            { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 },
+            { "$type": "discoverEvidence", "evidence": "test-sensible-au-defaut" }
+          ],
+          "incorrectEffects": [
+            { "$type": "increment", "name": "erreurs", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "usage",
+          "prompt": "Il est 17 h 40. Il reste quatre heures vingt.",
+          "choices": [
+            {
+              "id": "reponse",
+              "text": "Répondre à la revue avec le test, et demander une revue humaine sur le désaccord",
+              "targetNodeId": "arbitrage-humain",
+              "effects": []
+            },
+            {
+              "id": "garder",
+              "text": "Garder le test pour vous et prendre la dérogation, maintenant justifiée",
+              "targetNodeId": "derogation-justifiee",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arbitrage-humain",
+      "text": "18 h. Un ingénieur d'astreinte, dix minutes.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "characteristicGate",
+          "id": "dossier",
+          "condition": {
+            "$type": "all",
+            "conditions": [
+              { "$type": "hasItem", "item": "test-de-non-concurrence" },
+              { "$type": "hasEvidence", "evidence": "test-sensible-au-defaut" }
+            ]
+          },
+          "satisfiedTargetNodeId": "accord",
+          "failedTargetNodeId": "doute",
+          "satisfiedEffects": [
+            { "$type": "recordNotableEvent", "label": "Un désaccord tranché sur des faits reproductibles, en dix minutes.", "scope": "arbitrage" }
+          ],
+          "failedEffects": [
+            { "$type": "recordNotableEvent", "label": "Sans preuve, un désaccord se tranche par le grade ou par la fatigue.", "scope": "arbitrage" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "accord",
+      "text": "Ce qui se décide.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "seance",
+          "text": "Il lance votre test, le lit, lance la variante qui échoue. « D'accord. » Il approuve le correctif, sans verrou. Puis il fait quelque chose que vous n'aviez pas prévu : il ouvre un ticket sur la revue automatique elle-même, avec votre cas en pièce jointe. « On a quarante développeurs qui obéissent à ce truc depuis mars. Si personne ne remonte les faux positifs, on ne saura jamais lesquels sont vrais. » La production part à 22 h. Le service tient la nuit.",
+          "continueEffects": [
+            { "$type": "grantReward", "reward": "frequence-du-doute" },
+            { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "cloture",
+          "prompt": "Il est 22 h 30.",
+          "choices": [
+            {
+              "id": "terminer",
+              "text": "Rentrer",
+              "targetNodeId": "fin-accord",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "doute",
+      "text": "Il vous écoute cinq minutes.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "refus",
+          "text": "« Tu penses que c'est un faux positif, l'outil pense que non. Moi je n'ai rien pour départager, et il est 18 h. » Il ne vous croit pas moins que l'outil : il n'a simplement aucun moyen de choisir. En l'absence de fait, le désaccord se tranche par défaut en faveur de la machine, parce que c'est elle qui bloque.",
+          "continueEffects": []
+        },
+        {
+          "$type": "choiceSet",
+          "id": "retour",
+          "prompt": "Il est 18 h 05.",
+          "choices": [
+            {
+              "id": "prouver",
+              "text": "Aller écrire le test",
+              "targetNodeId": "preuve",
+              "effects": []
+            },
+            {
+              "id": "obeir",
+              "text": "Mettre le verrou et livrer",
+              "targetNodeId": "obeissance",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "derogation-justifiee",
+      "text": "Vous contournez, avec raison.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "La dérogation est signée, le correctif part, la nuit se passe bien. Vous aviez raison et vous l'aviez prouvé. Mais vous avez utilisé votre preuve pour sortir du système plutôt que pour le corriger : le faux positif est toujours là, et les trente-neuf autres développeurs qui le rencontreront cette semaine ajouteront leur verrou sans se poser de question. Vous vous êtes sauvé vous-même.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Preuve utilisée pour s'exempter, pas pour corriger.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "vendredi",
+          "prompt": "Vendredi 9 h. Vous avez encore le test sous la main.",
+          "choices": [
+            {
+              "id": "remonter",
+              "text": "Ouvrir un ticket sur la revue automatique avec votre cas",
+              "targetNodeId": "accord",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 }
+              ]
+            },
+            {
+              "id": "passer",
+              "text": "Passer au ticket suivant",
+              "targetNodeId": "fin-rupture-exemption",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-accord",
+      "text": "Fin — Le désaccord utile",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Un outil qui bloque n'a pas d'autorité : il a un pouvoir. La différence tient à ce qu'on peut lui opposer. Face à un verdict cohérent, détaillé et faux, ni l'obéissance ni le contournement ne fonctionnent — l'une produit une panne, l'autre laisse le défaut en place. La seule sortie coûte cinquante minutes et consiste à fabriquer le fait qui permet de trancher. Vous avez livré à l'heure, et l'organisation sait maintenant quelque chose qu'elle ignorait le matin.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : un verdict automatique contesté par la preuve.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-obeissance",
+      "text": "Rupture — Je ne l'ai pas vérifié",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous avez dit la vérité au post-mortem, et c'est la seule chose propre de cette journée. Il reste qu'un service de paiement est tombé quarante minutes de plus à cause de deux lignes que vous avez écrites sans les comprendre, sur la recommandation d'un système que vous n'avez pas interrogé. Appliquer une suggestion qu'on ne peut pas justifier, c'est signer un travail qui n'est pas le sien. Reprenez jeudi 16 h 45.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : suggestion appliquée sans vérification.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-delegation",
+      "text": "Rupture — La revue l'exigeait",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "« Je ne pouvais pas passer sans » est faux : la dérogation existait, vous l'aviez sous les yeux à 17 h. Vous n'avez pas subi une contrainte, vous avez choisi la branche où quelqu'un d'autre est responsable. Un outil ne peut pas répondre d'une panne ; il n'a rien à perdre et rien à apprendre. Vous, si. Reprenez jeudi 16 h 45.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : responsabilité transférée à un outil.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-derogation",
+      "text": "Rupture — Faux positif",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Deux signatures obtenues en quatre minutes sur une justification de trois mots. Cette fois vous aviez raison. La dérogation, elle, vient d'apprendre à l'équipe qu'on peut la passer sans rien démontrer, et elle sera reprise telle quelle la prochaine fois par quelqu'un qui aura tort. Les garde-fous ne meurent pas d'être attaqués : ils meurent d'être franchis distraitement. Reprenez jeudi 16 h 45.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : garde-fou vidé de sa substance.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-exemption",
+      "text": "Rupture — Ticket suivant",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous aviez le test, la démonstration et dix minutes. Trois semaines plus tard, quatre verrous inutiles ont été ajoutés dans le même module par quatre personnes différentes, chacune persuadée de bien faire. Vous saviez, et savoir seul ne change rien à l'échelle où le problème se produit. Reprenez jeudi 16 h 45.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : savoir gardé pour soi.", "scope": "rupture" }
+          ]
+        }
+      ]
+    }
+  ]
+}

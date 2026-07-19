@@ -1,0 +1,381 @@
+{
+  "schemaVersion": 2,
+  "title": "Identité non reconnue",
+  "initialNodeId": "guichet",
+  "nodes": [
+    {
+      "id": "guichet",
+      "text": "Le portail d'inscription aux examens, dernier jour.",
+      "onEnterEffects": [
+        { "$type": "setCharacteristic", "name": "discernement", "value": 1 },
+        { "$type": "assign", "name": "heures", "value": 8 }
+      ],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "ouverture",
+          "text": "Vous êtes en alternance au service numérique de l'école. Votre mission du semestre : maintenir le portail d'inscription. Depuis janvier, l'identité des candidats est vérifiée par un service tiers qui compare la pièce d'identité, la photo et le fichier national. Le taux d'acceptation automatique est de 99,4 %. C'est le chiffre qui figure dans tous les comptes rendus.",
+          "continueEffects": []
+        },
+        {
+          "$type": "narration",
+          "id": "cas",
+          "text": "À 9 h 15, une candidate se présente au bureau. Elle s'appelle Nour. Le service la refuse depuis quatre jours, avec un code unique : « IDENT_NO_MATCH ». Son prénom d'usage n'est pas son prénom d'état civil. Son acte de naissance a été établi dans un pays dont le registre n'est plus interrogeable depuis 2024. Sa photo est légèrement floue parce que sa pièce a été refaite d'urgence. Chacun de ces trois éléments est, pris seul, une variation banale. Le service les additionne en un refus sans motif détaillé. Les inscriptions ferment à 17 h.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "trois-variations-banales" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "premiere-reaction",
+          "prompt": "Elle est debout devant vous. Il est 9 h 20.",
+          "choices": [
+            {
+              "id": "reessayer",
+              "text": "Lui demander de recommencer la procédure : c'est peut-être un incident temporaire",
+              "targetNodeId": "boucle",
+              "effects": [
+                { "$type": "increment", "name": "heures", "amount": -2 }
+              ]
+            },
+            {
+              "id": "comprendre",
+              "text": "Ouvrir les journaux du service pour comprendre ce que « NO_MATCH » recouvre",
+              "targetNodeId": "journaux",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 },
+                { "$type": "increment", "name": "heures", "amount": -1 }
+              ]
+            },
+            {
+              "id": "renvoyer",
+              "text": "Lui expliquer que le système est ce qu'il est et lui donner le formulaire de recours",
+              "targetNodeId": "fin-rupture-procedure",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "boucle",
+      "text": "Cinquième tentative, 11 h 30.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "repetition",
+          "text": "Même pièce, même photo, même refus, à la seconde près. Un système déterministe ne change pas d'avis parce qu'on insiste. Nour ne s'énerve pas ; c'est le pire. Elle a l'habitude. Elle vous dit qu'elle a passé neuf mois à obtenir un titre de séjour avec un logiciel qui produisait le même code, et qu'elle a fini par comprendre qu'il ne fallait pas discuter avec la machine mais trouver la personne derrière.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Deux heures perdues à répéter une opération déterministe.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "suite",
+          "prompt": "Il est 11 h 30. Il reste cinq heures et demie.",
+          "choices": [
+            {
+              "id": "comprendre",
+              "text": "Chercher la règle exacte dans les journaux",
+              "targetNodeId": "journaux",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 }
+              ]
+            },
+            {
+              "id": "renvoyer",
+              "text": "Lui donner le formulaire de recours",
+              "targetNodeId": "fin-rupture-procedure",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "journaux",
+      "text": "Ce que le service mesure vraiment.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "lecture",
+          "text": "Le refus n'est pas une décision : c'est un score sous un seuil. Le service produit une confiance de 0,71 ; le seuil configuré côté école est 0,85. Vous cherchez d'où vient 0,85. Réponse : de la valeur par défaut de la documentation d'intégration, recopiée en janvier par quelqu'un qui n'est plus là. Personne n'a jamais choisi ce nombre en fonction de ce qu'il coûte à qui.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "seuil-jamais-choisi" },
+            { "$type": "collect", "item": "journal-du-score" }
+          ]
+        },
+        {
+          "$type": "quiz",
+          "id": "nature-du-refus",
+          "prompt": "« Le système ne reconnaît pas cette personne » signifie en réalité…",
+          "answers": [
+            { "id": "faux", "text": "que les documents de cette personne sont faux" },
+            { "id": "seuil", "text": "qu'un score est passé sous un seuil que quelqu'un a fixé" },
+            { "id": "bug", "text": "qu'il y a un défaut technique à corriger" }
+          ],
+          "correctAnswerId": "seuil",
+          "correctEffects": [
+            { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 },
+            { "$type": "discoverEvidence", "evidence": "refus-est-un-arbitrage" }
+          ],
+          "incorrectEffects": [
+            { "$type": "increment", "name": "erreurs", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "narration",
+          "id": "consequence",
+          "text": "Vous lancez une requête sur les six derniers mois. Quatre-vingt-onze refus. Vous croisez avec les demandes de recours abouties : dans soixante-treize cas, la personne était bien celle qu'elle disait être. Le taux de 99,4 % est exact. Il est aussi complètement muet sur qui compose les 0,6 %.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "soixante-treize-refus-injustifies" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "decision",
+          "prompt": "Il est 13 h. Vous avez les droits techniques pour agir.",
+          "choices": [
+            {
+              "id": "forcer",
+              "text": "Valider manuellement le dossier de Nour en base : c'est une injustice évidente et il reste quatre heures",
+              "targetNodeId": "fin-rupture-passe-droit",
+              "effects": []
+            },
+            {
+              "id": "abaisser",
+              "text": "Abaisser le seuil à 0,70 pour tout le monde, tout de suite",
+              "targetNodeId": "abaissement",
+              "effects": []
+            },
+            {
+              "id": "porter",
+              "text": "Aller voir la responsable des inscriptions avec les 73 cas et demander une procédure humaine de secours",
+              "targetNodeId": "arbitrage-humain",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "abaissement",
+      "text": "Vous changez le seuil.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "effet",
+          "text": "Nour passe à 13 h 12. Vingt-deux autres dossiers en attente passent aussi. Parmi eux, deux dossiers qui étaient bloqués pour une bonne raison : même pièce d'identité, deux candidats, une usurpation en cours d'instruction depuis mars. Vous avez remplacé un seuil que personne n'avait choisi par un autre seuil que personne n'a choisi, en changeant seulement qui en paie le prix.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Un seuil déplacé sans arbitrage déplace seulement la victime.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "reagir",
+          "prompt": "Il est 13 h 40. Vous voyez les deux dossiers passer dans le journal.",
+          "choices": [
+            {
+              "id": "revenir",
+              "text": "Rétablir le seuil et aller chercher un arbitrage humain",
+              "targetNodeId": "arbitrage-humain",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 }
+              ]
+            },
+            {
+              "id": "laisser",
+              "text": "Laisser : les inscriptions ferment dans trois heures",
+              "targetNodeId": "fin-rupture-seuil",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "arbitrage-humain",
+      "text": "Bureau de la responsable des inscriptions, 14 h.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "characteristicGate",
+          "id": "dossier",
+          "condition": {
+            "$type": "all",
+            "conditions": [
+              { "$type": "hasItem", "item": "journal-du-score" },
+              { "$type": "hasEvidence", "evidence": "soixante-treize-refus-injustifies" }
+            ]
+          },
+          "satisfiedTargetNodeId": "decision-prise",
+          "failedTargetNodeId": "refus-ecoute",
+          "satisfiedEffects": [
+            { "$type": "recordNotableEvent", "label": "Vous avez montré une population, pas une personne.", "scope": "discernement" }
+          ],
+          "failedEffects": [
+            { "$type": "recordNotableEvent", "label": "Un cas isolé se traite en exception ; une population se traite en règle.", "scope": "discernement" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "decision-prise",
+      "text": "Ce qui change en une heure.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "seance",
+          "text": "Vous ne demandez pas de faire une exception pour Nour. Vous posez trois chiffres : 91 refus, 73 personnes réelles, un seuil recopié d'une documentation. La responsable comprend en deux minutes qu'elle porte, depuis janvier, une décision qu'elle n'a jamais prise. À 15 h 10, une procédure de secours existe : tout refus automatique ouvre un examen humain sous 48 h, le seuil reste à 0,85, et les inscriptions restent ouvertes cinq jours de plus pour les dossiers concernés. Nour s'inscrit à 15 h 40.",
+          "continueEffects": [
+            { "$type": "grantReward", "reward": "frequence-des-biais" },
+            { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "cloture",
+          "prompt": "Il est 15 h 45.",
+          "choices": [
+            {
+              "id": "terminer",
+              "text": "Retourner à votre poste",
+              "targetNodeId": "fin-accord",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "refus-ecoute",
+      "text": "Elle vous écoute, mais.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "refus",
+          "text": "« Je comprends que ce soit dur pour cette candidate. Mais si j'ouvre une exception, j'en ouvre trois cents. » Elle n'a pas tort : vous lui avez apporté une personne. Une personne se refuse sans coût politique ; une population non. La différence entre les deux tient à une requête que vous n'avez pas lancée.",
+          "continueEffects": []
+        },
+        {
+          "$type": "choiceSet",
+          "id": "retour",
+          "prompt": "Il est 14 h 20.",
+          "choices": [
+            {
+              "id": "chiffrer",
+              "text": "Retourner chiffrer les six derniers mois",
+              "targetNodeId": "journaux",
+              "effects": []
+            },
+            {
+              "id": "renoncer",
+              "text": "Redescendre et dire à Nour que ce n'est pas possible",
+              "targetNodeId": "fin-rupture-personne-seule",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-accord",
+      "text": "Fin — Une règle, pas une faveur",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Un système qui refuse quelqu'un ne dit jamais « cette personne n'existe pas ». Il dit « score 0,71, seuil 0,85 », et c'est la chaîne humaine autour qui traduit cela en existence ou en non-existence. Vous n'avez pas sauvé une candidate : vous avez rendu à quelqu'un la décision qu'un défaut de configuration avait prise à sa place. C'est reproductible, et cela protège les soixante-douze autres que vous ne rencontrerez jamais.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : un seuil implicite est redevenu une décision assumée.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-procedure",
+      "text": "Rupture — Le formulaire de recours",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Le recours est instruit en six semaines. Les inscriptions ferment ce soir. Vous avez appliqué la procédure exacte, et la procédure exacte a produit exactement ce qu'elle produit toujours pour les gens dont le dossier ne rentre pas dans la case. Renvoyer vers un recours dont on sait qu'il arrivera trop tard, c'est refuser en se donnant l'air d'aider. Reprenez à 9 h 15.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : conformité utilisée comme abri.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-passe-droit",
+      "text": "Rupture — La ligne en base",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Nour est inscrite. Vous avez écrit une ligne en base sans trace, sans autorité et sans règle. Vous aviez raison sur le fond et vous vous êtes mis, personnellement, à la place du système : un individu qui décide seul qui existe. En mai, l'audit trouve la ligne. Ce n'est plus le seuil qui est en cause, c'est vous — et le seuil, lui, continue de refuser soixante-douze personnes. Reprenez à 9 h 15.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : passe-droit sans autorité ni trace.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-seuil",
+      "text": "Rupture — L'autre seuil",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Les inscriptions ont fermé à 17 h avec vingt-trois dossiers de plus, dont une usurpation d'identité qui sera découverte en octobre par la personne usurpée. Vous avez changé un nombre par empathie, ce qui est exactement la manière dont le 0,85 était arrivé là : sans arbitrage, sans mesure, sans personne pour en répondre. Reprenez à 9 h 15.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : un réglage arbitraire remplacé par un autre.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-personne-seule",
+      "text": "Rupture — Ce n'est pas possible",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous redescendez et vous lui dites. Elle vous remercie, sincèrement, parce que vous avez essayé. C'est cette phrase-là qui restera. Vous aviez le journal, les droits de lecture et six mois d'historique à portée de requête ; vous vous êtes arrêté au moment où il fallait passer d'un visage à un nombre. Reprenez à 9 h 15.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : le cas isolé n'a jamais été relié à sa population.", "scope": "rupture" }
+          ]
+        }
+      ]
+    }
+  ]
+}
