@@ -49,6 +49,40 @@ public sealed class NarrativeMediaTests
         Assert.Null(structure.Nodes.Single(node => node.Id == "ending").Media);
     }
 
+    // A configuration ships its own asset pack, so a media must also be
+    // referenceable without any host: "packId:assetId" is resolved by the client
+    // through the pack manifest, which is what lets a demonstration run offline.
+    [Theory]
+    [InlineData("diapason-core:sfx.choice.confirm")]
+    [InlineData("diapason-core:ui.panel_9slice")]
+    [InlineData("a:b")]
+    public void PackReferencesAreAcceptedAsStepAssets(string reference)
+    {
+        ScenarioDocument scenario = CreateScenario(withMedia: true) with { SchemaVersion = NarrativeVersions.MediaSchema };
+        scenario = ReplaceStartMedia(scenario, new StepMedia { VisualUrl = reference });
+
+        ValidationReport report = ScenarioValidator.Validate(scenario);
+
+        Assert.True(report.IsValid);
+    }
+
+    [Theory]
+    [InlineData("diapason-core:")]
+    [InlineData(":sfx.choice")]
+    [InlineData("Diapason-Core:sfx")]
+    [InlineData("pack:sfx/choice")]
+    [InlineData("pack:choice confirm")]
+    public void MalformedPackReferencesAreRejected(string reference)
+    {
+        ScenarioDocument scenario = CreateScenario(withMedia: true) with { SchemaVersion = NarrativeVersions.MediaSchema };
+        scenario = ReplaceStartMedia(scenario, new StepMedia { VisualUrl = reference });
+
+        ValidationReport report = ScenarioValidator.Validate(scenario);
+
+        Assert.False(report.IsValid);
+        Assert.Contains(report.Issues, static issue => issue.Code == "media_asset_invalid");
+    }
+
     [Theory]
     [InlineData("http://assets.example.org/scene.avif")]
     [InlineData("assets/scene.avif")]

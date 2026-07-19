@@ -1220,8 +1220,13 @@ public static class ScenarioValidator
 
     /// <summary>
     /// Media are decorative references. They are optional at every level, but
-    /// when present they must be resolvable by a client without ambiguity: an
-    /// absolute HTTPS URL, bounded in length.
+    /// when present they must be resolvable by a client without ambiguity, in one
+    /// of two bounded forms: an absolute HTTPS URL, for assets a client instance
+    /// hosts itself; or a pack-scoped identifier "packId:assetId", for assets
+    /// shipped with a configuration and resolved through the pack manifest. The
+    /// second form is what lets a demonstration run entirely offline, with no host
+    /// to serve the files from. The engine never loads a media — it only carries
+    /// and validates the reference.
     /// </summary>
     private static void ValidateStepMedia(NarrativeNode node, int schemaVersion, List<ValidationIssue> issues)
     {
@@ -1290,11 +1295,50 @@ public static class ScenarioValidator
 
         if (string.IsNullOrWhiteSpace(value)
             || value.Length > MaximumAssetUrlLength
-            || !Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
-            || uri.Scheme != Uri.UriSchemeHttps)
+            || !(IsHttpsUrl(value) || IsPackReference(value)))
         {
-            issues.Add(Error("media_asset_invalid", path, "A media asset must be an absolute HTTPS URL."));
+            issues.Add(Error(
+                "media_asset_invalid",
+                path,
+                "A media asset must be an absolute HTTPS URL or a pack reference \"packId:assetId\"."));
         }
+    }
+
+    private static bool IsHttpsUrl(string value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps;
+
+    /// <summary>
+    /// A pack reference is "packId:assetId", both segments limited to lowercase
+    /// letters, digits, dot, dash and underscore. The grammar is deliberately
+    /// narrow so a reference can never be mistaken for a URL, a path or a scheme
+    /// a client might try to dereference.
+    /// </summary>
+    private static bool IsPackReference(string value)
+    {
+        int separator = value.IndexOf(':', StringComparison.Ordinal);
+        if (separator <= 0 || separator == value.Length - 1)
+        {
+            return false;
+        }
+
+        return IsPackSegment(value.AsSpan(0, separator))
+            && IsPackSegment(value.AsSpan(separator + 1));
+    }
+
+    private static bool IsPackSegment(ReadOnlySpan<char> segment)
+    {
+        foreach (char character in segment)
+        {
+            bool allowed = (character >= 'a' && character <= 'z')
+                || (character >= '0' && character <= '9')
+                || character is '.' or '-' or '_';
+            if (!allowed)
+            {
+                return false;
+            }
+        }
+
+        return !segment.IsEmpty;
     }
 
     private static void ValidateChoices(

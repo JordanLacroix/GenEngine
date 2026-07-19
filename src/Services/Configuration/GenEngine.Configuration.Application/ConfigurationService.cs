@@ -575,9 +575,45 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
     private static AssistantPolicyDefinition CreateDefaultAssistantPolicy() =>
         new(true, true, true, true, 2, ["hint", "recap", "rephrase", "known-path-warning"]);
 
+    /// <summary>
+    /// An asset is either an absolute HTTPS URL, for assets the instance hosts
+    /// itself, or a pack reference "packId:assetId" resolved by the client through
+    /// the shipped pack manifest. The second form is what lets a configuration —
+    /// and its demonstration — run with no host to serve the files from. The
+    /// grammar mirrors the narrative engine's, so both validate references alike.
+    /// </summary>
     private static bool IsValidAssetUrl(string? value) =>
         string.IsNullOrWhiteSpace(value)
-        || (Uri.TryCreate(value, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps);
+        || (Uri.TryCreate(value, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps)
+        || IsPackReference(value);
+
+    private static bool IsPackReference(string value)
+    {
+        int separator = value.IndexOf(':', StringComparison.Ordinal);
+        if (separator <= 0 || separator == value.Length - 1)
+        {
+            return false;
+        }
+
+        return IsPackSegment(value.AsSpan(0, separator))
+            && IsPackSegment(value.AsSpan(separator + 1));
+    }
+
+    private static bool IsPackSegment(ReadOnlySpan<char> segment)
+    {
+        foreach (char character in segment)
+        {
+            bool allowed = (character >= 'a' && character <= 'z')
+                || (character >= '0' && character <= '9')
+                || character is '.' or '-' or '_';
+            if (!allowed)
+            {
+                return false;
+            }
+        }
+
+        return !segment.IsEmpty;
+    }
 
     private static Dictionary<string, string> CreateDefaultLabels() => new(StringComparer.Ordinal)
     {
