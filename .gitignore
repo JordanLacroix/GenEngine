@@ -484,3 +484,7 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
+
+# dotnet ef sur macOS crée des dossiers au nom contenant un antislash littéral
+*bin\\Debug/
+*obj\\Debug/
