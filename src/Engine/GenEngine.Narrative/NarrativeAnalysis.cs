@@ -36,6 +36,7 @@ public static class ScenarioAnalyzer
             CurrentStep step = NarrativeRuntime.GetCurrentStep(scenario, state);
             if (state.Status is SessionStatus.AwaitingInput
                 && step.Kind is not InteractionKind.Narration
+                && step.Kind is not InteractionKind.Document
                 && step.Choices.Count == 0)
             {
                 deadEnds.Add(new SimulationDeadEnd(state.CurrentNodeId, state.Turn, "No choice is available."));
@@ -100,6 +101,20 @@ public static class ScenarioAnalyzer
         if (state.Status is SessionStatus.AwaitingValidation)
         {
             yield return ("confirm-analysis", () => NarrativeRuntime.ConfirmTextAnalysis(scenario, state, true));
+            yield break;
+        }
+
+        // A document explores like a narration: consulting it is the one input that
+        // moves through it, and skipping it is covered by the shared skip
+        // transitions, so both branches of an optional document are explored.
+        if (step.Kind is InteractionKind.Document)
+        {
+            yield return ("consult", () => NarrativeRuntime.ConsultDocument(scenario, state));
+            foreach ((string InputId, Func<GameState> Transition) skip in GetSkipTransitions(scenario, state, step))
+            {
+                yield return skip;
+            }
+
             yield break;
         }
 

@@ -107,6 +107,67 @@ public sealed class DiapasonContentTests
             .Select(offset => pool[((dayIndex * size) + offset) % pool.Length])
             .ToArray();
 
+    /// <summary>
+    /// The reference configuration must actually exercise the document mechanic,
+    /// and against three genuinely different natures — a memo, a diff and a large
+    /// sampled table. Three shapes is what makes the model credible rather than a
+    /// container fitted to a single example.
+    /// </summary>
+    [Theory]
+    [InlineData("la-note-de-service.json", "la-note", DocumentNature.Memo)]
+    [InlineData("la-revue-automatique.json", "le-diff", DocumentNature.Diff)]
+    [InlineData("le-tri-des-candidatures.json", "le-classement", DocumentNature.Table)]
+    public void DiapasonPresentsTheDocumentsItOnlyEverAlludedTo(
+        string fileName,
+        string interactionId,
+        DocumentNature expectedNature)
+    {
+        ScenarioDocument scenario = ScenarioMigrationPipeline
+            .MigrateToLatest(File.ReadAllText(Path.Combine(ScenarioDirectory(), fileName)))
+            .Document;
+
+        DocumentInteraction interaction = scenario.Nodes
+            .SelectMany(static node => node.Interactions ?? [])
+            .OfType<DocumentInteraction>()
+            .Single(candidate => candidate.Id == interactionId);
+
+        Assert.Equal(expectedNature, interaction.Document.Nature);
+
+        // Consulting is never compulsory...
+        Assert.True(interaction.IsOptional);
+
+        // ...but it must unlock something, otherwise the document teaches nothing.
+        Assert.Contains(
+            scenario.Nodes
+                .SelectMany(static node => node.Interactions ?? [])
+                .OfType<ChoiceSetInteraction>()
+                .SelectMany(static choiceSet => choiceSet.Choices),
+            choice => choice.Condition is ConsultedDocumentCondition consulted
+                && consulted.InteractionId == interactionId);
+    }
+
+    /// <summary>
+    /// The table is the case that justifies the excerpt disclosure: 412 rows
+    /// cannot be shown, and what is shown must say so.
+    /// </summary>
+    [Fact]
+    public void TheApplicationTableDeclaresItsSampleHonestly()
+    {
+        ScenarioDocument scenario = ScenarioMigrationPipeline
+            .MigrateToLatest(File.ReadAllText(Path.Combine(ScenarioDirectory(), "le-tri-des-candidatures.json")))
+            .Document;
+
+        DocumentInteraction interaction = scenario.Nodes
+            .SelectMany(static node => node.Interactions ?? [])
+            .OfType<DocumentInteraction>()
+            .Single(static candidate => candidate.Id == "le-classement");
+
+        DocumentExcerpt excerpt = Assert.IsType<DocumentExcerpt>(interaction.Document.Excerpt);
+        Assert.Equal(412, excerpt.TotalUnits);
+        Assert.Equal(DocumentUnit.Rows, excerpt.Unit);
+        Assert.True(excerpt.ShownUnits < excerpt.TotalUnits);
+    }
+
     private static string[] EnumerateScenarioPaths() =>
         Directory.GetFiles(ScenarioDirectory(), "*.json").Order(StringComparer.Ordinal).ToArray();
 

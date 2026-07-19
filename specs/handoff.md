@@ -112,6 +112,16 @@ La tranche suivante complète les périodes métier nommées, l'import de masse 
 - Le port `IAssistantAiClient` est en place avec repli hors ligne garanti dans le service lui-même. **Aucun fournisseur réel n'est implémenté ni validé de bout en bout** : le défaut enregistré se déclare non configuré, et le branchement n'est couvert que par doubles (succès, erreur, dépassement de délai). Câbler un fournisseur réel reste à faire.
 - Un test vérifie qu'un appel d'aide n'écrit rien : ni sauvegarde, ni révision, ni journal, ni portefeuille.
 
+### Tranche `feat/document-interaction`
+
+- Le schéma de scénario v6 ajoute l'interaction `document` et la condition `consultedDocument`. Migration chaînée `scenario-v5-to-v6`, validation conditionnée à la constante de capacité `DocumentSchema` — pour l'interaction **et** pour la condition, séparément — et jamais à `LatestSchema`. Le hash canonique d'un snapshot v5 (`028aff60…a591`) et son état final rejoué sont figés depuis le moteur d'avant le changement (commit `43d2e11`, fixture écrite avant toute modification du code) et vérifiés par test.
+- Un document porte un titre, une `nature` nommée mais ouverte (`Memo`, `Email`, `Code`, `Diff`, `Log`, `Table`, `Conversation`, `Report`, `Other`), des en-têtes ordonnés facultatifs, un corps en trois formes de blocs seulement (`paragraph`, `lines`, `table`) et un `excerpt` qui déclare honnêtement « N sur M ». `shownUnits` doit être strictement inférieur à `totalUnits` : un document intégral ne déclare pas d'échantillon.
+- Consulter est **facultatif** et s'appuie entièrement sur la mécanique `isOptional`/`exitChoices` du schéma v4 — aucun séquencement nouveau. Consulter applique `consultEffects`, historise sous l'`inputId` `consulted` et avance ; ignorer ne laisse aucune trace.
+- `consultedDocument` relit `interactionHistory`, que le moteur enregistre et persiste déjà : **aucun nouvel état de monde, aucun changement de format de sauvegarde**. C'est ce qui rend la consultation rejouable exactement.
+- `Play` expose `POST /sessions/{id}/document-consultations`, sur le même chemin de commande idempotente que `continue` et `answers` : une commande rejouée n'applique pas ses effets deux fois. `GET /sessions/{id}/current-step` expose `document`, de façon additive. L'arbre et la topologie sont inchangés : un document ne crée aucune arête.
+- Diapason utilise réellement la mécanique sur trois natures différentes — la note de service (`Memo`), le correctif bloqué (`Diff`) et la table de 412 candidatures (`Table`, 6 rangées montrées). Les trois sont facultatifs et débloquent chacun un choix conditionné absent pour qui n'a pas lu.
+- **Non livré** : aucun client ne rend encore un document. Comme pour `isOptional` au schéma v4, tant qu'un client ignore le champ `document`, l'interaction reste invisible côté joueur. Le câblage Web et iOS reste à faire.
+
 Contexte livré au jalon 3 :
 
 - `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.
@@ -145,7 +155,7 @@ Contexte livré au jalon 3 :
 - Les ports PostgreSQL et observabilité sont exposés pour le développement local, pas comme modèle de production.
 - `GenEngine.Services.Tests` est actuellement un projet de test sans test découvert ; ne le présente pas comme une couverture effective.
 - Le dashboard d’observabilité repose sur les noms de métriques OpenTelemetry actuels ; toute montée de version doit les revérifier.
-- Les interactions facultatives (schéma v4) ne sont **pas encore rendues par les clients** : `GET /sessions/{id}/current-step` expose `isOptional` et `exitChoices`, mais tant qu'un client ignore `exitChoices` une interaction facultative reste vécue comme obligatoire. Le contenu Diapason est en schéma v2 et n'en déclare aucune ; le câblage client et l'usage éditorial restent à faire.
+- Les interactions facultatives (schéma v4) ne sont **pas encore rendues par les clients** : `GET /sessions/{id}/current-step` expose `isOptional` et `exitChoices`, mais tant qu'un client ignore `exitChoices` une interaction facultative reste vécue comme obligatoire. Le câblage client reste à faire. Depuis `feat/document-interaction`, trois scénarios Diapason déclarent enfin des interactions facultatives : les trois documents. Le même manque de rendu client s'y applique donc, et le champ `document` de l'étape courante n'est lu par aucun client.
 
 ## Critère de passage de relais réussi
 
