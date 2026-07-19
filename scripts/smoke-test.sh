@@ -11,7 +11,7 @@ BOOTSTRAP_KEY="${GENENGINE_BOOTSTRAP_KEY:?GENENGINE_BOOTSTRAP_KEY must be set fo
 TOKEN_FILE="${GENENGINE_SMOKE_TOKEN_FILE:-/tmp/genengine-smoke-token}"
 SCENARIO_FILE="${SCENARIO_FILE:-specs/domain/examples/forest-choice.json}"
 USER_NAME="${GENENGINE_SMOKE_USER_NAME:-smoke-$(date +%s)}"
-PASSWORD="LocalSmokePassword!2026"
+PASSWORD="${GENENGINE_SMOKE_PASSWORD:-LocalSmokePassword!2026}"
 
 for command in curl jq uuidgen; do
   command -v "$command" >/dev/null || { echo "Missing required command: $command" >&2; exit 1; }
@@ -42,11 +42,39 @@ token=$(curl --fail --silent --show-error \
   "$IDENTITY_URL/auth/login" | jq -er '.token')
 
 if [[ -z "${GENENGINE_SMOKE_USER_NAME:-}" ]]; then
-  curl --fail --silent --show-error \
+  # Bootstrap promotes the first account to administrator and is one-shot. On a
+  # database that already has one it answers 400 bootstrap_closed, so a brand new
+  # smoke account can never gain the rights the rest of this flow needs. Say so
+  # precisely instead of failing later on an opaque permission assertion.
+  bootstrap_body="$(mktemp)"
+  trap 'rm -f "$bootstrap_body"' EXIT
+  bootstrap_status=$(curl --silent --show-error \
+    --output "$bootstrap_body" --write-out '%{http_code}' \
     -X POST \
     -H "Authorization: Bearer $token" \
     -H "X-Bootstrap-Key: $BOOTSTRAP_KEY" \
-    "$IDENTITY_URL/admin/access/bootstrap" >/dev/null
+    "$IDENTITY_URL/admin/access/bootstrap")
+
+  if [[ "$bootstrap_status" != 2* ]]; then
+    if [[ "$bootstrap_status" == 400 ]] \
+      && jq -e 'select(.title == "bootstrap_closed")' "$bootstrap_body" >/dev/null 2>&1; then
+      cat >&2 <<EOF
+This identity database already has an administrator, so the bootstrap step is
+closed and the freshly created account "$USER_NAME" cannot be promoted.
+
+Re-run against an existing administrator:
+  GENENGINE_SMOKE_USER_NAME=<administrator> GENENGINE_SMOKE_PASSWORD=<password> $0
+
+Or start from a clean database:
+  docker compose down --volumes && docker compose up --build --detach --wait
+EOF
+    else
+      echo "Bootstrap failed with HTTP $bootstrap_status:" >&2
+      cat "$bootstrap_body" >&2
+    fi
+    exit 1
+  fi
+
   token=$(curl --fail --silent --show-error \
     -H 'Content-Type: application/json' \
     -d "$credentials" \
