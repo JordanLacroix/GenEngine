@@ -62,6 +62,62 @@ public sealed class PlayContentAccessTests
         Assert.False(ContentAssignmentEvaluator.IsAssigned(Guid.NewGuid(), Guid.NewGuid(), assignments, journeys));
     }
 
+    [Fact]
+    public async Task StructureReturnsTheTopologyOfAPublishedVersion()
+    {
+        var repository = new RepositoryStub();
+        var access = new RecordingAccessClient();
+        Guid scenarioId = Guid.NewGuid();
+        PlayService service = CreateService(repository, access, scenarioId, null, "default");
+
+        NarrativeStructure structure = await service.GetStructureAsync(
+            Guid.NewGuid().ToString(),
+            VersionId,
+            bypassAssignments: false,
+            CancellationToken.None);
+
+        Assert.Equal("opening", structure.InitialNodeId);
+        NarrativeStructureNode node = Assert.Single(structure.Nodes);
+        Assert.Equal("opening", node.Id);
+        Assert.True(node.IsEnding);
+        Assert.Empty(structure.Edges);
+        Assert.Equal(scenarioId, access.LastRequest?.ScenarioId);
+    }
+
+    [Fact]
+    public async Task StructureIsRefusedWhenTheScenarioIsNotAssigned()
+    {
+        var repository = new RepositoryStub();
+        var access = new RecordingAccessClient { Deny = true };
+        PlayService service = CreateService(repository, access, Guid.NewGuid(), null, "default");
+
+        PlayException exception = await Assert.ThrowsAsync<PlayException>(
+            () => service.GetStructureAsync(
+                Guid.NewGuid().ToString(),
+                VersionId,
+                bypassAssignments: false,
+                CancellationToken.None));
+
+        Assert.Equal("content_not_assigned", exception.Code);
+    }
+
+    [Fact]
+    public async Task StructureSkipsAssignmentsForAnUnscopedOperator()
+    {
+        var repository = new RepositoryStub();
+        var access = new RecordingAccessClient { Deny = true };
+        PlayService service = CreateService(repository, access, Guid.NewGuid(), null, "default");
+
+        NarrativeStructure structure = await service.GetStructureAsync(
+            "not-a-guid",
+            VersionId,
+            bypassAssignments: true,
+            CancellationToken.None);
+
+        Assert.NotEmpty(structure.Nodes);
+        Assert.Null(access.LastRequest);
+    }
+
     private static readonly Guid VersionId = Guid.NewGuid();
 
     private static PlayService CreateService(

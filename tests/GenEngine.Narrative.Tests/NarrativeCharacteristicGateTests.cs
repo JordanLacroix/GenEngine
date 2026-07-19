@@ -116,4 +116,19 @@ public sealed class NarrativeCharacteristicGateTests
             new NarrativeNode("success", "You understand.", null, [], [], true),
             new NarrativeNode("fallback", "A guide helps you.", null, [], [], true),
         ]);
+
+    [Fact]
+    public void StructureKeepsGateBranchesInTheSameOrderAsTheStatefulTree()
+    {
+        ScenarioDocument scenario = CreateGateScenario(3);
+        NarrativeTree tree = NarrativeTreeBuilder.Build(scenario, NarrativeRuntime.Start(scenario));
+
+        NarrativeStructure structure = NarrativeTreeBuilder.BuildStructure(scenario);
+
+        Assert.Equal(
+            tree.Edges.Select(edge => (edge.SourceNodeId, edge.TargetNodeId, edge.InputId, edge.Text)),
+            structure.Edges.Select(edge => (edge.SourceNodeId, edge.TargetNodeId, edge.InputId, edge.Text)));
+        Assert.Contains(structure.Edges, edge => edge.InputId == "insight-gate:satisfied");
+        Assert.Contains(structure.Edges, edge => edge.InputId == "insight-gate:failed");
+    }
 }
