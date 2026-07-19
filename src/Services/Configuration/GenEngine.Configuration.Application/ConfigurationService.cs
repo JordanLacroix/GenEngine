@@ -249,7 +249,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             new CategoryDefinition(DiapasonIds.Autonomie, "Autonomie", "Garder une compétence qu'on pourrait déléguer.", "aube", 6, true),
         ],
         [
-            new FamiliarDefinition(Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "Lueur", "Un éclat curieux qui pose les bonnes questions.", "spark", "Socratic", "Warm", "amber", 2, ["hint", "recap", "rephrase"], ["spark", "owl", "fox"], ["Warm", "Playful", "Direct", "Mysterious"], "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=900&q=85", null, null, "Unsplash", "Photo de démonstration — remplacer avant production"),
+            new FamiliarDefinition(Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "Tierce", "Une voix qui ne répond jamais à votre place : elle demande sur quoi vous vous appuyez.", "spark", "Socratic", "Warm", "amber", 2, ["hint", "recap", "rephrase"], ["spark", "owl", "fox"], ["Warm", "Playful", "Direct", "Mysterious"], null, null, null, null, null),
         ],
         new EconomyDefinition("ACCORD", "Accords", "♪", 0,
             [
