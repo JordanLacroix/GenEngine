@@ -150,6 +150,67 @@ public sealed class PlayerExperienceServiceTests
     }
 
     /// <summary>
+    /// A scenario finished on an earlier version stays finished when a newer version is
+    /// explored without being completed. Reading completion off the highest-percentage
+    /// version alone reported completed=0 here, and locked the downstream journey.
+    /// </summary>
+    [Fact]
+    public async Task AScenarioCompletedOnAnEarlierVersionStaysCompleted()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System);
+
+        // v1 finished: one choice and one ending out of four objectives, so 50 %.
+        _ = await service.RecordProgressEventAsync(new ProgressEventCommand(
+            "default", "player-1", "s1:v1:end", "ScenarioCompleted", "Fin atteinte", "Vous avez terminé.",
+            null, SharedCategoryId, FirstScenarioId, FirstScenarioVersionId, Guid.NewGuid(), null, "c1", "node-end", "e1", true, 4), CancellationToken.None);
+        // v2 explored further but never finished: three choices out of four, so 75 %.
+        foreach (string choiceId in new[] { "c1", "c2", "c3" })
+        {
+            _ = await service.RecordProgressEventAsync(new ProgressEventCommand(
+                "default", "player-1", $"s1:v2:{choiceId}", "ChoiceSelected", "Une piste", "Vous avez suivi une piste.",
+                null, SharedCategoryId, FirstScenarioId, SecondScenarioVersionId, Guid.NewGuid(), null, choiceId, "node-two", null, false, 4), CancellationToken.None);
+        }
+
+        PlayerJourneysView journeys = await service.GetJourneysAsync("player-1", "default", CancellationToken.None);
+        CategoryProgressView shared = journeys.Items
+            .Single(journey => journey.Id == FoundationJourneyId)
+            .Categories.Single(category => category.Id == SharedCategoryId);
+
+        Assert.Equal(1, shared.StartedCount);
+        Assert.Equal(1, shared.CompletedCount);
+        // The percentage keeps the best version, completion the union of every version.
+        Assert.Equal(38, shared.ProgressPercent);
+    }
+
+    /// <summary>
+    /// A prerequisite journey carrying no scenario must not gate anything. It used to lock
+    /// its successors permanently, for every player, with no action able to recover.
+    /// </summary>
+    [Fact]
+    public async Task AnEmptyPrerequisiteJourneyDoesNotLockItsSuccessors()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(repository, new CatalogStub(emptyGate: true), TimeProvider.System);
+
+        PlayerJourneysView journeys = await service.GetJourneysAsync("player-1", "default", CancellationToken.None);
+        JourneyProgressView gate = journeys.Items.Single(journey => journey.Id == FoundationJourneyId);
+        JourneyProgressView downstream = journeys.Items.Single(journey => journey.Id == AdvancedJourneyId);
+
+        Assert.Equal(0, gate.ScenarioCount);
+        // Zero percent and yet not blocking: completion measures outstanding requirements,
+        // the percentage measures work done.
+        Assert.Equal(0, gate.ProgressPercent);
+        Assert.True(downstream.IsUnlocked);
+        Assert.Empty(downstream.BlockedByJourneyIds);
+
+        PlayerExperienceView current = await service.GetAsync("player-1", "default", CancellationToken.None);
+        PlayerExperienceView chosen = await service.SelectDefaultJourneyAsync(
+            "player-1", "default", AdvancedJourneyId, current.Revision, CancellationToken.None);
+        Assert.Equal(AdvancedJourneyId, chosen.DefaultJourneyId);
+    }
+
+    /// <summary>
     /// First scenario fully mastered (one choice and one ending out of two objectives),
     /// second one only started, so the foundation journey sits at (100 + 25) / 2.
     /// </summary>
@@ -177,11 +238,18 @@ public sealed class PlayerExperienceServiceTests
         public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 
-    private sealed class CatalogStub(bool withJourneys = true) : IPlayerExperienceCatalogProvider
+    private sealed class CatalogStub(bool withJourneys = true, bool emptyGate = false) : IPlayerExperienceCatalogProvider
     {
         private static readonly CategoryCatalogEntry[] Categories =
         [
             new(SharedCategoryId, "Socle", "Les bases.", "encre", 1, true, null, [FirstScenarioId, SecondScenarioId]),
+            new(AdvancedCategoryId, "Suite", "La suite.", "or", 2, true, null, [ThirdScenarioId]),
+        ];
+
+        /// <summary>A gate journey whose only category carries no scenario at all.</summary>
+        private static readonly CategoryCatalogEntry[] GateCategories =
+        [
+            new(SharedCategoryId, "Jalon", "Sans contenu.", "encre", 1, true, null, []),
             new(AdvancedCategoryId, "Suite", "La suite.", "or", 2, true, null, [ThirdScenarioId]),
         ];
 
@@ -204,6 +272,6 @@ public sealed class PlayerExperienceServiceTests
                 new OnboardingTutorial(TutorialId, 1, true, true, false, [new OnboardingStep(StepId, "Bienvenue", "Découvrez la carte.", "map", "open", 1, true)]),
                 new AssistantPolicy(true, true, true, true, 2, ["hint"]),
                 withJourneys ? Journeys : null,
-                withJourneys ? Categories : null));
+                withJourneys ? (emptyGate ? GateCategories : Categories) : null));
     }
 }

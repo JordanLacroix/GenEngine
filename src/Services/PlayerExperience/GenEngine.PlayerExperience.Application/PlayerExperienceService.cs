@@ -293,30 +293,37 @@ public sealed class PlayerExperienceService(IPlayerExperienceRepository reposito
         return profile;
     }
 
+    /// <summary>Progression of one scenario, folded over every published version played.</summary>
+    private readonly record struct ScenarioProgress(int MasteryPercent, bool Completed);
+
     /// <summary>
-    /// Best mastery known per scenario. A scenario can be played across several published
-    /// versions, and <see cref="ScenarioMastery"/> is keyed by version; the player's
-    /// progression on a scenario is the furthest they ever went on any of them.
+    /// Progression per scenario. A scenario can be played across several published
+    /// versions and <see cref="ScenarioMastery"/> is keyed by version, so the two criteria
+    /// are folded independently: the percentage is the best reached on any version, and
+    /// the scenario counts as completed as soon as <em>any</em> version reached an ending.
+    /// Reading completion off the highest-percentage version alone would un-complete a
+    /// scenario the moment the player explores a newer version without finishing it —
+    /// curiosity would lock the journeys downstream, which is the opposite of the intent.
     /// </summary>
-    private static Dictionary<Guid, ScenarioMastery> BestMasteryByScenario(PlayerProfile profile)
+    private static Dictionary<Guid, ScenarioProgress> ProgressByScenario(PlayerProfile profile)
     {
-        Dictionary<Guid, ScenarioMastery> best = [];
+        Dictionary<Guid, ScenarioProgress> progress = [];
         foreach (ScenarioMastery mastery in profile.ScenarioMasteries)
         {
-            if (!best.TryGetValue(mastery.ScenarioId, out ScenarioMastery? current) || mastery.MasteryPercent > current.MasteryPercent)
-            {
-                best[mastery.ScenarioId] = mastery;
-            }
+            bool completed = mastery.EndingIds.Count > 0;
+            progress[mastery.ScenarioId] = progress.TryGetValue(mastery.ScenarioId, out ScenarioProgress current)
+                ? new ScenarioProgress(Math.Max(current.MasteryPercent, mastery.MasteryPercent), current.Completed || completed)
+                : new ScenarioProgress(mastery.MasteryPercent, completed);
         }
 
-        return best;
+        return progress;
     }
 
     /// <summary>
     /// Aggregates <see cref="ScenarioMastery"/> per journey and per category. Mastery is
     /// never recomputed here: it is the source of truth and is only summed.
     /// A scenario counts as started as soon as a mastery exists for it, and as completed
-    /// once at least one ending was reached. The percentage is the mean mastery over every
+    /// once at least one ending was reached on any of its versions. The percentage is the mean mastery over every
     /// scenario of the scope, scenarios never played counting as zero, so a scope that
     /// carries no scenario yet reports zero instead of a misleading hundred.
     /// </summary>
@@ -324,29 +331,39 @@ public sealed class PlayerExperienceService(IPlayerExperienceRepository reposito
     {
         IReadOnlyList<JourneyCatalogEntry> journeys = catalog.Journeys ?? [];
         Dictionary<Guid, CategoryCatalogEntry> categories = (catalog.Categories ?? []).ToDictionary(static category => category.Id);
-        Dictionary<Guid, ScenarioMastery> masteries = BestMasteryByScenario(profile);
+        Dictionary<Guid, ScenarioProgress> progress = ProgressByScenario(profile);
 
         Dictionary<Guid, CategoryProgressView> categoryProgress = categories.Values.ToDictionary(
             static category => category.Id,
             category =>
             {
-                (int started, int completed, int percent) = Aggregate(category.ScenarioIds, masteries);
+                (int started, int completed, int percent) = Aggregate(category.ScenarioIds, progress);
                 return new CategoryProgressView(category.Id, category.Name, category.Accent, category.Order, category.IsVisible, category.ImageUrl, category.ScenarioIds.Count, started, completed, percent);
             });
 
+        // An empty scope counts as completed, so it never gates anything. A journey ends up
+        // with no scenario in ways nobody can undo from the outside — a milestone published
+        // without content, emptied categories, or categoryIds pointing at categories deleted
+        // after publication, which JourneyScenarioIds silently filters out. Requiring it to
+        // be completed would lock every downstream journey permanently, for every player,
+        // with no action able to recover: exactly the dead end ValidateJourneyPrerequisiteGraph
+        // exists to prevent. Failing open is recoverable — an operator adds the scenarios and
+        // the gate starts working; failing closed is not. Note the deliberate asymmetry with
+        // the percentage, which stays at zero: completion measures outstanding requirements,
+        // the percentage measures work done, and showing 100 % on an empty journey would lie.
         Dictionary<Guid, (string Name, bool Completed)> completion = journeys.ToDictionary(
             static journey => journey.Id,
             journey =>
             {
                 Guid[] scenarioIds = JourneyScenarioIds(journey, categories);
-                (int _, int completed, int _) = Aggregate(scenarioIds, masteries);
-                return (journey.Name, scenarioIds.Length > 0 && completed == scenarioIds.Length);
+                (int _, int completed, int _) = Aggregate(scenarioIds, progress);
+                return (journey.Name, completed == scenarioIds.Length);
             });
 
         return journeys.OrderBy(static journey => journey.Order).Select(journey =>
         {
             Guid[] scenarioIds = JourneyScenarioIds(journey, categories);
-            (int started, int completed, int percent) = Aggregate(scenarioIds, masteries);
+            (int started, int completed, int percent) = Aggregate(scenarioIds, progress);
             Guid[] blocking = journey.PrerequisiteJourneyIds
                 .Where(prerequisiteId => completion.TryGetValue(prerequisiteId, out (string Name, bool Completed) prerequisite) && !prerequisite.Completed)
                 .ToArray();
@@ -381,7 +398,7 @@ public sealed class PlayerExperienceService(IPlayerExperienceRepository reposito
             .Distinct()
             .ToArray();
 
-    private static (int Started, int Completed, int Percent) Aggregate(IReadOnlyList<Guid> scenarioIds, Dictionary<Guid, ScenarioMastery> masteries)
+    private static (int Started, int Completed, int Percent) Aggregate(IReadOnlyList<Guid> scenarioIds, Dictionary<Guid, ScenarioProgress> progress)
     {
         if (scenarioIds.Count == 0) return (0, 0, 0);
         int started = 0;
@@ -389,10 +406,10 @@ public sealed class PlayerExperienceService(IPlayerExperienceRepository reposito
         int total = 0;
         foreach (Guid scenarioId in scenarioIds)
         {
-            if (!masteries.TryGetValue(scenarioId, out ScenarioMastery? mastery)) continue;
+            if (!progress.TryGetValue(scenarioId, out ScenarioProgress scenario)) continue;
             started++;
-            if (mastery.EndingIds.Count > 0) completed++;
-            total += mastery.MasteryPercent;
+            if (scenario.Completed) completed++;
+            total += scenario.MasteryPercent;
         }
 
         return (started, completed, (int)Math.Round(total / (double)scenarioIds.Count, MidpointRounding.AwayFromZero));
