@@ -37,6 +37,11 @@ public static class ScenarioMigrationPipeline
                 // a v2 document migrates by raising its version, and a snapshot
                 // already published keeps its own version and canonical hash.
                 2 => document with { SchemaVersion = 3 },
+
+                // v4 only adds an optional "isOptional" flag on interactions. An
+                // unset flag stays absent, so a migrated document keeps the exact
+                // sequencing it had: every interaction remains mandatory.
+                3 => document with { SchemaVersion = 4 },
                 _ => throw new NarrativeException(
                     "scenario_migration_missing",
                     $"No migration is registered from scenario schema {document.SchemaVersion}."),

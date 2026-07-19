@@ -5,13 +5,16 @@ namespace GenEngine.Narrative;
 public static class NarrativeVersions
 {
     public const int Schema = 1;
-    public const int LatestSchema = 3;
+    public const int LatestSchema = 4;
 
     /// <summary>Schema that introduced typed step interactions.</summary>
     public const int InteractionsSchema = 2;
 
     /// <summary>Schema that introduced optional media references on steps and choices.</summary>
     public const int MediaSchema = 3;
+
+    /// <summary>Schema that introduced skippable (optional) step interactions.</summary>
+    public const int OptionalInteractionsSchema = 4;
     public const string Runtime = "1.0.0";
     public const string HashFormat = "sha256-canonical-json-v1";
     public const string RngAlgorithm = "splitmix64-v1";
@@ -84,7 +87,18 @@ public sealed record NarrativeChoice(
 [JsonDerivedType(typeof(QuizInteraction), "quiz")]
 [JsonDerivedType(typeof(CharacteristicGateInteraction), "characteristicGate")]
 [JsonDerivedType(typeof(FreeTextInteraction), "freeText")]
-public abstract record StepInteraction(string Id);
+public abstract record StepInteraction(string Id)
+{
+    /// <summary>
+    /// When <c>true</c>, the player may leave the node without playing this
+    /// interaction, by taking one of the node's exit choices offered alongside it.
+    /// The property is nullable so an unset flag is omitted from the serialized
+    /// document: a scenario authored before schema
+    /// <see cref="NarrativeVersions.OptionalInteractionsSchema"/> keeps exactly the
+    /// same canonical bytes, hence the same published hash.
+    /// </summary>
+    public bool? IsOptional { get; init; }
+}
 
 public sealed record NarrationInteraction(
     string Id,
@@ -317,6 +331,21 @@ public sealed record CurrentStep(
 
     /// <summary>Media of the node the step belongs to, or <c>null</c> when the scenario declares none.</summary>
     public StepMedia? Media { get; init; }
+
+    /// <summary>
+    /// <c>true</c> when the current interaction may be skipped. A client must then
+    /// present <see cref="ExitChoices"/> next to the interaction rather than
+    /// forcing the player through it.
+    /// </summary>
+    public bool IsOptional { get; init; }
+
+    /// <summary>
+    /// Choices that leave the node, offered alongside an optional interaction.
+    /// Empty whenever the current interaction must be played, and empty when the
+    /// current interaction already is the node's exit choice set — in that case
+    /// the choices are carried by <see cref="Choices"/> as before.
+    /// </summary>
+    public IReadOnlyList<VisibleChoice> ExitChoices { get; init; } = [];
 }
 
 public sealed record TextAnalysisResult(

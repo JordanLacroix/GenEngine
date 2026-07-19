@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 4,
+  "title": "L'aparté facultatif",
+  "initialNodeId": "atrium",
+  "nodes": [
+    {
+      "id": "atrium",
+      "text": "Le diapason résonne dans l'atrium.",
+      "enterCondition": null,
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": false,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "ecouter",
+          "isOptional": true,
+          "text": "Vous prenez le temps d'écouter la salle avant qu'elle ne réponde.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "salle-ecoutee" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "decision",
+          "prompt": "Comment abordez-vous la salle ?",
+          "choices": [
+            {
+              "id": "traverser",
+              "text": "Traverser l'atrium",
+              "targetNodeId": "sortie",
+              "condition": null,
+              "effects": []
+            },
+            {
+              "id": "repondre",
+              "text": "Répondre à la note que vous venez d'entendre",
+              "targetNodeId": "sortie",
+              "condition": { "$type": "hasEvidence", "evidence": "salle-ecoutee" },
+              "effects": [
+                { "$type": "grantReward", "reward": "oreille-attentive" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sortie",
+      "text": "L'intervalle se résout.",
+      "enterCondition": null,
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true
+    }
+  ]
+}

@@ -11,6 +11,7 @@ Dernière mise à jour : 18 juillet 2026.
 - Le moteur couvre l'état joueur riche, les interactions typées, les gates de caractéristiques, le texte libre confirmé, les sauvegardes versionnées avec migrations chaînées, les effets différés conditionnels avec date logique et l'arbre de session.
 - Play expose une projection joueur stable regroupant synthèse, collection et journal.
 - Les médias sont paramétrables de bout en bout : le schéma de scénario v3 ajoute un `media` optionnel par nœud (visuel, description alternative, son) et par choix (son d'interaction, `animationCue`), tandis que Configuration publie les ambiances par emplacement applicatif et les médias de game over. Tout est facultatif, en HTTPS et jamais porteur exclusif d'information ; le moteur ne fait que transporter des références.
+- Le schéma de scénario v4 rend une interaction facultative via `isOptional`. Par défaut — drapeau absent — tout reste obligatoire, donc les scénarios et sauvegardes existants sont inchangés. Une interaction facultative est présentée à côté des choix de sortie du nœud : la jouer applique ses effets et peut révéler un choix conditionné, l'ignorer quitte le nœud sans laisser de trace. La sortie n'est offerte que si tout ce qui reste avant le `choiceSet` terminal est facultatif, donc une interaction obligatoire continue de bloquer. Voir `specs/domain/scenario-schema.md`.
 - Le moteur accepte une analyse d'entrée substituable mais validée contre la rubrique, et représente les effets externes par des événements ordonnés sans I/O.
 - Authoring expose l'analyse des boucles, sorties garanties, impasses conditionnelles et fins inatteignables, ainsi que la prévisualisation depuis un état injecté.
 - Les six API exportent logs structurés, traces HTTP et métriques via OpenTelemetry.
@@ -136,6 +137,7 @@ Contexte livré au jalon 3 :
 - Les ports PostgreSQL et observabilité sont exposés pour le développement local, pas comme modèle de production.
 - `GenEngine.Services.Tests` est actuellement un projet de test sans test découvert ; ne le présente pas comme une couverture effective.
 - Le dashboard d’observabilité repose sur les noms de métriques OpenTelemetry actuels ; toute montée de version doit les revérifier.
+- Les interactions facultatives (schéma v4) ne sont **pas encore rendues par les clients** : `GET /sessions/{id}/current-step` expose `isOptional` et `exitChoices`, mais tant qu'un client ignore `exitChoices` une interaction facultative reste vécue comme obligatoire. Le contenu Diapason est en schéma v2 et n'en déclare aucune ; le câblage client et l'usage éditorial restent à faire.
 
 ## Critère de passage de relais réussi
 

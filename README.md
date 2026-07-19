@@ -48,6 +48,7 @@ Le projet vise un moteur :
 | Moteur narratif en mémoire | ✅ Déterministe et testé |
 | État joueur riche, choix explicables et simulation de branches | ✅ Fonctionnel et testé |
 | Interactions typées, gates et texte libre confirmé | ✅ Fonctionnel et testé |
+| Interactions facultatives débloquant du contenu conditionnel | ✅ Drapeau `isOptional` en schéma v4, obligatoire par défaut |
 | Analyse de boucles/impasses et prévisualisation auteur | ✅ Exposée par Authoring |
 | PostgreSQL et sessions persistées | ✅ Une base par service |
 | Docker Compose | ✅ Parcours jouable automatisé |

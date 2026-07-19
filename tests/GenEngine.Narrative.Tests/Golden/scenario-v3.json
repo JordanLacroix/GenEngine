@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 3,
+  "title": "Golden illustrated journey",
+  "initialNodeId": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "text": "The tuning fork hums in the atrium.",
+      "enterCondition": null,
+      "onEnterEffects": [
+        { "$type": "assign", "name": "attention", "value": 1 }
+      ],
+      "choices": [],
+      "isEnding": false,
+      "media": {
+        "visualUrl": "diapason-core:scene.atrium",
+        "visualDescription": "Un atrium doré traversé par une lumière haute.",
+        "soundUrl": "https://assets.example.org/ambience-atrium-v1.ogg"
+      },
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "intro",
+          "text": "The hall listens before it answers.",
+          "continueEffects": [
+            { "$type": "increment", "name": "attention", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "quiz",
+          "id": "pitch",
+          "prompt": "Which interval is the hall holding?",
+          "answers": [
+            { "id": "fifth", "text": "A perfect fifth" },
+            { "id": "third", "text": "A major third" }
+          ],
+          "correctAnswerId": "fifth",
+          "correctEffects": [
+            { "$type": "discoverEvidence", "evidence": "tuned-interval" }
+          ],
+          "incorrectEffects": [
+            { "$type": "increment", "name": "doubt", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "first-decision",
+          "prompt": "How do you approach the hall?",
+          "choices": [
+            {
+              "id": "listen",
+              "text": "Listen before speaking",
+              "targetNodeId": "ending",
+              "condition": null,
+              "effects": [
+                { "$type": "grantReward", "reward": "attentive-ear" }
+              ],
+              "media": {
+                "soundUrl": "diapason-core:sfx.choice.confirm",
+                "animationCue": "choice-confirm"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ending",
+      "text": "The interval resolves.",
+      "enterCondition": null,
+      "onEnterEffects": [
+        { "$type": "recordNotableEvent", "label": "The fork was heard." }
+      ],
+      "choices": [],
+      "isEnding": true
+    }
+  ]
+}
