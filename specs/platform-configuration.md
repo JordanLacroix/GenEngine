@@ -74,6 +74,16 @@ Un client démarre avant toute authentification et a besoin de savoir quoi affic
 - objectifs pédagogiques, tags de recherche et politique d'aide par défaut ;
 - version des relations publiée avec le catalogue afin qu'une session ne change pas silencieusement.
 
+Un parcours représente une durée très variable — un semestre, une année, une formation entière — et peut porter jusqu'à environ 200 scénarios. Plusieurs parcours peuvent partager une même catégorie : c'est un besoin produit explicite, jamais une erreur de saisie.
+
+Le graphe de `prerequisiteJourneyIds` doit rester **acyclique**, au même titre que la hiérarchie des unités d'organisation. Un cycle, même transitif (`A → B → A`, `A → B → C → A`), verrouille définitivement tous les parcours de la boucle : aucun joueur ne peut plus en satisfaire les prérequis. `PUT /admin/configuration/{frontId}` refuse un tel document avec `journey_cycle` ; l'auto-référence reste refusée avec `invalid_journey`.
+
+Un parcours est **déverrouillé** lorsque tous ses prérequis directs sont terminés, un parcours étant terminé lorsque chacun de ses scénarios a atteint au moins une fin, sur n'importe laquelle de ses versions publiées.
+
+Un parcours **à périmètre vide compte comme trivialement terminé** et ne verrouille donc rien. Le périmètre devient vide de plusieurs façons qu'aucune validation ne peut prévenir durablement : un jalon publié sans contenu, des catégories vidées, ou des `categoryIds` pointant vers des catégories supprimées après publication. Exiger qu'un tel parcours soit terminé verrouillerait définitivement tous ses successeurs, pour tous les joueurs, sans qu'aucune action ne puisse rétablir la situation — précisément l'impasse que la validation du graphe existe pour empêcher. Échouer en ouvrant est réparable, un opérateur ajoute les scénarios et la porte se met à fonctionner ; échouer en fermant ne l'est pas. Le pourcentage d'un parcours vide reste néanmoins à zéro : l'achèvement mesure ce qui reste dû, le pourcentage mesure le travail accompli, et afficher 100 % sur un parcours vide mentirait au joueur.
+
+Chaque joueur choisit **un parcours par défaut**, stocké dans son profil `PlayerExperience` et non dans la configuration. Il est facultatif : une configuration et un profil antérieurs continuent de fonctionner sans lui.
+
 ## RBAC et rôles personnalisables
 
 Les permissions sont des contrats stables enregistrés par les services. Un administrateur autorisé compose des rôles custom à partir de ces permissions, les clone, les versionne, les active ou les archive, sans créer de permission arbitraire inconnue du backend.

@@ -26,6 +26,7 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("onboarding.use", policy => policy.RequireClaim("permission", "onboarding.use"));
     options.AddPolicy("onboarding.reset.own", policy => policy.RequireClaim("permission", "onboarding.reset.own"));
     options.AddPolicy("journal.read.own", policy => policy.RequireClaim("permission", "journal.read.own"));
+    options.AddPolicy("journey.read", policy => policy.RequireClaim("permission", "journey.read"));
 });
 
 WebApplication app = builder.Build();
@@ -57,6 +58,29 @@ experience.MapPut("/familiar", async (
         request.Selection,
         request.ExpectedRevision,
         cancellationToken).ConfigureAwait(false))).RequireAuthorization("assistant.customize");
+// Reading the journeys and choosing one's own default are both guarded by journey.read:
+// picking a default is a personal preference, not an authority over the catalog, and
+// journey.manage guards the operator view served by Configuration.
+experience.MapGet("/journeys", async (
+    string? frontId,
+    ClaimsPrincipal user,
+    PlayerExperienceService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetJourneysAsync(GetUserId(user), frontId ?? "default", cancellationToken).ConfigureAwait(false)))
+    .RequireAuthorization("journey.read");
+experience.MapPut("/journey", async (
+    string? frontId,
+    SelectJourneyRequest request,
+    ClaimsPrincipal user,
+    PlayerExperienceService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.SelectDefaultJourneyAsync(
+        GetUserId(user),
+        frontId ?? "default",
+        request.JourneyId,
+        request.ExpectedRevision,
+        cancellationToken).ConfigureAwait(false)))
+    .RequireAuthorization("journey.read");
 experience.MapPost("/onboarding/steps/{stepId:guid}/complete", async (
     Guid stepId,
     string? frontId,

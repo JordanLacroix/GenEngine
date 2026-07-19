@@ -8,13 +8,74 @@ public sealed record ShopOffer(Guid Id, string Name, string Description, int Pri
 public sealed record OnboardingStep(Guid Id, string Title, string Body, string Target, string Action, int Order, bool Required);
 public sealed record OnboardingTutorial(Guid Id, int Version, bool Enabled, bool AllowSkip, bool RequiredAfterUpgrade, IReadOnlyList<OnboardingStep> Steps);
 public sealed record AssistantPolicy(bool Enabled, bool RequireFirstRunConfiguration, bool Proactive, bool WarnOnKnownPath, int DefaultFrequency, IReadOnlyList<string> OfflineCapabilities);
-public sealed record PlayerExperienceCatalog(string CurrencyCode, string CurrencyName, string CurrencyIcon, int InitialBalance, IReadOnlyList<FamiliarOption> Familiars, IReadOnlyList<RewardRule> RewardRules, IReadOnlyList<ShopOffer> Offers, OnboardingTutorial Onboarding, AssistantPolicy Assistant);
+public sealed record CategoryCatalogEntry(Guid Id, string Name, string Description, string Accent, int Order, bool IsVisible, string? ImageUrl, IReadOnlyList<Guid> ScenarioIds);
+public sealed record JourneyCatalogEntry(Guid Id, string Name, string Description, string Accent, string? ImageUrl, int Order, bool IsVisible, IReadOnlyList<Guid> CategoryIds, IReadOnlyList<Guid> PrerequisiteJourneyIds, IReadOnlyList<string> Tags);
+
+/// <summary>
+/// Published catalog of a front, translated from the configuration document. Journeys
+/// and categories are optional so a front published before journeys existed keeps
+/// working: the player simply has no journey to choose from.
+/// </summary>
+public sealed record PlayerExperienceCatalog(
+    string CurrencyCode,
+    string CurrencyName,
+    string CurrencyIcon,
+    int InitialBalance,
+    IReadOnlyList<FamiliarOption> Familiars,
+    IReadOnlyList<RewardRule> RewardRules,
+    IReadOnlyList<ShopOffer> Offers,
+    OnboardingTutorial Onboarding,
+    AssistantPolicy Assistant,
+    IReadOnlyList<JourneyCatalogEntry>? Journeys = null,
+    IReadOnlyList<CategoryCatalogEntry>? Categories = null);
 public sealed record FamiliarSelection(Guid FamiliarId, string Form, string Tone, string WritingStyle, string Accent, int HelpLevel, string? CustomName = null, int InterventionFrequency = 2, bool Proactive = true);
 public sealed record WalletEntryView(Guid Id, int Amount, string Reason, int BalanceAfter, DateTimeOffset CreatedAt);
 public sealed record OnboardingStateView(Guid TutorialId, int Version, string Status, IReadOnlyList<Guid> CompletedStepIds, DateTimeOffset? CompletedAt, DateTimeOffset? SkippedAt, int Revision);
 public sealed record JournalEntryView(Guid Id, string Type, string Title, string Summary, Guid? JourneyId, Guid? CategoryId, Guid? ScenarioId, Guid? ScenarioVersionId, Guid? SessionId, string? ReferenceId, DateTimeOffset OccurredAt);
 public sealed record ScenarioMasteryView(Guid ScenarioId, Guid ScenarioVersionId, IReadOnlyList<string> ChoiceIds, IReadOnlyList<string> NodeIds, IReadOnlyList<string> EndingIds, int DiscoveredObjectives, int TotalObjectives, int MasteryPercent, DateTimeOffset UpdatedAt);
-public sealed record PlayerExperienceView(Guid Id, string FrontId, int Revision, int Balance, string CurrencyCode, string CurrencyName, string CurrencyIcon, FamiliarSelection? Familiar, FamiliarOption? FamiliarDefinition, OnboardingStateView Onboarding, IReadOnlyList<ScenarioMasteryView> Masteries, IReadOnlyList<Guid> OwnedOfferIds, IReadOnlyList<WalletEntryView> RecentEntries, IReadOnlyList<JournalEntryView> RecentJournal);
+/// <summary>Progression of one category, aggregated from <see cref="ScenarioMasteryView"/>.</summary>
+public sealed record CategoryProgressView(
+    Guid Id,
+    string Name,
+    string Accent,
+    int Order,
+    bool IsVisible,
+    string? ImageUrl,
+    int ScenarioCount,
+    int StartedCount,
+    int CompletedCount,
+    int ProgressPercent);
+
+/// <summary>
+/// Progression and unlock state of one journey. <see cref="BlockedByJourneyIds"/> and
+/// <see cref="BlockedByJourneyNames"/> name the prerequisites that are not satisfied yet,
+/// so a client can explain a locked door instead of only greying it out.
+/// </summary>
+public sealed record JourneyProgressView(
+    Guid Id,
+    string Name,
+    string Description,
+    string Accent,
+    string? ImageUrl,
+    int Order,
+    bool IsVisible,
+    IReadOnlyList<string> Tags,
+    bool IsUnlocked,
+    IReadOnlyList<Guid> BlockedByJourneyIds,
+    IReadOnlyList<string> BlockedByJourneyNames,
+    int ScenarioCount,
+    int StartedCount,
+    int CompletedCount,
+    int ProgressPercent,
+    IReadOnlyList<CategoryProgressView> Categories);
+
+/// <summary>
+/// Journeys visible to the caller, with the journey the player selected and the journey
+/// that actually applies once validity and unlocking are taken into account.
+/// </summary>
+public sealed record PlayerJourneysView(Guid? DefaultJourneyId, Guid? EffectiveJourneyId, int Revision, IReadOnlyList<JourneyProgressView> Items);
+
+public sealed record PlayerExperienceView(Guid Id, string FrontId, int Revision, int Balance, string CurrencyCode, string CurrencyName, string CurrencyIcon, FamiliarSelection? Familiar, FamiliarOption? FamiliarDefinition, OnboardingStateView Onboarding, IReadOnlyList<ScenarioMasteryView> Masteries, IReadOnlyList<Guid> OwnedOfferIds, IReadOnlyList<WalletEntryView> RecentEntries, IReadOnlyList<JournalEntryView> RecentJournal, Guid? DefaultJourneyId = null, JourneyProgressView? EffectiveJourney = null);
 public sealed record PlayerBootstrapView(string NextAction, PlayerExperienceView Experience, OnboardingTutorial Tutorial, AssistantPolicy Assistant);
 public sealed record JournalView(IReadOnlyList<JournalEntryView> Items, int Page, int PageSize, int Total, IReadOnlyDictionary<string, int> TotalsByType);
 public sealed record JournalFilter(string? Type, Guid? JourneyId, Guid? CategoryId, Guid? ScenarioId);
@@ -100,6 +161,54 @@ public sealed class PlayerExperienceService(
 
         PlayerProfile profile = await GetOrCreateAsync(userId, frontId, catalog, cancellationToken).ConfigureAwait(false);
         profile.ConfigureFamiliar(selection.FamiliarId, selection.Form, selection.Tone, selection.WritingStyle, selection.Accent, selection.HelpLevel, selection.CustomName, selection.InterventionFrequency, selection.Proactive, expectedRevision, timeProvider.GetUtcNow());
+        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return Map(profile, catalog);
+    }
+
+    /// <summary>
+    /// Journeys the caller may see, each with its unlock state and its progression.
+    /// Invisible journeys are never listed: visibility is a publishing decision.
+    /// </summary>
+    public async Task<PlayerJourneysView> GetJourneysAsync(string userId, string frontId, CancellationToken cancellationToken)
+    {
+        PlayerExperienceCatalog catalog = await catalogs.GetAsync(frontId, cancellationToken).ConfigureAwait(false);
+        PlayerProfile profile = await GetOrCreateAsync(userId, frontId, catalog, cancellationToken).ConfigureAwait(false);
+        JourneyProgressView[] journeys = BuildJourneys(profile, catalog);
+        return new PlayerJourneysView(
+            profile.DefaultJourneyId,
+            ResolveEffective(profile, journeys)?.Id,
+            profile.Revision,
+            journeys.Where(static journey => journey.IsVisible).ToArray());
+    }
+
+    /// <summary>
+    /// Sets the journey the player browses by default, or clears it with a null identifier.
+    /// The journey is validated against the published document: an unknown, hidden or
+    /// still-locked journey is refused rather than silently ignored, otherwise a client
+    /// would show a map the server does not agree with.
+    /// </summary>
+    public async Task<PlayerExperienceView> SelectDefaultJourneyAsync(string userId, string frontId, Guid? journeyId, int expectedRevision, CancellationToken cancellationToken)
+    {
+        PlayerExperienceCatalog catalog = await catalogs.GetAsync(frontId, cancellationToken).ConfigureAwait(false);
+        PlayerProfile profile = await GetOrCreateAsync(userId, frontId, catalog, cancellationToken).ConfigureAwait(false);
+        if (journeyId is Guid requested)
+        {
+            JourneyProgressView journey = BuildJourneys(profile, catalog).SingleOrDefault(item => item.Id == requested)
+                ?? throw new PlayerExperienceException("journey_not_found", "The selected journey is unavailable.");
+            if (!journey.IsVisible)
+            {
+                throw new PlayerExperienceException("journey_not_found", "The selected journey is unavailable.");
+            }
+
+            if (!journey.IsUnlocked)
+            {
+                throw new PlayerExperienceException(
+                    "journey_locked",
+                    $"The journey requires completing first: {string.Join(", ", journey.BlockedByJourneyNames)}.");
+            }
+        }
+
+        profile.SelectDefaultJourney(journeyId, expectedRevision, timeProvider.GetUtcNow());
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return Map(profile, catalog);
     }
@@ -348,9 +457,145 @@ public sealed class PlayerExperienceService(
         return profile;
     }
 
+    /// <summary>Progression of one scenario, folded over every published version played.</summary>
+    private readonly record struct ScenarioProgress(int MasteryPercent, bool Completed);
+
+    /// <summary>
+    /// Progression per scenario. A scenario can be played across several published
+    /// versions and <see cref="ScenarioMastery"/> is keyed by version, so the two criteria
+    /// are folded independently: the percentage is the best reached on any version, and
+    /// the scenario counts as completed as soon as <em>any</em> version reached an ending.
+    /// Reading completion off the highest-percentage version alone would un-complete a
+    /// scenario the moment the player explores a newer version without finishing it —
+    /// curiosity would lock the journeys downstream, which is the opposite of the intent.
+    /// </summary>
+    private static Dictionary<Guid, ScenarioProgress> ProgressByScenario(PlayerProfile profile)
+    {
+        Dictionary<Guid, ScenarioProgress> progress = [];
+        foreach (ScenarioMastery mastery in profile.ScenarioMasteries)
+        {
+            bool completed = mastery.EndingIds.Count > 0;
+            progress[mastery.ScenarioId] = progress.TryGetValue(mastery.ScenarioId, out ScenarioProgress current)
+                ? new ScenarioProgress(Math.Max(current.MasteryPercent, mastery.MasteryPercent), current.Completed || completed)
+                : new ScenarioProgress(mastery.MasteryPercent, completed);
+        }
+
+        return progress;
+    }
+
+    /// <summary>
+    /// Aggregates <see cref="ScenarioMastery"/> per journey and per category. Mastery is
+    /// never recomputed here: it is the source of truth and is only summed.
+    /// A scenario counts as started as soon as a mastery exists for it, and as completed
+    /// once at least one ending was reached on any of its versions. The percentage is the mean mastery over every
+    /// scenario of the scope, scenarios never played counting as zero, so a scope that
+    /// carries no scenario yet reports zero instead of a misleading hundred.
+    /// </summary>
+    private static JourneyProgressView[] BuildJourneys(PlayerProfile profile, PlayerExperienceCatalog catalog)
+    {
+        IReadOnlyList<JourneyCatalogEntry> journeys = catalog.Journeys ?? [];
+        Dictionary<Guid, CategoryCatalogEntry> categories = (catalog.Categories ?? []).ToDictionary(static category => category.Id);
+        Dictionary<Guid, ScenarioProgress> progress = ProgressByScenario(profile);
+
+        Dictionary<Guid, CategoryProgressView> categoryProgress = categories.Values.ToDictionary(
+            static category => category.Id,
+            category =>
+            {
+                (int started, int completed, int percent) = Aggregate(category.ScenarioIds, progress);
+                return new CategoryProgressView(category.Id, category.Name, category.Accent, category.Order, category.IsVisible, category.ImageUrl, category.ScenarioIds.Count, started, completed, percent);
+            });
+
+        // An empty scope counts as completed, so it never gates anything. A journey ends up
+        // with no scenario in ways nobody can undo from the outside — a milestone published
+        // without content, emptied categories, or categoryIds pointing at categories deleted
+        // after publication, which JourneyScenarioIds silently filters out. Requiring it to
+        // be completed would lock every downstream journey permanently, for every player,
+        // with no action able to recover: exactly the dead end ValidateJourneyPrerequisiteGraph
+        // exists to prevent. Failing open is recoverable — an operator adds the scenarios and
+        // the gate starts working; failing closed is not. Note the deliberate asymmetry with
+        // the percentage, which stays at zero: completion measures outstanding requirements,
+        // the percentage measures work done, and showing 100 % on an empty journey would lie.
+        Dictionary<Guid, (string Name, bool Completed)> completion = journeys.ToDictionary(
+            static journey => journey.Id,
+            journey =>
+            {
+                Guid[] scenarioIds = JourneyScenarioIds(journey, categories);
+                (int _, int completed, int _) = Aggregate(scenarioIds, progress);
+                return (journey.Name, completed == scenarioIds.Length);
+            });
+
+        return journeys.OrderBy(static journey => journey.Order).Select(journey =>
+        {
+            Guid[] scenarioIds = JourneyScenarioIds(journey, categories);
+            (int started, int completed, int percent) = Aggregate(scenarioIds, progress);
+            Guid[] blocking = journey.PrerequisiteJourneyIds
+                .Where(prerequisiteId => completion.TryGetValue(prerequisiteId, out (string Name, bool Completed) prerequisite) && !prerequisite.Completed)
+                .ToArray();
+            return new JourneyProgressView(
+                journey.Id,
+                journey.Name,
+                journey.Description,
+                journey.Accent,
+                journey.ImageUrl,
+                journey.Order,
+                journey.IsVisible,
+                journey.Tags,
+                blocking.Length == 0,
+                blocking,
+                blocking.Select(prerequisiteId => completion[prerequisiteId].Name).ToArray(),
+                scenarioIds.Length,
+                started,
+                completed,
+                percent,
+                journey.CategoryIds
+                    .Where(categoryProgress.ContainsKey)
+                    .Select(categoryId => categoryProgress[categoryId])
+                    .OrderBy(static category => category.Order)
+                    .ToArray());
+        }).ToArray();
+    }
+
+    private static Guid[] JourneyScenarioIds(JourneyCatalogEntry journey, Dictionary<Guid, CategoryCatalogEntry> categories) =>
+        journey.CategoryIds
+            .Where(categories.ContainsKey)
+            .SelectMany(categoryId => categories[categoryId].ScenarioIds)
+            .Distinct()
+            .ToArray();
+
+    private static (int Started, int Completed, int Percent) Aggregate(IReadOnlyList<Guid> scenarioIds, Dictionary<Guid, ScenarioProgress> progress)
+    {
+        if (scenarioIds.Count == 0) return (0, 0, 0);
+        int started = 0;
+        int completed = 0;
+        int total = 0;
+        foreach (Guid scenarioId in scenarioIds)
+        {
+            if (!progress.TryGetValue(scenarioId, out ScenarioProgress scenario)) continue;
+            started++;
+            if (scenario.Completed) completed++;
+            total += scenario.MasteryPercent;
+        }
+
+        return (started, completed, (int)Math.Round(total / (double)scenarioIds.Count, MidpointRounding.AwayFromZero));
+    }
+
+    /// <summary>
+    /// Journey that actually applies. The stored preference wins when it is still visible
+    /// and unlocked; otherwise the first visible unlocked journey takes over, so a player
+    /// whose default disappeared from a new publication still opens a usable map.
+    /// </summary>
+    private static JourneyProgressView? ResolveEffective(PlayerProfile profile, IReadOnlyList<JourneyProgressView> journeys)
+    {
+        JourneyProgressView? selected = profile.DefaultJourneyId is Guid journeyId
+            ? journeys.FirstOrDefault(journey => journey.Id == journeyId && journey.IsVisible && journey.IsUnlocked)
+            : null;
+        return selected ?? journeys.FirstOrDefault(static journey => journey.IsVisible && journey.IsUnlocked);
+    }
+
     private static PlayerExperienceView Map(PlayerProfile profile, PlayerExperienceCatalog catalog)
     {
         FamiliarOption? familiarDefinition = profile.FamiliarId is Guid familiarId ? catalog.Familiars.FirstOrDefault(item => item.Id == familiarId) : null;
+        JourneyProgressView[] journeys = BuildJourneys(profile, catalog);
         return new(profile.Id, profile.FrontId, profile.Revision, profile.Balance, catalog.CurrencyCode, catalog.CurrencyName, catalog.CurrencyIcon,
             profile.FamiliarId is null ? null : new FamiliarSelection(profile.FamiliarId.Value, profile.FamiliarForm, profile.FamiliarTone, profile.FamiliarWritingStyle, profile.FamiliarAccent, profile.FamiliarHelpLevel, profile.FamiliarCustomName, profile.FamiliarInterventionFrequency, profile.FamiliarProactive),
             familiarDefinition,
@@ -358,7 +603,9 @@ public sealed class PlayerExperienceService(
             profile.ScenarioMasteries.OrderByDescending(static item => item.UpdatedAt).Select(MapMastery).ToArray(),
             profile.OwnedItems.Select(static item => item.OfferId).ToArray(),
             profile.WalletEntries.OrderByDescending(static entry => entry.CreatedAt).Take(20).Select(static entry => new WalletEntryView(entry.Id, entry.Amount, entry.Reason, entry.BalanceAfter, entry.CreatedAt)).ToArray(),
-            profile.JournalEntries.OrderByDescending(static entry => entry.OccurredAt).Take(20).Select(MapJournal).ToArray());
+            profile.JournalEntries.OrderByDescending(static entry => entry.OccurredAt).Take(20).Select(MapJournal).ToArray(),
+            profile.DefaultJourneyId,
+            ResolveEffective(profile, journeys));
     }
 
     private static OnboardingStateView MapOnboarding(PlayerProfile profile, OnboardingTutorial tutorial)
@@ -373,7 +620,7 @@ public sealed class PlayerExperienceService(
         new(entry.Id, entry.Type, entry.Title, entry.Summary, entry.JourneyId, entry.CategoryId, entry.ScenarioId, entry.ScenarioVersionId, entry.SessionId, entry.ReferenceId, entry.OccurredAt);
 
     private static ScenarioMasteryView MapMastery(ScenarioMastery mastery) =>
-        new(mastery.ScenarioId, mastery.ScenarioVersionId, mastery.ChoiceIds, System.Text.Json.JsonSerializer.Deserialize<string[]>(mastery.NodeIdsJson) ?? [], System.Text.Json.JsonSerializer.Deserialize<string[]>(mastery.EndingIdsJson) ?? [], mastery.DiscoveredObjectives, mastery.TotalObjectives, mastery.MasteryPercent, mastery.UpdatedAt);
+        new(mastery.ScenarioId, mastery.ScenarioVersionId, mastery.ChoiceIds, mastery.NodeIds, mastery.EndingIds, mastery.DiscoveredObjectives, mastery.TotalObjectives, mastery.MasteryPercent, mastery.UpdatedAt);
 }
 
 public sealed class PlayerExperienceException : InvalidOperationException
