@@ -104,6 +104,14 @@ La tranche suivante complète les périodes métier nommées, l'import de masse 
 - `install-diapason.sh` n'est pas idempotent : `POST /scenarios/import` crée toujours un nouveau brouillon ;
 - le seeder de configuration ne rejoue jamais sur une base non vide : une instance antérieure conserve son ancien document.
 
+### Tranche `feat/branding-client-bootstrap` — vérifiée le 19 juillet 2026
+
+- Bloc `branding` **facultatif et purement additif** dans `ExperienceDocument` : nom d'application, nom court, accroche, quatre icônes, `theme` (couleurs nommées avec huit jetons obligatoires, `colorScheme`, rayon de coin, typographie) et `accentPalette`. Cette dernière associe enfin les jetons d'accent de `CategoryDefinition`, `JourneyDefinition` et `FamiliarDefinition` à de vraies couleurs. Validation `invalid_branding` : hexadécimal strict `#RRGGBB`/`#RRGGBBAA`, icônes passées par l'`IsValidAssetUrl` existant (HTTPS absolu ou `packId:assetId`). Une configuration sans `branding` reste publiable et lisible à l'identique — test dédié.
+- Nouvelle route anonyme `GET /client-bootstrap/{frontId}` : identité, marque, locale, fuseau, libellés, intro, mode d'authentification seul, drapeau démo, `version`/`publishedAt`. Rien d'autre.
+- **Correctif de sécurité** sur `GET /experience/{frontId}`, anonyme : la projection ne porte plus les identifiants de locataire et de client Entra, les endpoints et schémas d'authentification des providers IA, la structure d'organisation (`null`) ni les affectations (`[]`). Le document complet reste servi par `GET /admin/configuration/{frontId}` sous `config.read`, ce que couvre un test dédié. Les identifiants Entra dont un client a besoin sont déjà publiés par Identity sur `GET /auth/providers`, seule source pour un démarrage OIDC. Les trois consommateurs interservice (`Play` → `journeys`, `PlayerExperience` → `familiars`/économie/onboarding/politique assistant, `Authoring` → jeu et catégories) n'ont pas été affectés : aucune route interne supplémentaire n'a été nécessaire. Répartition champ par champ dans [`api/http.md`](api/http.md).
+- Diapason porte un `branding` aligné sur la direction artistique (`specs/domain/diapason/README.md`) et le bloc `palette` du manifeste d'assets. **Toutes les icônes restent nulles** : le pack `diapason-core` ne fournit ni icône de marque, ni logo, ni favicon, et son champ `gaps` acte l'absence.
+- 186 tests backend au vert. `scripts/smoke-test.sh` vérifie désormais l'absence de fuite sur `/experience` et la forme minimale de `/client-bootstrap`.
+
 Contexte livré au jalon 3 :
 
 - `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.
