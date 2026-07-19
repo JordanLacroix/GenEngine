@@ -364,7 +364,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         new AuthenticationDefinition(AuthenticationMode.LocalOnly, true, false, null, null),
         [
             new AiProviderDefinition(Guid.Parse("3e6f6554-9b55-49ca-bd24-19e2f57e672a"), "Hors ligne", AiProviderType.Offline, true, string.Empty, "deterministic", "None", null, ["chat", "scenario-generation"]),
-            new AiProviderDefinition(Guid.Parse("43b164f2-5a7d-48c0-b5c6-0dd7a3d44ea4"), "Azure AI Foundry", AiProviderType.AzureAiFoundry, false, "https://resource.openai.azure.com/openai/v1/", "gpt-4.1-mini", "EntraId", "azure-foundry-credential", ["chat", "scenario-generation", "input-analysis"]),
+            new AiProviderDefinition(Guid.Parse("43b164f2-5a7d-48c0-b5c6-0dd7a3d44ea4"), "Azure AI Foundry", AiProviderType.AzureAiFoundry, false, "https://resource.openai.azure.com/openai/v1/", "gpt-4.1-mini", "EntraId", "env:GENENGINE_AI_AZURE_FOUNDRY_KEY", ["chat", "scenario-generation", "input-analysis"]),
         ],
         [
             new CategoryDefinition(DiapasonIds.Lucidite, "Lucidité", "Voir ce qui est réellement là avant d'interpréter.", "encre", 1, true),
@@ -546,6 +546,17 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             || assignments.Select(static assignment => assignment.Id).Distinct().Count() != assignments.Count)
         {
             throw new ConfigurationException("duplicate_identifier", "Category, familiar and provider identifiers must be unique.");
+        }
+
+        // A blank reference means "no credential needed"; anything else must match the
+        // scheme:identifier grammar. The offending value is never echoed back.
+        if (document.AiProviders.Any(static provider =>
+                !string.IsNullOrWhiteSpace(provider.SecretReference)
+                && !GenEngine.Secrets.SecretReferenceGrammar.IsWellFormed(provider.SecretReference)))
+        {
+            throw new ConfigurationException(
+                "invalid_secret_reference",
+                "An AI provider secret reference must match the scheme:identifier grammar.");
         }
 
         OrganizationDefinition organization = document.Organization

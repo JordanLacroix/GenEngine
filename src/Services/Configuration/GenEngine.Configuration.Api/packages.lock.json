@@ -274,7 +274,8 @@
       "genengine.configuration.application": {
         "type": "Project",
         "dependencies": {
-          "GenEngine.Configuration.Domain": "[1.0.0, )"
+          "GenEngine.Configuration.Domain": "[1.0.0, )",
+          "GenEngine.Secrets": "[1.0.0, )"
         }
       },
       "genengine.configuration.domain": {
@@ -297,6 +298,9 @@
           "OpenTelemetry.Instrumentation.Http": "[1.16.0, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.16.0, )"
         }
+      },
+      "genengine.secrets": {
+        "type": "Project"
       },
       "Microsoft.EntityFrameworkCore": {
         "type": "CentralTransitive",

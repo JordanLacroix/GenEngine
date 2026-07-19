@@ -96,7 +96,13 @@ public sealed class ConfigurationServiceTests
         Assert.Equal("client-id", admin.Document.Authentication.EntraClientId);
         Assert.NotNull(admin.Document.Organization);
         Assert.NotEmpty(admin.Document.Organization!.Units);
-        Assert.Contains(admin.Document.AiProviders, static provider => provider.SecretReference == "azure-foundry-credential");
+        // The admin surface is the only one that keeps the reference. Its value is the
+        // default set by CreateDefault; assert the grammar too, so a future default that
+        // no resolver could ever read fails here rather than silently at runtime.
+        Assert.Contains(admin.Document.AiProviders, static provider => provider.SecretReference == "env:GENENGINE_AI_AZURE_FOUNDRY_KEY");
+        Assert.All(
+            admin.Document.AiProviders.Where(static provider => !string.IsNullOrWhiteSpace(provider.SecretReference)),
+            static provider => Assert.True(GenEngine.Secrets.SecretReferenceGrammar.IsWellFormed(provider.SecretReference)));
         Assert.Contains(admin.Document.AiProviders, static provider => provider.Endpoint.StartsWith("https://", StringComparison.Ordinal));
     }
 

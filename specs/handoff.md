@@ -120,6 +120,66 @@ La tranche suivante complète les périodes métier nommées, l'import de masse 
 - Le port `IAssistantAiClient` est en place avec repli hors ligne garanti dans le service lui-même. **Aucun fournisseur réel n'est implémenté ni validé de bout en bout** : le défaut enregistré se déclare non configuré, et le branchement n'est couvert que par doubles (succès, erreur, dépassement de délai). Câbler un fournisseur réel reste à faire.
 - Un test vérifie qu'un appel d'aide n'écrit rien : ni sauvegarde, ni révision, ni journal, ni portefeuille.
 
+### Tranche `feat/secret-resolution` — vérifiée le 19 juillet 2026
+
+**Constat de départ, vérifié** : `AiProviderDefinition.SecretReference` existait depuis
+longtemps et `ConfigurationService.GetPublishedAsync` prenait soin de l'effacer des projections
+anonymes, mais **aucun chemin du dépôt ne transformait cette référence en identifiant
+utilisable**. Les seules occurrences de `SecretReference` dans tout le dépôt étaient la
+déclaration du record, la ligne de redaction, la valeur par défaut et l'assertion de redaction
+dans les tests. La valeur par défaut était `"azure-foundry-credential"` : une chaîne opaque
+sans grammaire ni résolveur.
+
+- Nouveau building block [`GenEngine.Secrets`](../src/BuildingBlocks/GenEngine.Secrets/) — sans
+  dépendance, sans I/O disque : `SecretReference` (grammaire `scheme:identifier`),
+  `SecretValue` (rendus implicites rabattus sur `***`, `Reveal()` explicite),
+  `SecretResolution` (échec = valeur, cause close), `ISecretResolver`/`ISecretStore`,
+  `EnvironmentSecretResolver` (schéma `env`) et `SecretStore` (dispatch par schéma).
+- `AiProviderCredentialResolver` dans `Configuration.Application` traduit un
+  `AiProviderDefinition` en `AiProviderAvailability` (`ready`, `provider_disabled`,
+  `no_credential_required`, `secret_not_found`…) ou en `SecretValue?`.
+- Grammaire refusée à l'écriture : `PUT /admin/configuration/{frontId}` renvoie
+  `invalid_secret_reference` sans réémettre la valeur refusée.
+- Défaut migré vers `env:GENENGINE_AI_AZURE_FOUNDRY_KEY` ; variable câblée vide dans
+  `compose.yaml` (Authoring, PlayerExperience) et `.env.example`.
+- Grammaire et extensibilité documentées dans
+  [`platform-configuration.md`](platform-configuration.md#références-de-secrets).
+
+**Ce qui est testé** (`tests/GenEngine.Services.Tests/SecretResolutionTests.cs` ; 226 tests
+backend au vert après fusion de `main`) : résolution réussie depuis l'environnement ; secret absent → fournisseur
+non utilisable, aucun fragment de référence dans la raison ; backend qui lève → rabattu sur
+`secret_not_found` ; huit grammaires invalides rejetées ; rejet explicite à l'`Upsert` ;
+`vault:` dégradé en `secret_scheme_unsupported` ; fournisseur `Offline` et fournisseur
+désactivé. Le test central `NoSecretCanReachAClientProjectionAnAvailabilityPayloadOrALog`
+résout **réellement** le secret, puis prouve son absence des deux surfaces anonymes
+(`GET /experience` et le `GET /client-bootstrap` livré par #52), du payload de disponibilité
+et de sept chemins de rendu de log.
+
+Le test `AdminViewKeepsTheCompleteDocumentTheAnonymousRouteNoLongerServes` livré par #52
+figeait l'ancienne valeur littérale `"azure-foundry-credential"` ; il a été recalé sur le
+nouveau défaut et vérifie en plus que toute référence par défaut respecte la grammaire, pour
+qu'un défaut illisible par tout résolveur échoue au test plutôt qu'à l'exécution.
+
+**Ce qui n'est pas testé et ne doit pas être présenté autrement** : aucun client de
+coffre-fort n'est livré. Le schéma `vault` est *réservé*, pas implémenté — il n'existe aucun
+code à tester, et rien ici n'a été validé contre un coffre-fort réel. Aucun appel à un
+fournisseur IA réel n'a été exercé.
+
+**Branchement avec `IAssistantAiClient`** (fusionné entre-temps par #56) : les deux contrats
+s'accordent sans adaptation. `IAssistantAiClient.IsConfigured` correspond exactement à
+`AiProviderAvailability.IsUsable`, et le `null` que le port impose de retourner plutôt que de
+lever correspond à la règle « l'échec est une valeur » de `SecretResolution`. La documentation
+du port dit déjà qu'une implémentation « resolves its own credentials locally » : c'est
+précisément ce que `SecretStore` fournit, et c'était la pièce manquante.
+
+**Le câblage reste toutefois à faire, et rien ici ne doit être lu autrement.** Le seul
+`IAssistantAiClient` enregistré est `OfflineAssistantAiClient`, dont `IsConfigured` est
+`false` en dur ; aucun chemin de `PlayerExperience` n'appelle aujourd'hui `SecretStore`.
+Brancher la résolution suppose de livrer un client de fournisseur réel — ce que cette tranche
+s'interdit faute de pouvoir le vérifier. Enregistrer un `SecretStore` inutilisé dans la DI de
+`PlayerExperience` aurait ajouté un composant sans consommateur, ce que les instructions du
+dépôt proscrivent ; la dépendance sera ajoutée en même temps que le client qui s'en sert.
+
 Contexte livré au jalon 3 :
 
 - `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.
