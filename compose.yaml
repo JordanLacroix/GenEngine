@@ -251,6 +251,40 @@ services:
       timeout: 3s
       retries: 20
 
+  # Client Web. Le navigateur ne parle qu'à ce service : la résolution des URLs
+  # de moteur est faite côté Node, donc les noms de services Compose suffisent.
+  web:
+    build:
+      context: ../GenEngine.Web
+      dockerfile: Dockerfile
+    environment:
+      GENENGINE_AUTHORING_URL: http://authoring:8080
+      GENENGINE_PLAY_URL: http://play:8080
+      GENENGINE_IDENTITY_URL: http://identity:8080
+      GENENGINE_CONFIGURATION_URL: http://configuration:8080
+      GENENGINE_PLAYER_EXPERIENCE_URL: http://player-experience:8080
+      GENENGINE_ORGANIZATION_URL: http://organization:8080
+      # L'image est bâtie en NODE_ENV=production, où la surcharge de session est
+      # désactivée par défaut. On la rouvre explicitement pour la pile locale,
+      # sinon l'écran /parametres serait en lecture seule sur une démonstration.
+      GENENGINE_ALLOW_ENDPOINT_OVERRIDE: "true"
+      GENENGINE_ENDPOINT_ALLOWED_HOSTS: localhost,127.0.0.1,::1,host.docker.internal,authoring,play,identity,configuration,player-experience,organization
+    ports:
+      - "3000:3000"
+    depends_on:
+      authoring:
+        condition: service_healthy
+      configuration:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+      play:
+        condition: service_healthy
+      player-experience:
+        condition: service_healthy
+      organization:
+        condition: service_healthy
+
 volumes:
   authoring-data:
   play-data:
