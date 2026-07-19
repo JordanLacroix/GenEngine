@@ -283,39 +283,58 @@ public static class IdentityInfrastructureExtensions
         {
             DateTimeOffset now = TimeProvider.System.GetUtcNow();
             dbContext.Roles.AddRange(
-                CustomRole.Create("Player", "Joue, suit sa progression et personnalise son familier.", ["session.play", "shop.read", "assistant.use", "assistant.customize", "onboarding.use", "onboarding.reset.own", "progress.read.own", "journal.read.own", "journal.export.own", "help.read", "media.read"], now, true),
-                CustomRole.Create("Creator", "Crée, prévisualise et publie des scénarios.", ["session.play", "shop.read", "assistant.use", "assistant.customize", "onboarding.use", "onboarding.reset.own", "progress.read.own", "journal.read.own", "journal.export.own", "help.read", "media.read", "scenario.author", "scenario.publish", "ai.generate"], now, true),
+                CustomRole.Create("Player", "Joue, suit sa progression et personnalise son familier.", PlayerPresetPermissions, now, true),
+                CustomRole.Create("Creator", "Crée, prévisualise et publie des scénarios.", CreatorPresetPermissions, now, true),
                 CustomRole.Create("Administrator", "Administre l'expérience, les accès et les providers.", PermissionCatalog.All.Keys, now, true));
             await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         }
 
-        CustomRole? player = await dbContext.Roles.Include(static role => role.Permissions)
-            .SingleOrDefaultAsync(role => role.NormalizedName == "PLAYER", cancellationToken)
-            .ConfigureAwait(false);
-        if (player is not null)
+        // Every system role is synchronised, not only Player and Administrator: a preset
+        // that gains a permission must gain it on already-seeded instances too, otherwise
+        // the role silently 403s on the new routes until the database is recreated.
+        foreach ((string normalizedName, IReadOnlyCollection<string> permissions) in SystemRolePresets)
         {
-            string[] playerPermissions = ["session.play", "shop.read", "assistant.use", "assistant.customize", "onboarding.use", "onboarding.reset.own", "progress.read.own", "journal.read.own", "journal.export.own", "help.read", "media.read"];
-            HashSet<string> existing = player.Permissions.Select(static permission => permission.PermissionCode).ToHashSet(StringComparer.Ordinal);
-            foreach (string permissionCode in playerPermissions.Where(code => !existing.Contains(code)))
-            {
-                dbContext.RolePermissions.Add(RolePermissionGrant.Create(player.Id, permissionCode));
-            }
-            await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            await SyncSystemRolePermissionsAsync(dbContext, normalizedName, permissions, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private static readonly string[] PlayerPresetPermissions =
+    [
+        "session.play", "shop.read", "assistant.use", "assistant.customize", "onboarding.use",
+        "onboarding.reset.own", "progress.read.own", "journal.read.own", "journal.export.own",
+        "help.read", "media.read", "journey.read",
+    ];
+
+    private static readonly string[] CreatorPresetPermissions =
+    [
+        .. PlayerPresetPermissions, "scenario.author", "scenario.publish", "ai.generate",
+    ];
+
+    private static IReadOnlyList<(string NormalizedName, IReadOnlyCollection<string> Permissions)> SystemRolePresets =>
+    [
+        ("PLAYER", PlayerPresetPermissions),
+        ("CREATOR", CreatorPresetPermissions),
+        ("ADMINISTRATOR", PermissionCatalog.All.Keys.ToArray()),
+    ];
+
+    private static async Task SyncSystemRolePermissionsAsync(
+        IdentityDbContext dbContext,
+        string normalizedName,
+        IReadOnlyCollection<string> permissions,
+        CancellationToken cancellationToken)
+    {
+        CustomRole? role = await dbContext.Roles.Include(static item => item.Permissions)
+            .SingleOrDefaultAsync(item => item.NormalizedName == normalizedName, cancellationToken)
+            .ConfigureAwait(false);
+        if (role is null) return;
+
+        HashSet<string> existing = role.Permissions.Select(static permission => permission.PermissionCode).ToHashSet(StringComparer.Ordinal);
+        foreach (string permissionCode in permissions.Where(code => !existing.Contains(code)))
+        {
+            dbContext.RolePermissions.Add(RolePermissionGrant.Create(role.Id, permissionCode));
         }
 
-        CustomRole? administrator = await dbContext.Roles.Include(static role => role.Permissions)
-            .SingleOrDefaultAsync(role => role.NormalizedName == "ADMINISTRATOR", cancellationToken)
-            .ConfigureAwait(false);
-        if (administrator is not null)
-        {
-            HashSet<string> existing = administrator.Permissions.Select(static permission => permission.PermissionCode).ToHashSet(StringComparer.Ordinal);
-            foreach (string permissionCode in PermissionCatalog.All.Keys.Where(code => !existing.Contains(code)))
-            {
-                dbContext.RolePermissions.Add(RolePermissionGrant.Create(administrator.Id, permissionCode));
-            }
-
-            await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        }
+        await dbContext.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public static void MapIdentityHealthChecks(this WebApplication app)
