@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 6,
   "title": "La réunion où personne ne doute",
   "initialNodeId": "salle",
   "nodes": [
@@ -33,6 +33,48 @@
           "continueEffects": []
         },
         {
+          "$type": "document",
+          "id": "le-point-3",
+          "isOptional": true,
+          "prompt": "Rouvrir l'analyse sur votre portable et relire le point 3",
+          "document": {
+            "title": "Analyse comparative — migration du système de gestion des stocks",
+            "nature": "Report",
+            "headers": [
+              { "name": "Source", "value": "80 documents internes, dernière indexation le 12 novembre" },
+              { "name": "Recommandation", "value": "Option B" }
+            ],
+            "excerpt": { "shownUnits": 4, "totalUnits": 96, "unit": "Paragraphs" },
+            "blocks": [
+              {
+                "$type": "lines",
+                "lines": [
+                  { "text": "L'option B réduit le coût de migration de 31 % à périmètre constant.", "marker": "Context", "label": "Point 2" },
+                  { "text": "La migration B permet de conserver les intégrations existantes avec les quatre entrepôts régionaux.", "marker": "Error", "label": "Point 3" },
+                  { "text": "Le délai de bascule est estimé à onze semaines.", "marker": "Context", "label": "Point 4" }
+                ]
+              },
+              {
+                "$type": "table",
+                "columns": ["Entrepôt", "Intégration", "Mise en service"],
+                "rows": [
+                  { "cells": ["Nord", "existante", "2023"] },
+                  { "cells": ["Est", "existante", "2023"] },
+                  { "cells": ["Sud-Ouest", "existante", "2024"] },
+                  { "cells": ["Rhône", "existante", "2024"] }
+                ]
+              },
+              {
+                "$type": "paragraph",
+                "text": "Dernière indexation des sources : 12 novembre. L'analyse ne mentionne aucun entrepôt mis en service après cette date."
+              }
+            ]
+          },
+          "consultEffects": [
+            { "$type": "discoverEvidence", "evidence": "point-3-cite-quatre-entrepots" }
+          ]
+        },
+        {
           "$type": "choiceSet",
           "id": "objection",
           "prompt": "Il attend deux secondes. Puis il prend son stylo pour signer.",
@@ -57,7 +99,31 @@
               "id": "rien",
               "text": "Se taire : neuf personnes expérimentées ont lu la même analyse",
               "targetNodeId": "fin-rupture-consensus",
-              "effects": []
+              "effects": [],
+              "help": {
+                "hint": "Neuf personnes ont vérifié le raisonnement. Aucune n'a vérifié ses entrées.",
+                "consequence": "La signature part, et l'entrepôt de janvier reste hors du périmètre."
+              }
+            },
+            {
+              "id": "citer-le-point-3",
+              "text": "Lire le point 3 mot pour mot, puis demander à quelle date les sources ont été indexées",
+              "targetNodeId": "prise-de-parole",
+              "condition": { "$type": "consultedDocument", "interactionId": "le-point-3" },
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 },
+                { "$type": "collect", "item": "citation-du-point-3" },
+                {
+                  "$type": "recordNotableEvent",
+                  "label": "Vous avez interrogé la date des sources, pas l'intelligence des personnes.",
+                  "scope": "courage"
+                }
+              ],
+              "help": {
+                "objective": "Objecter sans mettre neuf personnes en défaut.",
+                "hint": "Une question sur la date d'indexation ne contredit personne : elle ouvre une vérification.",
+                "blocker": "Il faut avoir rouvert l'analyse pour pouvoir en citer le point 3."
+              }
             }
           ]
         }
@@ -332,6 +398,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -349,6 +418,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -366,6 +438,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -383,6 +458,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -400,6 +478,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -417,6 +498,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",

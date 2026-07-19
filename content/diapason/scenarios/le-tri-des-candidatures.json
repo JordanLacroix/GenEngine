@@ -194,7 +194,12 @@
                   "label": "Vous avez regardé le classement avant de lui faire confiance.",
                   "scope": "lucidite"
                 }
-              ]
+              ],
+              "help": {
+                "objective": "Identifier ce que l'outil mesure réellement, et qui cela désavantage.",
+                "hint": "Un taux de réussite de onze sur douze mesure la ressemblance avec l'an dernier.",
+                "blocker": "Il faut avoir ouvert le classement pour savoir ce qui pénalise le 380e."
+              }
             }
           ]
         }
@@ -561,6 +566,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -582,6 +590,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -603,6 +614,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -624,6 +638,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -645,6 +662,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -666,6 +686,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",

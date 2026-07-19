@@ -1,18 +1,44 @@
 # Les dix scénarios
 
-Fichiers jouables : [`content/diapason/scenarios/`](../../../content/diapason/scenarios/). Les documents sont en `schemaVersion` 2, sauf les trois qui présentent un document au joueur (`la-note-de-service`, `la-revue-automatique`, `le-tri-des-candidatures`), déclarés en `schemaVersion` 6. Tous sont validés par `ScenarioValidator` dans `GenEngine.Narrative.Tests.DiapasonContentTests`.
+Fichiers jouables : [`content/diapason/scenarios/`](../../../content/diapason/scenarios/). Les dix documents sont en `schemaVersion` 6. Tous sont validés par `ScenarioValidator` dans `GenEngine.Narrative.Tests.DiapasonContentTests`.
 
 ## Documents présentés au joueur
 
-Trois scénarios n'évoquent plus seulement leur pièce centrale : ils la montrent, via l'interaction `document` du schéma v6 (voir [`../scenario-schema.md`](../scenario-schema.md)). Les trois natures sont volontairement différentes, ce qui vérifie que le modèle tient hors d'un seul exemple :
+Aucun scénario ne se contente plus d'évoquer sa pièce centrale : chacun la montre, via l'interaction `document` du schéma v6 (voir [`../scenario-schema.md`](../scenario-schema.md)). Les natures sont volontairement variées, ce qui vérifie que le modèle tient hors d'un seul exemple :
 
 | Scénario | Interaction | Nature | Échantillon |
 |---|---|---|---|
 | La note de service | `la-note` | `Memo` | 4 paragraphes sur 27 |
+| Le dossier sans auteur | `le-cahier` | `Report` | 7 paragraphes sur 214 |
+| Identité non reconnue | `le-journal` | `Log` | 9 entrées sur 1 348 |
+| Le modèle interdit | `la-decision` | `Report` | 5 paragraphes sur 62 |
 | La revue automatique | `le-diff` | `Diff` | aucun — le correctif est montré en entier |
 | Le tri des candidatures | `le-classement` | `Table` | 6 rangées sur 412 |
+| La réunion où personne ne doute | `le-point-3` | `Report` | 4 paragraphes sur 96 |
+| Le signalement | `la-table` | `Code` | 11 lignes sur 34 |
+| La spécification avant le code | `la-proposition` | `Code` | 12 lignes sur 87 |
+| La compétence qui s'efface | `mon-module` | `Code` | 10 lignes sur 143 |
 
-Chacun est `isOptional: true` : **consulter n'est jamais obligatoire**. Chacun débloque en revanche un choix conditionné par `consultedDocument`, absent pour qui n'a pas lu — respectivement relever que « validée collégialement » ne nomme personne, opposer la règle CONC-014 au code réel, et interroger le motif qui classe le 380e. C'est la lecture, pas l'intuition, qui ouvre la sortie lucide.
+Chacun est `isOptional: true` : **consulter n'est jamais obligatoire**. Chacun débloque en revanche un choix conditionné par `consultedDocument`, absent pour qui n'a pas lu. C'est la lecture, pas l'intuition, qui ouvre la sortie lucide — vérifier coûte du temps et change ce qu'on peut dire.
+
+| Scénario | Ce que la lecture ouvre |
+|---|---|
+| La note de service | relever que « validée collégialement » ne nomme personne |
+| Le dossier sans auteur | citer 4.2 et 7.1 mot pour mot et demander laquelle engage le client |
+| Identité non reconnue | opposer que le seuil de 0,85 est une valeur d'exemple du guide d'intégration |
+| Le modèle interdit | lire l'article 2 : l'interdiction vise la finalité, pas le fournisseur |
+| La revue automatique | opposer la règle CONC-014 au code réel |
+| Le tri des candidatures | interroger le motif qui classe le 380e |
+| La réunion où personne ne doute | citer le point 3 et demander la date d'indexation des sources |
+| Le signalement | relever sept colonnes comportementales, aucune purge, zéro mention contractuelle |
+| La spécification avant le code | nommer la constante `REFUND_WINDOW_HOURS` que personne n'a décidée |
+| La compétence qui s'efface | suivre le diviseur constant de trente jours |
+
+## Aide d'auteur et média
+
+L'aide d'auteur du schéma v5 (`help`) est portée par les nœuds et les choix — **jamais par une interaction**, que le modèle n'accepte pas. Les quatre modalités sont employées selon leur sens : `objective` sur les choix décisifs, `hint` pour la piste sans la réponse, `consequence` sur les options coûteuses, et `blocker` sur chaque choix conditionné par `consultedDocument`, où il explique au joueur pourquoi l'option reste fermée.
+
+Côté média, le pack `diapason-core` ne contient ni illustration ni ambiance (voir les manques déclarés dans [`asset-sourcing-plan.md`](asset-sourcing-plan.md)). Aucun `visualUrl` n'est donc renseigné : renvoyer vers une image inexistante serait une promesse fausse. Seul le son est employé, sur les cinquante-trois nœuds terminaux — `stinger.reward.primary` sur les fins d'accord et de réparation, `sfx.error.soft` sur les fins de rupture.
 
 ## Parcours 1 — Le premier accord
 
@@ -81,6 +107,14 @@ Ruptures : la rationalisation après coup d'une valeur issue d'une complétion ;
 Panne réseau, donc pas d'assistant, et un module de facturation qui produit des montants faux à quatre heures de la clôture. Le joueur a écrit ce module en janvier. Il le regarde quatre minutes et comprend qu'il sait tout de lui sauf comment il marche.
 
 Ruptures : la compréhension chèrement acquise et non transmise ; le contournement automatisé qui rend l'opacité permanente.
+
+## La démonstration
+
+Le bloc `demo` de la configuration continue de pointer sur **La note de service** (`demo.scenarioSlug`). Ce choix est délibéré et il n'a pas paru justifié d'écrire un scénario dédié : la note de service est déjà le premier scénario du premier parcours, en acte Avènement, conçu comme la porte d'entrée du contenu. Un scénario écrit exprès pour la démonstration aurait montré les mêmes capacités en cessant d'être une partie — c'est-à-dire en devenant le catalogue technique qu'on cherchait à éviter.
+
+Elle porte désormais, sans que la mécanique prenne le pas sur le récit : une interaction `document` facultative dont la consultation ouvre un quatrième choix, un `quiz` sur la nature d'une affirmation, une interaction `freeText` à son climax — le joueur formule lui-même la phrase opposable au lieu de la choisir dans une liste —, l'aide d'auteur sur les nœuds et les choix, et le son sur ses six fins. Un visiteur anonyme y rencontre donc l'ensemble des capacités du moteur en jouant une nouvelle courte, pas en parcourant une démonstration.
+
+Le `freeText` de clôture retient les termes `47`, `applicatif`, `brouillon`, `hypothese`, `validee` et `source`, avec `minimumMatches: 2` : plusieurs formulations honnêtes sont acceptées, une conviction sans fait ne l'est pas.
 
 ## Ce que le schéma actuel ne permet pas d'exprimer
 

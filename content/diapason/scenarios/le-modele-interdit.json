@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 6,
   "title": "Le modèle interdit",
   "initialNodeId": "annonce",
   "nodes": [
@@ -27,6 +27,40 @@
           ]
         },
         {
+          "$type": "document",
+          "id": "la-decision",
+          "isOptional": true,
+          "prompt": "Lire le texte de la décision au lieu de la synthèse qui circule",
+          "document": {
+            "title": "Décision d'exécution — restriction d'usage",
+            "nature": "Report",
+            "headers": [
+              { "name": "Référence", "value": "DE-2026/318" },
+              { "name": "Entrée en vigueur", "value": "Lundi, 00 h 00" },
+              { "name": "Portée", "value": "Catégorie d'usage" }
+            ],
+            "excerpt": { "shownUnits": 5, "totalUnits": 62, "unit": "Paragraphs" },
+            "blocks": [
+              {
+                "$type": "lines",
+                "lines": [
+                  { "text": "Est interdite l'exploitation de systèmes automatisés produisant, à destination d'un organisme assureur, une appréciation individuelle de l'état de santé d'une personne.", "marker": "Error", "label": "Art. 2" },
+                  { "text": "L'interdiction s'applique quelle que soit l'origine géographique ou contractuelle du système employé.", "marker": "Warning", "label": "Art. 3" },
+                  { "text": "Ne relèvent pas de l'article 2 les systèmes dont la sortie est une orientation documentaire ne comportant aucune appréciation individuelle.", "marker": "Context", "label": "Art. 4" },
+                  { "text": "Les exploitants disposent d'un délai courant jusqu'à l'entrée en vigueur pour cesser l'usage ou en modifier la finalité déclarée.", "marker": "Context", "label": "Art. 7" }
+                ]
+              },
+              {
+                "$type": "paragraph",
+                "text": "La décision ne nomme aucun fournisseur, aucun modèle et aucune juridiction d'hébergement. Elle qualifie une finalité."
+              }
+            ]
+          },
+          "consultEffects": [
+            { "$type": "discoverEvidence", "evidence": "article-2-lu" }
+          ]
+        },
+        {
           "$type": "choiceSet",
           "id": "premiere-lecture",
           "prompt": "Cinq personnes vous regardent. Vous avez lu le texte une fois, en diagonale.",
@@ -51,7 +85,30 @@
               "id": "esquiver",
               "text": "Dire que ce n'est pas à un apprenti de répondre",
               "targetNodeId": "fin-rupture-esquive",
-              "effects": []
+              "effects": [],
+              "help": {
+                "consequence": "La salle décidera sans vous, et vous étiez le seul à avoir lu le texte."
+              }
+            },
+            {
+              "id": "citer-article-2",
+              "text": "Lire l'article 2 à voix haute : l'interdiction porte sur l'appréciation individuelle, pas sur le fournisseur",
+              "targetNodeId": "cadrage",
+              "condition": { "$type": "consultedDocument", "interactionId": "la-decision" },
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 },
+                { "$type": "collect", "item": "texte-de-la-decision" },
+                {
+                  "$type": "recordNotableEvent",
+                  "label": "Vous avez opposé le texte à la synthèse qui circulait.",
+                  "scope": "discernement"
+                }
+              ],
+              "help": {
+                "objective": "Déplacer la discussion de « quel modèle » vers « quelle finalité déclarée ».",
+                "hint": "Changer de fournisseur ne change pas ce que le produit prétend faire.",
+                "blocker": "Il faut avoir lu la décision pour pouvoir en citer un article."
+              }
             }
           ]
         }
@@ -237,6 +294,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -254,6 +314,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -271,6 +334,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -288,6 +354,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -305,6 +374,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -322,6 +394,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 6,
   "title": "La spécification avant le code",
   "initialNodeId": "demande",
   "nodes": [
@@ -18,6 +18,45 @@
           "text": "Votre tutrice vous confie une fonctionnalité pour la plateforme de réservation de salles : « Il faut qu'on puisse annuler une réservation. Avec un remboursement des crédits si c'est annulé assez tôt. Tu peux faire ça pour le sprint prochain ? » Trois phrases. Dix jours. Vous ouvrez votre éditeur ; l'assistant a déjà proposé une implémentation complète de `cancelReservation` avant que vous ayez fini de lire la demande. Elle compile. Elle est élégante. Elle a une constante `REFUND_WINDOW_HOURS = 24` que personne n'a jamais décidée.",
           "continueEffects": [
             { "$type": "discoverEvidence", "evidence": "constante-inventee" }
+          ]
+        },
+        {
+          "$type": "document",
+          "id": "la-proposition",
+          "isOptional": true,
+          "prompt": "Lire jusqu'au bout l'implémentation proposée",
+          "document": {
+            "title": "Proposition d'implémentation — annulation de réservation",
+            "nature": "Code",
+            "headers": [
+              { "name": "Fichier", "value": "reservations/cancel.py" },
+              { "name": "Produit en", "value": "9 secondes" },
+              { "name": "Demande source", "value": "trois phrases" }
+            ],
+            "excerpt": { "shownUnits": 12, "totalUnits": 87, "unit": "Lines" },
+            "blocks": [
+              {
+                "$type": "lines",
+                "lines": [
+                  { "text": "REFUND_WINDOW_HOURS = 24", "marker": "Error", "label": "7" },
+                  { "text": "REFUND_RATE_FULL = 1.0", "marker": "Warning", "label": "8" },
+                  { "text": "", "marker": "Context", "label": "9" },
+                  { "text": "def cancel(reservation, now):", "marker": "Context", "label": "10" },
+                  { "text": "    delta = reservation.starts_at - now", "marker": "Context", "label": "11" },
+                  { "text": "    if delta.total_seconds() > REFUND_WINDOW_HOURS * 3600:", "marker": "Warning", "label": "12" },
+                  { "text": "        credit(reservation.user, reservation.cost * REFUND_RATE_FULL)", "marker": "Context", "label": "13" },
+                  { "text": "    reservation.status = CANCELLED", "marker": "Context", "label": "14" },
+                  { "text": "    return reservation", "marker": "Context", "label": "15" }
+                ]
+              },
+              {
+                "$type": "paragraph",
+                "text": "Le code est complet, nommé, testable. Aucun commentaire n'indique d'où vient la valeur 24, ni ce qui se passe pour une réservation déjà commencée, déjà annulée, ou dont la salle a été fermée par l'établissement."
+              }
+            ]
+          },
+          "consultEffects": [
+            { "$type": "discoverEvidence", "evidence": "constante-non-decidee" }
           ]
         },
         {
@@ -48,7 +87,31 @@
               "targetNodeId": "questions-en-l-air",
               "effects": [
                 { "$type": "increment", "name": "jours", "amount": -3 }
-              ]
+              ],
+              "help": {
+                "hint": "Une question ouverte se répond quand elle arrive. Une affirmation à valider se signe.",
+                "consequence": "Trois jours passent avant la première réponse."
+              }
+            },
+            {
+              "id": "nommer-la-constante",
+              "text": "Demander à votre tutrice qui a décidé que le délai de remboursement était de vingt-quatre heures",
+              "targetNodeId": "specification",
+              "condition": { "$type": "consultedDocument", "interactionId": "la-proposition" },
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 },
+                { "$type": "collect", "item": "constante-identifiee" },
+                {
+                  "$type": "recordNotableEvent",
+                  "label": "Vous avez trouvé une décision métier cachée dans une constante.",
+                  "scope": "transmission"
+                }
+              ],
+              "help": {
+                "objective": "Faire apparaître qu'une valeur produite par complétion n'est pas une décision.",
+                "hint": "Le métier fixe ce délai à quarante-huit heures. Personne ne l'a écrit nulle part.",
+                "blocker": "Il faut avoir lu la proposition jusqu'à la constante pour pouvoir la citer."
+              }
             }
           ]
         }
@@ -360,6 +423,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -377,6 +443,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -394,6 +463,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -411,6 +483,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -428,6 +503,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",

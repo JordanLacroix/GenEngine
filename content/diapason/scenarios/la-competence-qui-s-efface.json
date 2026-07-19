@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 6,
   "title": "La compétence qui s'efface",
   "initialNodeId": "panne",
   "nodes": [
@@ -24,6 +24,43 @@
           "text": "Vous ouvrez le code. Vous connaissez ce module : vous l'avez écrit en janvier. Vous le regardez pendant quatre minutes et vous vous rendez compte que vous ne savez pas comment il marche. Vous savez ce qu'il fait, vous savez quels fichiers il touche, vous vous souvenez des conversations. Mais la boucle de rapprochement au milieu — celle avec les trois index et le décalage de période — vous l'avez acceptée d'un coup, elle était juste, elle passait les tests, et vous n'avez jamais eu à la tenir dans votre tête.",
           "continueEffects": [
             { "$type": "discoverEvidence", "evidence": "code-signe-non-compris" }
+          ]
+        },
+        {
+          "$type": "document",
+          "id": "mon-module",
+          "isOptional": true,
+          "prompt": "Ouvrir la boucle de proratisation que vous avez écrite en janvier",
+          "document": {
+            "title": "billing/proration.py — écrit en janvier",
+            "nature": "Code",
+            "headers": [
+              { "name": "Dernière modification", "value": "17 janvier — par vous" },
+              { "name": "Message de commit", "value": "proratisation mensuelle (généré puis ajusté)" },
+              { "name": "Couverture de tests", "value": "0 %" }
+            ],
+            "excerpt": { "shownUnits": 10, "totalUnits": 143, "unit": "Lines" },
+            "blocks": [
+              {
+                "$type": "lines",
+                "lines": [
+                  { "text": "def prorate(amount, start, end, days_in_month):", "marker": "Context", "label": "41" },
+                  { "text": "    used = (end - start).days", "marker": "Context", "label": "42" },
+                  { "text": "    ratio = used / days_in_month", "marker": "Warning", "label": "43" },
+                  { "text": "    return round(amount * ratio, 2)", "marker": "Warning", "label": "44" },
+                  { "text": "", "marker": "Context", "label": "45" },
+                  { "text": "# appelé avec days_in_month = 30 pour tous les mois", "marker": "Error", "label": "46" },
+                  { "text": "monthly = prorate(plan.amount, s, e, 30)", "marker": "Error", "label": "47" }
+                ]
+              },
+              {
+                "$type": "paragraph",
+                "text": "Vous reconnaissez votre nom dans l'historique. Vous ne reconnaissez pas le raisonnement : vous ne sauriez pas dire aujourd'hui pourquoi le diviseur est constant, ni ce qui arrive à un client dont la période commence le 31."
+              }
+            ]
+          },
+          "consultEffects": [
+            { "$type": "discoverEvidence", "evidence": "diviseur-constant-repere" }
           ]
         },
         {
@@ -54,7 +91,31 @@
               "targetNodeId": "contournement",
               "effects": [
                 { "$type": "increment", "name": "heures", "amount": -1 }
-              ]
+              ],
+              "help": {
+                "hint": "Le contournement marche ce soir. Il rend l'opacité permanente.",
+                "consequence": "Vous clôturerez à l'heure, et vous ne saurez toujours pas comment ce module calcule."
+              }
+            },
+            {
+              "id": "suivre-le-diviseur",
+              "text": "Suivre le diviseur constant : trente jours pour tous les mois, y compris février",
+              "targetNodeId": "reconstruction",
+              "condition": { "$type": "consultedDocument", "interactionId": "mon-module" },
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "autonomie", "amount": 1 },
+                { "$type": "collect", "item": "piste-du-diviseur" },
+                {
+                  "$type": "recordNotableEvent",
+                  "label": "Vous avez repris la main sur un code que vous aviez signé.",
+                  "scope": "autonomie"
+                }
+              ],
+              "help": {
+                "objective": "Reprendre la compréhension d'un module dont vous avez signé le résultat.",
+                "hint": "Un client sur trente : cherchez ce qui distingue ces trente jours des autres.",
+                "blocker": "Il faut avoir rouvert votre propre code pour repérer le diviseur."
+              }
             }
           ]
         }
@@ -267,6 +328,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -284,6 +348,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -301,6 +368,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -318,6 +388,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",

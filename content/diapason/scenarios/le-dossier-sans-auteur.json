@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 6,
   "title": "Le dossier sans auteur",
   "initialNodeId": "remise",
   "nodes": [
@@ -24,6 +24,47 @@
           "text": "Vous revenez en arrière. Section 4.2 : « Une facture est émise au terme du mois d'usage. » Section 7.1 : « Une facture est émise à la validation de la commande. » Les deux sont écrites avec la même assurance. Aucune des deux ne renvoie à l'autre. Il n'y a pas d'arbitrage, parce qu'il n'y a jamais eu de désaccord : personne n'a tenu ces deux phrases en même temps dans sa tête.",
           "continueEffects": [
             { "$type": "discoverEvidence", "evidence": "deux-regles-incompatibles" }
+          ]
+        },
+        {
+          "$type": "document",
+          "id": "le-cahier",
+          "isOptional": true,
+          "prompt": "Rouvrir le cahier des charges et relire les deux sections côte à côte",
+          "document": {
+            "title": "Cahier des charges — Module de facturation",
+            "nature": "Report",
+            "headers": [
+              { "name": "Référence", "value": "CDC-FACT-2026-04" },
+              { "name": "Version", "value": "1.0 — première émission" },
+              { "name": "Rédacteur", "value": "—" },
+              { "name": "Approbateur", "value": "—" }
+            ],
+            "excerpt": { "shownUnits": 7, "totalUnits": 214, "unit": "Paragraphs" },
+            "blocks": [
+              {
+                "$type": "paragraph",
+                "text": "Extrait des sections 4 et 7. Le document ne comporte ni relevé de décisions, ni liste de points ouverts, ni mention d'un arbitrage."
+              },
+              {
+                "$type": "lines",
+                "lines": [
+                  { "text": "Le système doit permettre l'émission de factures pour tout usage facturable.", "marker": "Context", "label": "4.1" },
+                  { "text": "Une facture est émise au terme du mois d'usage.", "marker": "Warning", "label": "4.2" },
+                  { "text": "Le système doit conserver l'historique des factures émises.", "marker": "Context", "label": "4.3" },
+                  { "text": "Le système doit gérer les avoirs le cas échéant.", "marker": "Warning", "label": "6.4" },
+                  { "text": "Une facture est émise à la validation de la commande.", "marker": "Warning", "label": "7.1" },
+                  { "text": "Le temps de génération d'une facture ne doit pas dépasser 220 ms.", "marker": "Warning", "label": "7.2" }
+                ]
+              },
+              {
+                "$type": "paragraph",
+                "text": "Aucune des deux règles d'émission ne renvoie à l'autre. Aucune note de bas de page ne signale d'exclusion mutuelle."
+              }
+            ]
+          },
+          "consultEffects": [
+            { "$type": "discoverEvidence", "evidence": "sections-4-2-et-7-1-lues" }
           ]
         },
         {
@@ -52,7 +93,31 @@
               "id": "demander",
               "text": "Écrire à votre tuteur : « qui a écrit ce document ? »",
               "targetNodeId": "reponse-tuteur",
-              "effects": []
+              "effects": [],
+              "help": {
+                "hint": "Demander l'auteur est utile, mais la vraie question porte sur la décision.",
+                "consequence": "Vous obtenez un aveu franc, et vous perdez la matinée."
+              }
+            },
+            {
+              "id": "opposer-les-sections",
+              "text": "Écrire au tuteur en citant 4.2 et 7.1 mot pour mot, et demander laquelle engage le client",
+              "targetNodeId": "recensement",
+              "condition": { "$type": "consultedDocument", "interactionId": "le-cahier" },
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 },
+                { "$type": "collect", "item": "citation-exacte" },
+                {
+                  "$type": "recordNotableEvent",
+                  "label": "Vous avez cité le document au lieu de le résumer.",
+                  "scope": "lucidite"
+                }
+              ],
+              "help": {
+                "objective": "Rendre la contradiction opposable sans accuser personne.",
+                "hint": "Deux phrases recopiées telles quelles pèsent plus qu'un jugement sur la qualité du document.",
+                "blocker": "Il faut avoir rouvert le cahier des charges pour pouvoir en citer les sections."
+              }
             }
           ]
         }
@@ -292,6 +357,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -309,6 +377,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -326,6 +397,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -343,6 +417,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
