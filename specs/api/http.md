@@ -119,6 +119,7 @@ Le client iOS (dépôt `GenEngine.IOS`) consomme les quatre routes ci-dessus ain
 - `POST /admin/organization/{frontId}/memberships/import` — prévalidation ou import atomique et idempotent de 1 à 500 lignes
 - `GET|PUT|DELETE /admin/organization/{frontId}/assignments[/{id}]` — scénarios, catégories ou parcours affectés avec disponibilité et échéance
 - `GET /me/organization/{frontId}` — contexte effectif du joueur
+- `GET /internal/access/{frontId}/users/{userId}` — résolution interservice protégée par clé ; Play l'utilise avant de créer une session
 
 ### Pagination des unités hiérarchiques
 
@@ -127,6 +128,5 @@ Les unités forment un arbre, mais `GET /admin/organization/{frontId}/units` les
 Conséquence assumée : un parent peut se trouver sur une page ultérieure à celle de son enfant. Un client qui affiche l'arbre doit donc rattacher les nœuds orphelins au fur et à mesure, et non supposer que le parent est déjà connu.
 
 L'alternative — paginer par niveau ou par sous-arbre — a été écartée : elle coupe une fratrie au milieu d'une page, rend `total` ambigu (total des racines ? de l'arbre entier ?) et impose au serveur de connaître l'état de dépliage du client. La pagination à plat garde un contrat unique pour toutes les listes ; un front qui a besoin de charger une branche précise filtre déjà par `query`.
-- `GET /internal/access/{frontId}/users/{userId}` — résolution interservice protégée par clé ; Play l'utilise avant de créer une session
 
 L'OpenAPI généré par chaque service reste la source de vérité exécutable.
