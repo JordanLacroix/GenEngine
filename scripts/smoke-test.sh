@@ -25,10 +25,13 @@ experience=$(curl --fail --silent --show-error "$CONFIGURATION_URL/experience/de
 jq -e '.version >= 1 and .document.game.name != "" and (.document.categories | length) > 0 and (.document.familiars | length) > 0 and .document.economy.currencyCode == "ACCORD" and (.document.aiProviders[] | select(.type == "AzureAiFoundry") | .secretReference) == null' <<<"$experience" >/dev/null
 
 # The anonymous experience route must not leak operator data: no Entra tenant or
-# client identifier, no AI provider endpoint or credential scheme, no
-# organization structure and no assignment. See specs/api/http.md.
+# client identifier, no AI provider endpoint or credential scheme, no unit tree
+# and no assignment. The organization is emptied rather than removed — the iOS
+# client declares it non-optional, so a null would fail the whole decode. See
+# specs/api/http.md.
 jq -e '
-  .document.organization == null
+  (.document.organization.units | length) == 0
+  and .document.organization.description == ""
   and (.document.assignments | length) == 0
   and .document.authentication.entraTenantId == null
   and .document.authentication.entraClientId == null
