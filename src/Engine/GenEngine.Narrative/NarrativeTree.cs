@@ -15,7 +15,10 @@ public sealed record NarrativeTreeNode(
     string Id,
     string Text,
     bool IsEnding,
-    NarrativeTreeNodeState State);
+    NarrativeTreeNodeState State)
+{
+    public StepMedia? Media { get; init; }
+}
 
 public sealed record NarrativeTreeEdge(
     string SourceNodeId,
@@ -34,7 +37,10 @@ public sealed record NarrativeTree(
 public sealed record NarrativeStructureNode(
     string Id,
     string Text,
-    bool IsEnding);
+    bool IsEnding)
+{
+    public StepMedia? Media { get; init; }
+}
 
 public sealed record NarrativeStructureEdge(
     string SourceNodeId,
@@ -66,7 +72,10 @@ public static class NarrativeTreeBuilder
             node.Id,
             node.Text,
             node.IsEnding,
-            GetNodeState(node, state))).ToArray();
+            GetNodeState(node, state))
+        {
+            Media = node.Media,
+        }).ToArray();
 
         NarrativeTreeEdge[] edges = scenario.Nodes
             .SelectMany(EnumerateEdgeDescriptors)
@@ -92,7 +101,7 @@ public static class NarrativeTreeBuilder
         }
 
         NarrativeStructureNode[] nodes = scenario.Nodes
-            .Select(node => new NarrativeStructureNode(node.Id, node.Text, node.IsEnding))
+            .Select(node => new NarrativeStructureNode(node.Id, node.Text, node.IsEnding) { Media = node.Media })
             .ToArray();
 
         NarrativeStructureEdge[] edges = scenario.Nodes

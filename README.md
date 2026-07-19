@@ -57,6 +57,7 @@ Le projet vise un moteur :
 | Configuration moteur/plateforme, vocabulaire, rôles custom et organisations | 🚧 Service Organization, memberships et affectations runtime disponibles |
 | Assistant/familier et aide hors ligne | 🚧 Profil illustré, nom, ton, aide, fréquence et fallback contextuel disponibles ; provider IA assistant restant |
 | Introduction, tutoriel et shell joueur configurables | ✅ Publiés par Configuration et consommés par Web/iOS |
+| Médias configurables (visuels, sons, animations) | ✅ Médias optionnels de scénario en schéma v3, ambiances par emplacement et game over publiés par Configuration |
 | Progression cross-session et journal joueur | ✅ Alimentés automatiquement par Play, persistés par PlayerExperience |
 | IA provider-agnostic, metering et quotas | 🚧 Offline + Azure AI Foundry disponibles, quotas à venir |
 | Économie, récompenses et magasin configurable | 🚧 Portefeuille, règles, achats et crédits narratifs idempotents disponibles |
