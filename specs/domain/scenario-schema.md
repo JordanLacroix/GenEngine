@@ -1,6 +1,6 @@
 # Format de scénario
 
-Un `ScenarioDocument` contient `schemaVersion`, `title`, `initialNodeId` et une liste de nœuds. Le schéma v1 conserve les choix portés directement par le nœud. Le schéma v2 peut définir une séquence `interactions` typée. Le schéma v3 ajoute des médias optionnels sur les nœuds et les choix. Le schéma v4 ajoute le drapeau `isOptional` qui rend une interaction facultative ; les quatre formats restent exécutables.
+Un `ScenarioDocument` contient `schemaVersion`, `title`, `initialNodeId` et une liste de nœuds. Le schéma v1 conserve les choix portés directement par le nœud. Le schéma v2 peut définir une séquence `interactions` typée. Le schéma v3 ajoute des médias optionnels sur les nœuds et les choix. Le schéma v4 ajoute le drapeau `isOptional` qui rend une interaction facultative. Le schéma v5 ajoute un objet `help` facultatif sur les nœuds et les choix ; les cinq formats restent exécutables.
 
 Les interactions v2 disponibles sont `narration`, `quiz`, `choiceSet`, `characteristicGate` et `freeText`. Une narration progresse par une commande continue, un quiz applique des effets corrects ou incorrects sans révéler la réponse dans l'état courant, et un ensemble de choix termine un nœud non final en ciblant le nœud suivant. Un gate évalue automatiquement une condition, applique les effets de réussite ou d'échec, puis entre dans la branche correspondante sans consommer un tour joueur. Une saisie libre compare de façon déterministe et insensible à la casse/aux accents les termes attendus ; son résultat doit être confirmé avant d'appliquer les effets. Un nœud final peut dérouler ses interactions avant de passer à `Completed`.
 
@@ -54,6 +54,28 @@ Une interaction `freeText` facultative laisse la session en `AwaitingExternalInp
 Le drapeau est nullable et omis à la sérialisation lorsqu'il n'est pas renseigné : un document qui ne l'utilise pas produit exactement les mêmes octets canoniques et le même hash qu'avant son introduction. Une fixture golden fige le hash d'un snapshot v3 et son état final rejoué, tous deux calculés avec le moteur d'avant le changement.
 
 L'exemple exécutable est [`examples/optional-aside.json`](examples/optional-aside.json).
+
+## Aide d'auteur (schéma v5)
+
+Un nœud et un choix peuvent porter un objet `help` facultatif, dont chaque champ est lui aussi facultatif :
+
+| Champ | Modalité | Contenu attendu |
+|---|---|---|
+| `hint` | `Hint` | un indice discret qui ne nomme pas la réponse |
+| `objective` | `Objective` | l'objectif courant reformulé |
+| `consequence` | `Consequence` | les conséquences que le joueur est censé déjà connaître |
+| `blocker` | `Blocker` | pourquoi une option visible est indisponible |
+
+Ces champs sont **de présentation uniquement**. Le moteur ne les lit pas, ne branche pas dessus et n'en dérive aucun état : une étape doit rester entièrement jouable quand un client, ou la politique d'assistant, ignore l'objet entier. Les séparer plutôt que les fondre en un seul texte permet à la politique de ne servir que ce que le niveau d'aide du joueur autorise — un indice discret et l'explication d'une condition bloquante ne divulguent pas la même chose.
+
+C'est `PlayerExperience` qui les consomme, en relisant la version publiée via la route interne d'Authoring ; voir [`../player-experience.md`](../player-experience.md).
+
+### Validation
+
+- `help_requires_schema_5` : `help` déclaré sur un document antérieur au schéma v5 ;
+- `help_text_invalid` : un champ d'aide vide ou de plus de 500 caractères. La borne évite qu'un document ne fasse transiter une charge non bornée vers un fournisseur d'IA.
+
+L'objet est nullable, comme chacun de ses champs, et omis à la sérialisation lorsqu'il n'est pas renseigné : un document qui ne l'utilise pas produit exactement les mêmes octets canoniques et le même hash qu'avant son introduction. Une fixture golden fige le hash d'un snapshot v4 et son état final rejoué, tous deux calculés avec le moteur d'avant le changement.
 
 Les brouillons v1 importés ou remplacés dans Authoring sont migrés en v2 avant stockage, sans réécriture rétroactive des snapshots déjà publiés. Les migrations refusent les versions et types JSON inconnus, mais restent distinctes de la validation métier afin qu'Authoring puisse conserver puis diagnostiquer un brouillon incomplet via `/validate`. Des fixtures golden figent un scénario v1, une sauvegarde v1 et l'état final attendu après migration puis replay, ainsi qu'un scénario v2, sa sauvegarde et son état final pour vérifier qu'un snapshot publié avant les médias rejoue à l'identique. `NarrativeTreeBuilder` projette un scénario et une sauvegarde en arbre complet avec nœuds courants, visités, inexplorés ou verrouillés.
 

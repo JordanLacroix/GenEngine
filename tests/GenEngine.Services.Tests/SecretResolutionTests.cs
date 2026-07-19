@@ -192,14 +192,21 @@ public sealed class SecretResolutionTests
         Assert.DoesNotContain("GENENGINE_AI_AZURE_FOUNDRY_KEY", clientJson, StringComparison.Ordinal);
         Assert.All(published.Document.AiProviders, static provider => Assert.Null(provider.SecretReference));
 
-        // 2. The availability payload exposed to operators carries neither.
+        // 2. The pre-authentication bootstrap surface carries neither.
+        ClientBootstrapView bootstrap = await service.GetClientBootstrapAsync("default", CancellationToken.None);
+        string bootstrapJson = JsonSerializer.Serialize(bootstrap);
+        Assert.DoesNotContain(ClearSecret, bootstrapJson, StringComparison.Ordinal);
+        Assert.DoesNotContain(Reference, bootstrapJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("GENENGINE_AI_AZURE_FOUNDRY_KEY", bootstrapJson, StringComparison.Ordinal);
+
+        // 3. The availability payload exposed to operators carries neither.
         IReadOnlyList<AiProviderAvailability> availabilities =
             await credentials.DescribeAllAsync(published.Document, CancellationToken.None);
         string availabilityJson = JsonSerializer.Serialize(availabilities);
         Assert.DoesNotContain(ClearSecret, availabilityJson, StringComparison.Ordinal);
         Assert.DoesNotContain("GENENGINE_AI_AZURE_FOUNDRY_KEY", availabilityJson, StringComparison.Ordinal);
 
-        // 3. Every implicit rendering path of the resolved secret yields the placeholder.
+        // 4. Every implicit rendering path of the resolved secret yields the placeholder.
         SecretValue secret = resolution.Value;
         var log = new List<string>
         {
@@ -215,7 +222,7 @@ public sealed class SecretResolutionTests
         Assert.All(log, static line => Assert.DoesNotContain(ClearSecret, line, StringComparison.Ordinal));
         Assert.Contains(SecretValue.Redacted, $"{secret}", StringComparison.Ordinal);
 
-        // 4. Only the deliberate Reveal call yields the clear value.
+        // 5. Only the deliberate Reveal call yields the clear value.
         Assert.Equal(ClearSecret, secret.Reveal());
     }
 

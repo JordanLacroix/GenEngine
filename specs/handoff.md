@@ -104,6 +104,22 @@ La tranche suivante complète les périodes métier nommées, l'import de masse 
 - `install-diapason.sh` n'est pas idempotent : `POST /scenarios/import` crée toujours un nouveau brouillon ;
 - le seeder de configuration ne rejoue jamais sur une base non vide : une instance antérieure conserve son ancien document.
 
+### Tranche `feat/branding-client-bootstrap` — vérifiée le 19 juillet 2026
+
+- Bloc `branding` **facultatif et purement additif** dans `ExperienceDocument` : nom d'application, nom court, accroche, quatre icônes, `theme` (couleurs nommées avec huit jetons obligatoires, `colorScheme`, rayon de coin, typographie) et `accentPalette`. Cette dernière associe enfin les jetons d'accent de `CategoryDefinition`, `JourneyDefinition` et `FamiliarDefinition` à de vraies couleurs. Validation `invalid_branding` : hexadécimal strict `#RRGGBB`/`#RRGGBBAA`, icônes passées par l'`IsValidAssetUrl` existant (HTTPS absolu ou `packId:assetId`). Une configuration sans `branding` reste publiable et lisible à l'identique — test dédié.
+- Nouvelle route anonyme `GET /client-bootstrap/{frontId}` : identité, marque, locale, fuseau, libellés, intro, mode d'authentification seul, drapeau démo, `version`/`publishedAt`. Rien d'autre.
+- **Correctif de sécurité** sur `GET /experience/{frontId}`, anonyme : la projection ne porte plus les identifiants de locataire et de client Entra, les endpoints et schémas d'authentification des providers IA, la structure d'organisation (unités et description vidées, l'objet restant présent car le client iOS le déclare non optionnel) ni les affectations (`[]`). Le document complet reste servi par `GET /admin/configuration/{frontId}` sous `config.read`, ce que couvre un test dédié. Les identifiants Entra dont un client a besoin sont déjà publiés par Identity sur `GET /auth/providers`, seule source pour un démarrage OIDC. Les trois consommateurs interservice (`Play` → `journeys`, `PlayerExperience` → `familiars`/économie/onboarding/politique assistant, `Authoring` → jeu et catégories) n'ont pas été affectés : aucune route interne supplémentaire n'a été nécessaire. Répartition champ par champ dans [`api/http.md`](api/http.md).
+- Diapason porte un `branding` aligné sur la direction artistique (`specs/domain/diapason/README.md`) et le bloc `palette` du manifeste d'assets. **Toutes les icônes restent nulles** : le pack `diapason-core` ne fournit ni icône de marque, ni logo, ni favicon, et son champ `gaps` acte l'absence.
+- 186 tests backend au vert. `scripts/smoke-test.sh` vérifie désormais l'absence de fuite sur `/experience` et la forme minimale de `/client-bootstrap`.
+
+### Tranche `feat/assistant-contextual-help`
+
+- Le schéma de scénario v5 ajoute un objet `help` facultatif sur les nœuds et les choix (`hint`, `objective`, `consequence`, `blocker`), purement de présentation. Migration chaînée `scenario-v4-to-v5`, validation conditionnée à `AuthorHelpSchema` et non à `LatestSchema`. Le hash canonique d'un snapshot v4 et son état final rejoué sont figés depuis le moteur d'avant le changement (`dbd5bd1d…c040`) et vérifiés par test.
+- `PlayerExperience` résout l'aide côté serveur : `scenarioVersionId`, `nodeId` et `choiceId`, jusqu'ici morts, servent à relire la version publiée via la route interne d'Authoring, avec la même famille de résilience que `Play → Authoring`. Authoring indisponible dégrade vers les règles hors ligne.
+- `source` et `isFallback` ne mentent plus : `source` désigne le message réellement retourné, `isFallback` n'est vrai que pour `OfflineRule`. La réponse porte en plus la modalité employée. Le niveau d'aide choisit la modalité, la fréquence d'intervention filtre la seule aide proactive.
+- Le port `IAssistantAiClient` est en place avec repli hors ligne garanti dans le service lui-même. **Aucun fournisseur réel n'est implémenté ni validé de bout en bout** : le défaut enregistré se déclare non configuré, et le branchement n'est couvert que par doubles (succès, erreur, dépassement de délai). Câbler un fournisseur réel reste à faire.
+- Un test vérifie qu'un appel d'aide n'écrit rien : ni sauvegarde, ni révision, ni journal, ni portefeuille.
+
 ### Tranche `feat/secret-resolution` — vérifiée le 19 juillet 2026
 
 **Constat de départ, vérifié** : `AiProviderDefinition.SecretReference` existait depuis
@@ -129,20 +145,40 @@ sans grammaire ni résolveur.
 - Grammaire et extensibilité documentées dans
   [`platform-configuration.md`](platform-configuration.md#références-de-secrets).
 
-**Ce qui est testé** (`tests/GenEngine.Services.Tests/SecretResolutionTests.cs`, 66 tests au
-vert dans ce projet) : résolution réussie depuis l'environnement ; secret absent → fournisseur
+**Ce qui est testé** (`tests/GenEngine.Services.Tests/SecretResolutionTests.cs` ; 226 tests
+backend au vert après fusion de `main`) : résolution réussie depuis l'environnement ; secret absent → fournisseur
 non utilisable, aucun fragment de référence dans la raison ; backend qui lève → rabattu sur
 `secret_not_found` ; huit grammaires invalides rejetées ; rejet explicite à l'`Upsert` ;
 `vault:` dégradé en `secret_scheme_unsupported` ; fournisseur `Offline` et fournisseur
 désactivé. Le test central `NoSecretCanReachAClientProjectionAnAvailabilityPayloadOrALog`
-résout **réellement** le secret, puis prouve son absence de la projection cliente sérialisée,
-du payload de disponibilité et de sept chemins de rendu de log.
+résout **réellement** le secret, puis prouve son absence des deux surfaces anonymes
+(`GET /experience` et le `GET /client-bootstrap` livré par #52), du payload de disponibilité
+et de sept chemins de rendu de log.
+
+Le test `AdminViewKeepsTheCompleteDocumentTheAnonymousRouteNoLongerServes` livré par #52
+figeait l'ancienne valeur littérale `"azure-foundry-credential"` ; il a été recalé sur le
+nouveau défaut et vérifie en plus que toute référence par défaut respecte la grammaire, pour
+qu'un défaut illisible par tout résolveur échoue au test plutôt qu'à l'exécution.
 
 **Ce qui n'est pas testé et ne doit pas être présenté autrement** : aucun client de
 coffre-fort n'est livré. Le schéma `vault` est *réservé*, pas implémenté — il n'existe aucun
 code à tester, et rien ici n'a été validé contre un coffre-fort réel. Aucun appel à un
-fournisseur IA réel n'a été exercé : la résolution est branchée, la consommation par un client
-IA reste à faire (elle attend le port `IAssistantAiClient` de la PR #56, non fusionnée).
+fournisseur IA réel n'a été exercé.
+
+**Branchement avec `IAssistantAiClient`** (fusionné entre-temps par #56) : les deux contrats
+s'accordent sans adaptation. `IAssistantAiClient.IsConfigured` correspond exactement à
+`AiProviderAvailability.IsUsable`, et le `null` que le port impose de retourner plutôt que de
+lever correspond à la règle « l'échec est une valeur » de `SecretResolution`. La documentation
+du port dit déjà qu'une implémentation « resolves its own credentials locally » : c'est
+précisément ce que `SecretStore` fournit, et c'était la pièce manquante.
+
+**Le câblage reste toutefois à faire, et rien ici ne doit être lu autrement.** Le seul
+`IAssistantAiClient` enregistré est `OfflineAssistantAiClient`, dont `IsConfigured` est
+`false` en dur ; aucun chemin de `PlayerExperience` n'appelle aujourd'hui `SecretStore`.
+Brancher la résolution suppose de livrer un client de fournisseur réel — ce que cette tranche
+s'interdit faute de pouvoir le vérifier. Enregistrer un `SecretStore` inutilisé dans la DI de
+`PlayerExperience` aurait ajouté un composant sans consommateur, ce que les instructions du
+dépôt proscrivent ; la dépendance sera ajoutée en même temps que le client qui s'en sert.
 
 Contexte livré au jalon 3 :
 
