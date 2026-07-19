@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 3,
+  "title": "Atrium illustré",
+  "initialNodeId": "atrium",
+  "nodes": [
+    {
+      "id": "atrium",
+      "text": "Le hall académique bruisse de promesses. Une lumière haute glisse sur le marbre, et vous devez décider comment y entrer.",
+      "enterCondition": null,
+      "onEnterEffects": [],
+      "choices": [
+        {
+          "id": "listen",
+          "text": "Écouter avant de parler",
+          "targetNodeId": "observatory",
+          "condition": null,
+          "effects": [
+            { "$type": "increment", "name": "attention", "amount": 1 }
+          ],
+          "media": {
+            "soundUrl": "https://assets.example.org/sfx-ui-choice-confirm-v1.ogg",
+            "animationCue": "choice-confirm"
+          }
+        },
+        {
+          "id": "speak",
+          "text": "Prendre la parole immédiatement",
+          "targetNodeId": "observatory",
+          "condition": null,
+          "effects": [],
+          "media": {
+            "animationCue": "choice-hasty"
+          }
+        }
+      ],
+      "isEnding": false,
+      "media": {
+        "visualUrl": "https://assets.example.org/scene-palace-atrium-v1.avif",
+        "visualDescription": "Un atrium rétrofuturiste doré, traversé par une lumière venant du haut-gauche.",
+        "soundUrl": "https://assets.example.org/ambience-atrium-v1.ogg"
+      }
+    },
+    {
+      "id": "observatory",
+      "text": "L'intervalle du diapason se résout. Vous savez désormais d'où vous parlez.",
+      "enterCondition": null,
+      "onEnterEffects": [
+        { "$type": "recordNotableEvent", "label": "Le diapason a été entendu." }
+      ],
+      "choices": [],
+      "isEnding": true,
+      "media": {
+        "visualUrl": "https://assets.example.org/scene-observatory-dawn-v1.avif",
+        "visualDescription": "Un observatoire ouvert sur une aube indigo."
+      }
+    }
+  ]
+}

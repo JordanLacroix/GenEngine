@@ -5,7 +5,13 @@ namespace GenEngine.Narrative;
 public static class NarrativeVersions
 {
     public const int Schema = 1;
-    public const int LatestSchema = 2;
+    public const int LatestSchema = 3;
+
+    /// <summary>Schema that introduced typed step interactions.</summary>
+    public const int InteractionsSchema = 2;
+
+    /// <summary>Schema that introduced optional media references on steps and choices.</summary>
+    public const int MediaSchema = 3;
     public const string Runtime = "1.0.0";
     public const string HashFormat = "sha256-canonical-json-v1";
     public const string RngAlgorithm = "splitmix64-v1";
@@ -17,6 +23,38 @@ public sealed record ScenarioDocument(
     string InitialNodeId,
     IReadOnlyList<NarrativeNode> Nodes);
 
+/// <summary>
+/// Optional media attached to a narrative step. These are references only: the
+/// engine never resolves, downloads or plays them. A step must stay fully
+/// understandable without any of them, so a client is free to ignore the whole
+/// record — for accessibility, or because the operator disabled media.
+/// </summary>
+public sealed record StepMedia
+{
+    /// <summary>Absolute HTTPS URL of an illustration for the step.</summary>
+    public string? VisualUrl { get; init; }
+
+    /// <summary>Text alternative for <see cref="VisualUrl"/>, never a substitute for the narrative text.</summary>
+    public string? VisualDescription { get; init; }
+
+    /// <summary>Absolute HTTPS URL of an ambience or musical bed for the step.</summary>
+    public string? SoundUrl { get; init; }
+}
+
+/// <summary>
+/// Optional media attached to a choice: a short interaction signature and an
+/// animation cue. The cue is an opaque identifier that a client maps to its own
+/// animation; the engine gives it no meaning and never derives state from it.
+/// </summary>
+public sealed record ChoiceMedia
+{
+    /// <summary>Absolute HTTPS URL of a short sound played when the choice is taken.</summary>
+    public string? SoundUrl { get; init; }
+
+    /// <summary>Client-side animation identifier, for example <c>choice-confirm</c>.</summary>
+    public string? AnimationCue { get; init; }
+}
+
 public sealed record NarrativeNode(
     string Id,
     string Text,
@@ -26,6 +64,8 @@ public sealed record NarrativeNode(
     bool IsEnding = false)
 {
     public IReadOnlyList<StepInteraction>? Interactions { get; init; }
+
+    public StepMedia? Media { get; init; }
 }
 
 public sealed record NarrativeChoice(
@@ -33,7 +73,10 @@ public sealed record NarrativeChoice(
     string Text,
     string TargetNodeId,
     ConditionExpression? Condition,
-    IReadOnlyList<LocalGameEffect> Effects);
+    IReadOnlyList<LocalGameEffect> Effects)
+{
+    public ChoiceMedia? Media { get; init; }
+}
 
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "$type")]
 [JsonDerivedType(typeof(NarrationInteraction), "narration")]
@@ -271,6 +314,9 @@ public sealed record CurrentStep(
     public InteractionKind Kind { get; init; } = InteractionKind.LegacyChoice;
 
     public TextAnalysisResult? PendingTextAnalysis { get; init; }
+
+    /// <summary>Media of the node the step belongs to, or <c>null</c> when the scenario declares none.</summary>
+    public StepMedia? Media { get; init; }
 }
 
 public sealed record TextAnalysisResult(
@@ -280,7 +326,10 @@ public sealed record TextAnalysisResult(
     int MinimumMatches,
     string Explanation);
 
-public sealed record VisibleChoice(string Id, string Text);
+public sealed record VisibleChoice(string Id, string Text)
+{
+    public ChoiceMedia? Media { get; init; }
+}
 
 public sealed record ConditionEvaluation(
     string Operator,

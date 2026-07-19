@@ -20,7 +20,7 @@ public sealed class NarrativeMigrationGoldenTests
 
         Assert.Equal(1, scenarioMigration.OriginalSchemaVersion);
         Assert.Equal(NarrativeVersions.LatestSchema, scenarioMigration.Document.SchemaVersion);
-        Assert.Equal(["scenario-v1-to-v2"], scenarioMigration.AppliedMigrations);
+        Assert.Equal(["scenario-v1-to-v2", "scenario-v2-to-v3"], scenarioMigration.AppliedMigrations);
         Assert.Equal(GameSaveVersions.Current, save.FormatVersion);
         Assert.Equal(NarrativeVersions.Runtime, save.RuntimeVersion);
         Assert.Equal(["save-v1-to-v2"], save.AppliedMigrations);
@@ -68,6 +68,43 @@ public sealed class NarrativeMigrationGoldenTests
         Assert.Equal(NarrativeVersions.LatestSchema, migration.Document.SchemaVersion);
         Assert.False(validation.IsValid);
         Assert.Contains(validation.Issues, static issue => issue.Code == "initial_node_missing");
+    }
+
+    /// <summary>
+    /// Canonical hash of <c>scenario-v2.json</c>, computed with the engine as it
+    /// was before media were introduced. A published snapshot is replayed against
+    /// its stored hash, so this literal must never change: it proves that the
+    /// optional media fields stay out of the canonical bytes of a document that
+    /// does not use them.
+    /// </summary>
+    private const string PublishedSchemaTwoHash = "b4ee3cd036ba7cd1c9c28fad7031b3b4ec4ca995e6216041544eff33c13c82b3";
+
+    [Fact]
+    public void PublishedSchemaTwoSnapshotKeepsItsCanonicalHashAfterTheMediaBump()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v2.json"));
+        string canonicalJson = System.Text.Encoding.UTF8.GetString(CanonicalSnapshot.GetCanonicalBytes(scenario));
+
+        Assert.Equal(PublishedSchemaTwoHash, CanonicalSnapshot.ComputeHash(scenario));
+        Assert.DoesNotContain("media", canonicalJson, StringComparison.Ordinal);
+        Assert.True(ScenarioValidator.Validate(scenario).IsValid);
+    }
+
+    [Fact]
+    public void SchemaTwoSaveStillReplaysIdenticallyAfterTheMediaBump()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v2.json"));
+        GameSave save = GameSaveSerializer.Deserialize(ReadGolden("save-v2.json"), 42UL, DateTimeOffset.UnixEpoch);
+
+        GameState replayed = NarrativeRuntime.SubmitChoice(
+            scenario,
+            NarrativeRuntime.Continue(scenario, save.State),
+            "listen");
+        GameState expected = NarrativeJson.Deserialize<GameState>(ReadGolden("scenario-v2-replay-final-state.json"));
+
+        Assert.Empty(save.AppliedMigrations);
+        Assert.Equal(2, save.ScenarioSchemaVersion);
+        Assert.Equal(NarrativeJson.Serialize(expected), NarrativeJson.Serialize(replayed));
     }
 
     private static string ReadGolden(string name) =>

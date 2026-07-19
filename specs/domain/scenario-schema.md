@@ -1,6 +1,6 @@
 # Format de scénario
 
-Un `ScenarioDocument` contient `schemaVersion`, `title`, `initialNodeId` et une liste de nœuds. Le schéma v1 conserve les choix portés directement par le nœud. Le schéma v2 peut définir une séquence `interactions` typée ; les deux formats restent exécutables.
+Un `ScenarioDocument` contient `schemaVersion`, `title`, `initialNodeId` et une liste de nœuds. Le schéma v1 conserve les choix portés directement par le nœud. Le schéma v2 peut définir une séquence `interactions` typée. Le schéma v3 ajoute des médias optionnels sur les nœuds et les choix ; les trois formats restent exécutables.
 
 Les interactions v2 disponibles sont `narration`, `quiz`, `choiceSet`, `characteristicGate` et `freeText`. Une narration progresse par une commande continue, un quiz applique des effets corrects ou incorrects sans révéler la réponse dans l'état courant, et un ensemble de choix termine un nœud non final en ciblant le nœud suivant. Un gate évalue automatiquement une condition, applique les effets de réussite ou d'échec, puis entre dans la branche correspondante sans consommer un tour joueur. Une saisie libre compare de façon déterministe et insensible à la casse/aux accents les termes attendus ; son résultat doit être confirmé avant d'appliquer les effets. Un nœud final peut dérouler ses interactions avant de passer à `Completed`.
 
@@ -16,7 +16,19 @@ Le runtime conserve également les caractéristiques extensibles du joueur, l'hi
 
 Les sessions persistées utilisent une enveloppe `GameSave` v2 contenant le schéma du scénario, la version du runtime, la graine, l'horodatage, l'historique des migrations et l'état déterministe complet. Le lecteur applique les migrations enregistrées dans l'ordre ; il accepte les enveloppes v1 ainsi que les anciens états bruts, transformés successivement en enveloppes v1 puis v2. Toute écriture utilise exclusivement le format courant.
 
-Les brouillons v1 importés ou remplacés dans Authoring sont migrés en v2 avant stockage, sans réécriture rétroactive des snapshots déjà publiés. Les migrations refusent les versions et types JSON inconnus, mais restent distinctes de la validation métier afin qu'Authoring puisse conserver puis diagnostiquer un brouillon incomplet via `/validate`. Des fixtures golden figent un scénario v1, une sauvegarde v1 et l'état final attendu après migration puis replay. `NarrativeTreeBuilder` projette un scénario et une sauvegarde en arbre complet avec nœuds courants, visités, inexplorés ou verrouillés.
+## Médias (schéma v3)
+
+Un nœud peut porter un objet `media` (`visualUrl`, `visualDescription`, `soundUrl`) et un choix un objet `media` (`soundUrl`, `animationCue`). Tous les champs sont facultatifs et l'objet entier peut être absent.
+
+Ces médias sont des **références** : le moteur ne les résout jamais, ne les télécharge pas et ne les joue pas. Ils n'entrent dans aucune décision, aucun effet et aucun état déterministe, donc ils ne modifient ni le replay ni la sémantique d'un scénario. `animationCue` est un identifiant opaque que le client associe à sa propre animation ; le moteur ne lui donne aucun sens.
+
+Un scénario sans aucun média reste intégralement jouable et compréhensible : le texte narratif porte seul l'information. `visualDescription` fournit une alternative textuelle à l'illustration, jamais un substitut au texte du nœud.
+
+La validation exige une référence d'au plus 2 048 caractères sous l'une des deux formes suivantes (`media_asset_invalid` sinon) : une URL absolue en HTTPS, pour les assets hébergés par l'instance ; ou une référence de pack `packId:assetId`, résolue par le client via le manifeste du pack livré avec la configuration — c'est cette seconde forme qui permet à une démonstration de fonctionner sans aucun serveur d'assets. Les deux segments d'une référence de pack se limitent aux minuscules, chiffres, point, tiret et souligné, afin qu'une référence ne puisse jamais être confondue avec une URL ou un chemin, une `animationCue` non vide d'au plus 64 caractères (`media_animation_cue_invalid`) et une `visualDescription` d'au plus 500 caractères (`media_description_too_long`). Un média déclaré sur un document antérieur au schéma v3 est refusé (`media_requires_schema_3`).
+
+Comme les champs sont facultatifs et omis à la sérialisation lorsqu'ils sont nuls, un document qui ne les utilise pas produit exactement les mêmes octets canoniques et le même hash qu'avant leur introduction. Une fixture golden fige le hash d'un snapshot v2 calculé avant le changement afin de garantir cette propriété.
+
+Les brouillons v1 importés ou remplacés dans Authoring sont migrés en v2 avant stockage, sans réécriture rétroactive des snapshots déjà publiés. Les migrations refusent les versions et types JSON inconnus, mais restent distinctes de la validation métier afin qu'Authoring puisse conserver puis diagnostiquer un brouillon incomplet via `/validate`. Des fixtures golden figent un scénario v1, une sauvegarde v1 et l'état final attendu après migration puis replay, ainsi qu'un scénario v2, sa sauvegarde et son état final pour vérifier qu'un snapshot publié avant les médias rejoue à l'identique. `NarrativeTreeBuilder` projette un scénario et une sauvegarde en arbre complet avec nœuds courants, visités, inexplorés ou verrouillés.
 
 La validation exige un titre, un point d'entrée existant, des identifiants uniques, des cibles valides, des conditions/effets bien formés et des budgets de profondeur bornés. Les exemples exécutables vivent dans [`examples/`](examples/).
 

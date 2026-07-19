@@ -10,6 +10,7 @@ Dernière mise à jour : 18 juillet 2026.
 - Le parcours inscription → connexion → import → validation → analyse → prévisualisation → publication → session → choix → replay passe avec `scripts/smoke-test.sh`.
 - Le moteur couvre l'état joueur riche, les interactions typées, les gates de caractéristiques, le texte libre confirmé, les sauvegardes versionnées avec migrations chaînées, les effets différés conditionnels avec date logique et l'arbre de session.
 - Play expose une projection joueur stable regroupant synthèse, collection et journal.
+- Les médias sont paramétrables de bout en bout : le schéma de scénario v3 ajoute un `media` optionnel par nœud (visuel, description alternative, son) et par choix (son d'interaction, `animationCue`), tandis que Configuration publie les ambiances par emplacement applicatif et les médias de game over. Tout est facultatif, en HTTPS et jamais porteur exclusif d'information ; le moteur ne fait que transporter des références.
 - Le moteur accepte une analyse d'entrée substituable mais validée contre la rubrique, et représente les effets externes par des événements ordonnés sans I/O.
 - Authoring expose l'analyse des boucles, sorties garanties, impasses conditionnelles et fins inatteignables, ainsi que la prévisualisation depuis un état injecté.
 - Les six API exportent logs structurés, traces HTTP et métriques via OpenTelemetry.
