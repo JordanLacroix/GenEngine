@@ -72,12 +72,20 @@ public sealed class NarrativeRuntime
 
     public static GameState SubmitChoice(ScenarioDocument scenario, GameState state, string choiceId)
     {
-        if (state.Status is not SessionStatus.AwaitingInput)
+        NarrativeNode currentNode = state.Status is SessionStatus.AwaitingInput
+            or SessionStatus.AwaitingExternalInput
+            ? FindNode(scenario, state.CurrentNodeId)
+            : throw new NarrativeException("session_not_awaiting_input", "The session is not awaiting input.");
+        ChoiceSetInteraction? skippedExit = GetSkippableExitChoiceSet(currentNode, state);
+
+        // A free-text interaction parks the session on AwaitingExternalInput. When
+        // that interaction is optional, taking an exit choice is the way to skip
+        // it, so the external-input status must not block the choice.
+        if (state.Status is SessionStatus.AwaitingExternalInput && skippedExit is null)
         {
             throw new NarrativeException("session_not_awaiting_input", "The session is not awaiting input.");
         }
 
-        NarrativeNode currentNode = FindNode(scenario, state.CurrentNodeId);
         IReadOnlyList<NarrativeChoice> availableChoices = GetChoiceSet(currentNode, state);
         NarrativeChoice? choice = availableChoices.FirstOrDefault(candidate =>
             string.Equals(candidate.Id, choiceId, StringComparison.Ordinal));
@@ -94,7 +102,11 @@ public sealed class NarrativeRuntime
         world.ChoiceHistory.Add(new ChoiceHistoryEntry(currentNode.Id, choice.Id, nextTurn));
         if (HasTypedInteractions(currentNode))
         {
-            StepInteraction interaction = GetCurrentInteraction(currentNode, state);
+            // The history records the interaction the choice belongs to. When the
+            // player skips ahead, that is the exit choice set, never the optional
+            // interaction left unplayed: a skipped interaction leaves no trace, so
+            // a condition testing what it granted stays false.
+            StepInteraction interaction = skippedExit ?? GetCurrentInteraction(currentNode, state);
             world.InteractionHistory.Add(new InteractionHistoryEntry(
                 currentNode.Id,
                 interaction.Id,
@@ -308,6 +320,18 @@ public sealed class NarrativeRuntime
             }
 
             StepInteraction interaction = GetCurrentInteraction(node, state);
+
+            // An optional interaction is shown together with the node's exit
+            // choices, so the player decides whether to play it. The exit stays
+            // hidden while an analysis awaits validation: that flow must be
+            // finished or refused first.
+            bool isOptional = IsOptional(interaction);
+            IReadOnlyList<VisibleChoice> exitChoices =
+                state.Status is SessionStatus.AwaitingInput or SessionStatus.AwaitingExternalInput
+                && GetSkippableExitChoiceSet(node, state) is ChoiceSetInteraction exit
+                    ? VisibleChoices(exit.Choices, state.World)
+                    : [];
+
             return interaction switch
             {
                 NarrationInteraction narration => new CurrentStep(
@@ -320,6 +344,8 @@ public sealed class NarrativeRuntime
                     InteractionId = narration.Id,
                     Kind = InteractionKind.Narration,
                     Media = node.Media,
+                    IsOptional = isOptional,
+                    ExitChoices = exitChoices,
                 },
                 ChoiceSetInteraction choiceSet => new CurrentStep(
                     node.Id,
@@ -346,6 +372,8 @@ public sealed class NarrativeRuntime
                     InteractionId = quiz.Id,
                     Kind = InteractionKind.Quiz,
                     Media = node.Media,
+                    IsOptional = isOptional,
+                    ExitChoices = exitChoices,
                 },
                 CharacteristicGateInteraction gate => new CurrentStep(
                     node.Id,
@@ -369,6 +397,8 @@ public sealed class NarrativeRuntime
                     Kind = InteractionKind.FreeText,
                     PendingTextAnalysis = state.PendingTextAnalysis,
                     Media = node.Media,
+                    IsOptional = isOptional,
+                    ExitChoices = exitChoices,
                 },
                 _ => throw new NarrativeException("interaction_not_supported", "The interaction type is not supported."),
             };
@@ -463,7 +493,52 @@ public sealed class NarrativeRuntime
 
         return GetCurrentInteraction(node, state) is ChoiceSetInteraction choiceSet
             ? choiceSet.Choices
-            : [];
+            : GetSkippableExitChoiceSet(node, state)?.Choices ?? [];
+    }
+
+    private static bool IsOptional(StepInteraction interaction) => interaction.IsOptional == true;
+
+    /// <summary>
+    /// Returns the node's exit choice set — its terminal <see cref="ChoiceSetInteraction"/>,
+    /// the only interaction that leaves the node — when the player is allowed to
+    /// reach it right now without playing what stands in between.
+    /// </summary>
+    /// <remarks>
+    /// The rule for a node mixing optional and mandatory interactions is
+    /// deliberately conservative: the exit is offered only when <em>every</em>
+    /// interaction from the current index up to the exit choice set is optional.
+    /// A mandatory interaction therefore keeps blocking, exactly as before, and a
+    /// node is never skippable past content its author declared compulsory.
+    /// Sequencing stays a single forward walk over <c>InteractionIndex</c>, so a
+    /// session remains replayable from its recorded inputs alone.
+    /// Returns <c>null</c> when the current interaction already is the exit set,
+    /// since its choices are then served through the normal path.
+    /// </remarks>
+    private static ChoiceSetInteraction? GetSkippableExitChoiceSet(NarrativeNode node, GameState state)
+    {
+        if (!HasTypedInteractions(node))
+        {
+            return null;
+        }
+
+        IReadOnlyList<StepInteraction> interactions = node.Interactions!;
+        int index = state.InteractionIndex;
+        if (index < 0
+            || index >= interactions.Count - 1
+            || interactions[^1] is not ChoiceSetInteraction exit)
+        {
+            return null;
+        }
+
+        for (int candidate = index; candidate < interactions.Count - 1; candidate++)
+        {
+            if (!IsOptional(interactions[candidate]))
+            {
+                return null;
+            }
+        }
+
+        return exit;
     }
 
     private static StepInteraction GetCurrentInteraction(NarrativeNode node, GameState state)
@@ -1067,6 +1142,7 @@ public static class ScenarioValidator
             issues.Add(Error("ending_has_gate", path, "An ending node cannot contain an automatic gate."));
         }
 
+        bool hasExitChoiceSet = interactions[^1] is ChoiceSetInteraction;
         for (int index = 0; index < interactions.Count; index++)
         {
             StepInteraction interaction = interactions[index];
@@ -1075,6 +1151,8 @@ public static class ScenarioValidator
             {
                 issues.Add(Error("interaction_id_required", interactionPath, "Every interaction requires a stable id."));
             }
+
+            ValidateOptionality(interaction, interactionPath, schemaVersion, hasExitChoiceSet, issues);
 
             switch (interaction)
             {
@@ -1135,6 +1213,59 @@ public static class ScenarioValidator
                     ValidateFreeText(freeText, interactionPath, nodes, issues);
                     break;
             }
+        }
+    }
+
+    /// <summary>
+    /// An optional interaction is one the player may leave unplayed. That only
+    /// means something when the node offers a way out, and only for interactions
+    /// the player actually performs, so the flag is bounded on three axes: the
+    /// schema that introduced it, the interaction types it applies to, and the
+    /// presence of an exit choice set in the same node.
+    /// </summary>
+    private static void ValidateOptionality(
+        StepInteraction interaction,
+        string path,
+        int schemaVersion,
+        bool hasExitChoiceSet,
+        List<ValidationIssue> issues)
+    {
+        if (interaction.IsOptional is null)
+        {
+            return;
+        }
+
+        if (schemaVersion < NarrativeVersions.OptionalInteractionsSchema)
+        {
+            issues.Add(Error(
+                "optional_requires_schema_4",
+                $"{path}.isOptional",
+                $"Optional interactions require schema version {NarrativeVersions.OptionalInteractionsSchema}."));
+        }
+
+        if (interaction.IsOptional != true)
+        {
+            return;
+        }
+
+        // A choice set already lets the player leave, and a gate resolves without
+        // any player input: neither can be "skipped" in a meaningful way, and
+        // marking them optional would make the exit ambiguous.
+        if (interaction is ChoiceSetInteraction or CharacteristicGateInteraction)
+        {
+            issues.Add(Error(
+                "optional_interaction_not_supported",
+                $"{path}.isOptional",
+                "Only a narration, a quiz or a free-text interaction can be optional."));
+            return;
+        }
+
+        if (!hasExitChoiceSet)
+        {
+            issues.Add(Error(
+                "optional_requires_exit_choice_set",
+                $"{path}.isOptional",
+                "An optional interaction requires its node to end with a choice set the player can take instead."));
         }
     }
 

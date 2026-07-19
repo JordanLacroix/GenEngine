@@ -89,6 +89,11 @@ public static class ScenarioAnalyzer
             FreeTextInteraction freeText = (FreeTextInteraction)node.Interactions![state.InteractionIndex];
             string acceptedInput = string.Join(' ', freeText.RequiredTerms.Take(freeText.MinimumMatches));
             yield return ("matching-text", () => NarrativeRuntime.SubmitText(scenario, state, acceptedInput));
+            foreach ((string InputId, Func<GameState> Transition) skip in GetSkipTransitions(scenario, state, step))
+            {
+                yield return skip;
+            }
+
             yield break;
         }
 
@@ -101,6 +106,11 @@ public static class ScenarioAnalyzer
         if (step.Kind is InteractionKind.Narration)
         {
             yield return ("continue", () => NarrativeRuntime.Continue(scenario, state));
+            foreach ((string InputId, Func<GameState> Transition) skip in GetSkipTransitions(scenario, state, step))
+            {
+                yield return skip;
+            }
+
             yield break;
         }
 
@@ -109,6 +119,27 @@ public static class ScenarioAnalyzer
             yield return step.Kind is InteractionKind.Quiz
                 ? (choice.Id, () => NarrativeRuntime.SubmitAnswer(scenario, state, choice.Id))
                 : (choice.Id, () => NarrativeRuntime.SubmitChoice(scenario, state, choice.Id));
+        }
+
+        foreach ((string InputId, Func<GameState> Transition) skip in GetSkipTransitions(scenario, state, step))
+        {
+            yield return skip;
+        }
+    }
+
+    /// <summary>
+    /// Skipping an optional interaction is a real branch of the state space: the
+    /// exploration must walk it, otherwise a report would claim a node has no
+    /// alternative path when the player is free to take one.
+    /// </summary>
+    private static IEnumerable<(string InputId, Func<GameState> Transition)> GetSkipTransitions(
+        ScenarioDocument scenario,
+        GameState state,
+        CurrentStep step)
+    {
+        foreach (VisibleChoice choice in step.ExitChoices)
+        {
+            yield return ($"skip:{choice.Id}", () => NarrativeRuntime.SubmitChoice(scenario, state, choice.Id));
         }
     }
 

@@ -20,7 +20,9 @@ public sealed class NarrativeMigrationGoldenTests
 
         Assert.Equal(1, scenarioMigration.OriginalSchemaVersion);
         Assert.Equal(NarrativeVersions.LatestSchema, scenarioMigration.Document.SchemaVersion);
-        Assert.Equal(["scenario-v1-to-v2", "scenario-v2-to-v3"], scenarioMigration.AppliedMigrations);
+        Assert.Equal(
+            ["scenario-v1-to-v2", "scenario-v2-to-v3", "scenario-v3-to-v4"],
+            scenarioMigration.AppliedMigrations);
         Assert.Equal(GameSaveVersions.Current, save.FormatVersion);
         Assert.Equal(NarrativeVersions.Runtime, save.RuntimeVersion);
         Assert.Equal(["save-v1-to-v2"], save.AppliedMigrations);
@@ -105,6 +107,74 @@ public sealed class NarrativeMigrationGoldenTests
         Assert.Empty(save.AppliedMigrations);
         Assert.Equal(2, save.ScenarioSchemaVersion);
         Assert.Equal(NarrativeJson.Serialize(expected), NarrativeJson.Serialize(replayed));
+    }
+
+    /// <summary>
+    /// Canonical hash of <c>scenario-v3.json</c>, computed with the engine as it
+    /// was before optional interactions existed, by compiling the pre-change
+    /// sources from git and running them against this very fixture. Freezing a
+    /// value produced by the older binary is the only assertion that proves the
+    /// new <c>isOptional</c> field stays out of the canonical bytes of a document
+    /// that does not declare it — an expectation written against the new code
+    /// would prove nothing.
+    /// </summary>
+    private const string PublishedSchemaThreeHash =
+        "def2efc53e6b417fa6f42336c80fe81c99fc01989631c0746edf912c6214bfcf";
+
+    [Fact]
+    public void PublishedSchemaThreeSnapshotKeepsItsCanonicalHashAfterTheOptionalBump()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v3.json"));
+        string canonicalJson = System.Text.Encoding.UTF8.GetString(CanonicalSnapshot.GetCanonicalBytes(scenario));
+
+        Assert.Equal(PublishedSchemaThreeHash, CanonicalSnapshot.ComputeHash(scenario));
+        Assert.DoesNotContain("isOptional", canonicalJson, StringComparison.Ordinal);
+        Assert.True(ScenarioValidator.Validate(scenario).IsValid);
+    }
+
+    /// <summary>
+    /// The final state is the one the pre-change engine produced from
+    /// <c>save-v3.json</c>. A session published before this change must follow the
+    /// exact same sequence: both interactions stay mandatory and the turn counter,
+    /// interaction history and world are byte-identical.
+    /// </summary>
+    [Fact]
+    public void SchemaThreeSaveStillReplaysIdenticallyAfterTheOptionalBump()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v3.json"));
+        GameSave save = GameSaveSerializer.Deserialize(ReadGolden("save-v3.json"), 42UL, DateTimeOffset.UnixEpoch);
+
+        GameState replayed = NarrativeRuntime.SubmitChoice(
+            scenario,
+            NarrativeRuntime.SubmitAnswer(scenario, NarrativeRuntime.Continue(scenario, save.State), "fifth"),
+            "listen");
+        GameState expected = NarrativeJson.Deserialize<GameState>(ReadGolden("scenario-v3-replay-final-state.json"));
+
+        Assert.Empty(save.AppliedMigrations);
+        Assert.Equal(3, save.ScenarioSchemaVersion);
+        Assert.Equal(NarrativeJson.Serialize(expected), NarrativeJson.Serialize(replayed));
+    }
+
+    /// <summary>
+    /// The same published snapshot must also stay <em>mandatory</em>: without an
+    /// explicit flag, no exit choice leaks next to the narration, and taking one
+    /// early is refused exactly as before.
+    /// </summary>
+    [Fact]
+    public void SchemaThreeSnapshotOffersNoSkipAndStillBlocksAnEarlyChoice()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v3.json"));
+        GameState start = NarrativeRuntime.Start(scenario);
+
+        CurrentStep step = NarrativeRuntime.GetCurrentStep(scenario, start);
+        NarrativeException exception = Assert.Throws<NarrativeException>(() =>
+            NarrativeRuntime.SubmitChoice(scenario, start, "listen"));
+
+        Assert.Equal(InteractionKind.Narration, step.Kind);
+        Assert.False(step.IsOptional);
+        Assert.Empty(step.ExitChoices);
+        Assert.Empty(step.Choices);
+        Assert.Equal("choice_not_available", exception.Code);
     }
 
     private static string ReadGolden(string name) =>
