@@ -243,6 +243,15 @@ public static class PlayerExperienceInfrastructureExtensions
         services.AddScoped<IPlayerExperienceRepository, PlayerExperienceRepository>();
         string baseUrl = configuration["Configuration:BaseUrl"] ?? "http://localhost:5204";
         services.AddHttpClient<IPlayerExperienceCatalogProvider, ConfigurationCatalogProvider>(client => client.BaseAddress = new Uri(baseUrl));
+        services.AddHttpClient<IScenarioHelpProvider, ScenarioHelpProvider>(client =>
+        {
+            client.BaseAddress = new Uri(configuration["Services:Authoring"] ?? "http://localhost:5201");
+        })
+        .AddStandardResilienceHandler(AssistantHelpResilience.Configure);
+
+        // AI stays optional: without a provider registered over it, this default
+        // reports itself unconfigured and help resolves offline.
+        services.AddSingleton<IAssistantAiClient, OfflineAssistantAiClient>();
         services.AddScoped<PlayerExperienceService>();
         services.AddSingleton(TimeProvider.System);
         services.AddHealthChecks().AddCheck<PlayerExperienceDatabaseHealthCheck>("player-experience-database");

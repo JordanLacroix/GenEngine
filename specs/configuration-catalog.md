@@ -27,6 +27,7 @@ L'import de memberships est une politique d'exploitation du service propriétair
 | IA | Providers, modèles, profils, routage, fallback, double avis, prompts, structured outputs, tools autorisés, cache, résilience, sûreté, pricing et quotas | `ai.*` |
 | Économie | Devises, wallets, reward types, inventaires, shops, offres, prix, stock, limites, promotions, entitlements et compensations | `shop.*`, `wallet.*`, `economy.*` |
 | Médias | Types/taille, stockage, rétention, scan, licences, consentement, validation document/photo et règles d'accès | `media.*` |
+| Marque | Nom d'application, nom court, accroche, icônes de marque et de client, logo, favicon, jeu de couleurs nommées, schéma clair/sombre, rayon de coin, typographie et palette d'accents | `branding.*` |
 | StoryArc | Arcs, chapitres, cadence, continuité, variations, fallback statique et règles de déblocage | `storyarc.*` |
 | Packs | Manifeste, dépendances, compatibilité, licences, preview, stratégie de conflit, application/rollback et catalogue | `pack.*` |
 | Insights | KPI, formules déclaratives, dimensions, cohortes, seuils, objectifs, dashboards, anonymat, exports et rétention | `insights.*` |

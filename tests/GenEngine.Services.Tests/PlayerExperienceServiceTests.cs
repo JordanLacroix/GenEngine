@@ -23,7 +23,7 @@ public sealed class PlayerExperienceServiceTests
     public async Task RewardsAreIdempotentAndPurchasesDebitTheWallet()
     {
         var repository = new RepositoryStub();
-        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
         var reward = new RewardCommand("default", "player-1", "ScenarioCompleted", "*", "session-1:completed");
 
         PlayerExperienceView first = await service.ApplyRewardAsync(reward, CancellationToken.None);
@@ -45,7 +45,7 @@ public sealed class PlayerExperienceServiceTests
     public async Task FamiliarConfigurationIsValidatedAgainstThePublishedCatalog()
     {
         var repository = new RepositoryStub();
-        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
         PlayerExperienceView current = await service.GetAsync("player-1", "default", CancellationToken.None);
 
         PlayerExperienceView updated = await service.ConfigureFamiliarAsync(
@@ -64,7 +64,7 @@ public sealed class PlayerExperienceServiceTests
     public async Task BootstrapPersistsOnboardingAndProgressJournal()
     {
         var repository = new RepositoryStub();
-        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
 
         PlayerBootstrapView bootstrap = await service.GetBootstrapAsync("player-1", "default", CancellationToken.None);
         OnboardingStateView completed = await service.CompleteOnboardingStepAsync(
@@ -83,7 +83,7 @@ public sealed class PlayerExperienceServiceTests
     public async Task JourneyProgressAggregatesMasteryPerJourneyAndPerCategory()
     {
         var repository = new RepositoryStub();
-        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
         await PlayFoundationScenariosAsync(service, completeSecond: false);
 
         PlayerJourneysView journeys = await service.GetJourneysAsync("player-1", "default", CancellationToken.None);
@@ -110,7 +110,7 @@ public sealed class PlayerExperienceServiceTests
     public async Task DefaultJourneyIsRefusedUntilItsPrerequisitesAreSatisfied()
     {
         var repository = new RepositoryStub();
-        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
         await PlayFoundationScenariosAsync(service, completeSecond: false);
 
         PlayerExperienceView current = await service.GetAsync("player-1", "default", CancellationToken.None);
@@ -136,7 +136,7 @@ public sealed class PlayerExperienceServiceTests
     public async Task AFrontWithoutJourneysKeepsAProfileWithoutDefault()
     {
         var repository = new RepositoryStub();
-        var service = new PlayerExperienceService(repository, new CatalogStub(withJourneys: false), TimeProvider.System);
+        var service = new PlayerExperienceService(repository, new CatalogStub(withJourneys: false), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
 
         PlayerExperienceView experience = await service.GetAsync("player-1", "default", CancellationToken.None);
         PlayerJourneysView journeys = await service.GetJourneysAsync("player-1", "default", CancellationToken.None);
@@ -158,7 +158,7 @@ public sealed class PlayerExperienceServiceTests
     public async Task AScenarioCompletedOnAnEarlierVersionStaysCompleted()
     {
         var repository = new RepositoryStub();
-        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System);
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
 
         // v1 finished: one choice and one ending out of four objectives, so 50 %.
         _ = await service.RecordProgressEventAsync(new ProgressEventCommand(
@@ -191,7 +191,7 @@ public sealed class PlayerExperienceServiceTests
     public async Task AnEmptyPrerequisiteJourneyDoesNotLockItsSuccessors()
     {
         var repository = new RepositoryStub();
-        var service = new PlayerExperienceService(repository, new CatalogStub(emptyGate: true), TimeProvider.System);
+        var service = new PlayerExperienceService(repository, new CatalogStub(emptyGate: true), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
 
         PlayerJourneysView journeys = await service.GetJourneysAsync("player-1", "default", CancellationToken.None);
         JourneyProgressView gate = journeys.Items.Single(journey => journey.Id == FoundationJourneyId);
@@ -230,12 +230,317 @@ public sealed class PlayerExperienceServiceTests
             "default", "player-1", "s2:end", "ScenarioCompleted", "Fin atteinte", "Vous avez terminé.",
             null, SharedCategoryId, SecondScenarioId, SecondScenarioVersionId, Guid.NewGuid(), null, "c1", "node-end", "e2", true, 4), CancellationToken.None);
 
+    private static readonly Guid VersionId = Guid.Parse("5d9d8f4e-1a2b-4c3d-8e5f-6a7b8c9d0e1f");
+
+    private static ScenarioHelpSnapshot Snapshot(AuthorHelpView? node, AuthorHelpView? choice) =>
+        new("Le Diapason", "atrium", "Le diapason vibre.", ["Écouter", "Répondre"], node, choice);
+
+    /// <summary>
+    /// The two parameters that used to be dead. A help request must actually reach
+    /// Authoring with the version and the choice it names, and the choice-level
+    /// help must win over the step-level one.
+    /// </summary>
+    [Fact]
+    public async Task ScenarioVersionAndChoiceAreForwardedAndChoiceHelpWins()
+    {
+        var repository = new RepositoryStub();
+        var help = new ScenarioHelpStub(Snapshot(
+            new AuthorHelpView("Indice du nœud", null, null, null),
+            new AuthorHelpView("Indice du choix", null, null, null)));
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, help, new AiStub());
+
+        ContextualHelpView view = await service.GetContextualHelpAsync(
+            "player-1",
+            "default",
+            new ContextualHelpRequest("scenario", VersionId, "answer", false, null, "atrium"),
+            CancellationToken.None);
+
+        Assert.Equal(VersionId, help.SeenVersionId);
+        Assert.Equal("atrium", help.SeenNodeId);
+        Assert.Equal("answer", help.SeenChoiceId);
+        Assert.Equal(HelpSources.ScenarioHelp, view.Source);
+        Assert.Equal("Indice du choix", view.Message);
+        Assert.False(view.IsFallback);
+    }
+
+    /// <summary>The help level picks the modality, so it is not decorative.</summary>
+    [Theory]
+    [InlineData(1, "Indice", nameof(HelpModality.Hint))]
+    [InlineData(3, "Conséquence", nameof(HelpModality.Consequence))]
+    [InlineData(5, "Blocage", nameof(HelpModality.Blocker))]
+    public async Task HelpLevelSelectsTheModalityActuallyServed(int helpLevel, string expected, string modality)
+    {
+        var repository = new RepositoryStub();
+        var help = new ScenarioHelpStub(Snapshot(
+            new AuthorHelpView("Indice", "Objectif", "Conséquence", "Blocage"),
+            null));
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, help, new AiStub());
+        PlayerExperienceView current = await service.GetAsync("player-1", "default", CancellationToken.None);
+        await service.ConfigureFamiliarAsync(
+            "player-1",
+            "default",
+            new FamiliarSelection(FamiliarId, "owl", "Playful", "Socratic", "amber", helpLevel),
+            current.Revision,
+            CancellationToken.None);
+
+        ContextualHelpView view = await service.GetContextualHelpAsync(
+            "player-1",
+            "default",
+            new ContextualHelpRequest("scenario", VersionId, null, false, null, "atrium"),
+            CancellationToken.None);
+
+        Assert.Equal(expected, view.Message);
+        Assert.Equal(modality, view.Modality);
+    }
+
+    /// <summary>
+    /// The known-path warning no longer suppresses the author's help: replaying a
+    /// branch is an expected use in a teaching context, and knowing you have been
+    /// here before does not make the hint useless. Both are returned, and
+    /// <c>Source</c> names the help that carries the substance.
+    /// </summary>
+    [Fact]
+    public async Task KnownPathWarningIsPrependedToTheAuthorHintRatherThanReplacingIt()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
+
+        ContextualHelpView view = await service.GetContextualHelpAsync(
+            "player-1",
+            "default",
+            new ContextualHelpRequest("scenario", null, null, true, "Indice fourni par le client"),
+            CancellationToken.None);
+
+        Assert.Equal(HelpSources.AuthorHint, view.Source);
+        Assert.StartsWith("Vous avez déjà emprunté ce chemin.", view.Message, StringComparison.Ordinal);
+        Assert.Contains("Indice fourni par le client", view.Message, StringComparison.Ordinal);
+        Assert.False(view.IsFallback);
+    }
+
+    /// <summary>
+    /// With nothing else to say, the warning still stands on its own — and keeps
+    /// announcing itself as the source, since it is then the whole message.
+    /// </summary>
+    [Fact]
+    public async Task KnownPathWarningStandsAloneWhenNoOtherHelpResolves()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
+
+        ContextualHelpView view = await service.GetContextualHelpAsync(
+            "player-1",
+            "default",
+            new ContextualHelpRequest("scenario", null, null, true, null),
+            CancellationToken.None);
+
+        Assert.Equal(HelpSources.KnownPathWarning, view.Source);
+        Assert.StartsWith("Vous avez déjà emprunté ce chemin.", view.Message, StringComparison.Ordinal);
+        Assert.False(view.IsFallback);
+    }
+
+    [Fact]
+    public async Task AuthorHintIsHonouredAndNoLongerReportedAsAFallback()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
+
+        ContextualHelpView view = await service.GetContextualHelpAsync(
+            "player-1",
+            "default",
+            new ContextualHelpRequest("scenario", null, null, false, "Indice fourni par le client"),
+            CancellationToken.None);
+
+        Assert.Equal(HelpSources.AuthorHint, view.Source);
+        Assert.Equal("Indice fourni par le client", view.Message);
+        Assert.False(view.IsFallback);
+    }
+
+    [Fact]
+    public async Task GenericRuleIsTheOnlyBranchReportedAsAFallback()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
+
+        ContextualHelpView view = await service.GetContextualHelpAsync(
+            "player-1",
+            "default",
+            new ContextualHelpRequest("map", null, null, false, null),
+            CancellationToken.None);
+
+        Assert.Equal(HelpSources.OfflineRule, view.Source);
+        Assert.True(view.IsFallback);
+    }
+
+    [Fact]
+    public async Task ConfiguredProviderAnswersWithTheRealScenarioContext()
+    {
+        var repository = new RepositoryStub();
+        var ai = new AiStub("Écoutez le timbre avant de répondre.", configured: true);
+        var help = new ScenarioHelpStub(Snapshot(new AuthorHelpView("Indice", null, null, null), null));
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, help, ai);
+
+        ContextualHelpView view = await service.GetContextualHelpAsync(
+            "player-1",
+            "default",
+            new ContextualHelpRequest("scenario", VersionId, null, false, null, "atrium"),
+            CancellationToken.None);
+
+        Assert.Equal(HelpSources.Ai, view.Source);
+        Assert.Equal("Écoutez le timbre avant de répondre.", view.Message);
+        Assert.False(view.IsFallback);
+        Assert.Equal("Le Diapason", ai.SeenContext?.ScenarioTitle);
+        Assert.Equal("atrium", ai.SeenContext?.NodeId);
+        Assert.Equal(["Écouter", "Répondre"], ai.SeenContext?.VisibleChoiceTexts);
+        Assert.Equal("Indice", ai.SeenContext?.AuthorHelpText);
+    }
+
+    /// <summary>An erroring or timing-out provider must degrade, never surface.</summary>
+    [Theory]
+    [InlineData("error")]
+    [InlineData("timeout")]
+    public async Task FailingProviderFallsBackToTheAuthoredHelp(string kind)
+    {
+        Exception failure = kind == "timeout"
+            ? new TaskCanceledException("The provider timed out.")
+            : new HttpRequestException("The provider is unreachable.");
+        var repository = new RepositoryStub();
+        var help = new ScenarioHelpStub(Snapshot(new AuthorHelpView("Indice de repli", null, null, null), null));
+        var service = new PlayerExperienceService(
+            repository, new CatalogStub(), TimeProvider.System, help, new FailingAiStub(failure));
+
+        ContextualHelpView view = await service.GetContextualHelpAsync(
+            "player-1",
+            "default",
+            new ContextualHelpRequest("scenario", VersionId, null, false, null, "atrium"),
+            CancellationToken.None);
+
+        Assert.Equal(HelpSources.ScenarioHelp, view.Source);
+        Assert.Equal("Indice de repli", view.Message);
+    }
+
+    [Fact]
+    public async Task UnavailableAuthoringDegradesToTheOfflineRule()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(
+            repository, new CatalogStub(), TimeProvider.System, new UnavailableScenarioHelpStub(), new AiStub());
+
+        ContextualHelpView view = await service.GetContextualHelpAsync(
+            "player-1",
+            "default",
+            new ContextualHelpRequest("scenario", VersionId, "answer", false, null, "atrium"),
+            CancellationToken.None);
+
+        Assert.Equal(HelpSources.OfflineRule, view.Source);
+        Assert.True(view.IsFallback);
+    }
+
+    /// <summary>
+    /// Help is a presentation overlay. Once the profile exists, asking for help
+    /// must not write anything: no save, no turn, no journal entry, no wallet move.
+    /// </summary>
+    [Fact]
+    public async Task ContextualHelpNeverMutatesPlayerState()
+    {
+        var repository = new RepositoryStub();
+        var help = new ScenarioHelpStub(Snapshot(new AuthorHelpView("Indice", null, null, null), null));
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, help, new AiStub());
+        PlayerExperienceView before = await service.GetAsync("player-1", "default", CancellationToken.None);
+        int savesBefore = repository.SaveCount;
+
+        await service.GetContextualHelpAsync(
+            "player-1",
+            "default",
+            new ContextualHelpRequest("scenario", VersionId, "answer", false, null, "atrium"),
+            CancellationToken.None);
+        PlayerExperienceView after = await service.GetAsync("player-1", "default", CancellationToken.None);
+
+        Assert.Equal(savesBefore, repository.SaveCount);
+        Assert.Equal(before.Revision, after.Revision);
+        Assert.Equal(before.Balance, after.Balance);
+        Assert.Empty(after.RecentJournal);
+        Assert.Empty(after.RecentEntries);
+    }
+
+    /// <summary>Intervention frequency gates unsolicited help, not an explicit request.</summary>
+    [Fact]
+    public async Task SilentFamiliarSuppressesProactiveHelpButStillAnswersWhenAsked()
+    {
+        var repository = new RepositoryStub();
+        var service = new PlayerExperienceService(repository, new CatalogStub(), TimeProvider.System, new ScenarioHelpStub(), new AiStub());
+        PlayerExperienceView current = await service.GetAsync("player-1", "default", CancellationToken.None);
+        await service.ConfigureFamiliarAsync(
+            "player-1",
+            "default",
+            new FamiliarSelection(FamiliarId, "owl", "Playful", "Socratic", "amber", 2, null, 0, false),
+            current.Revision,
+            CancellationToken.None);
+
+        ContextualHelpView proactive = await service.GetContextualHelpAsync(
+            "player-1", "default",
+            new ContextualHelpRequest("scenario", null, null, false, null, null, true),
+            CancellationToken.None);
+        ContextualHelpView asked = await service.GetContextualHelpAsync(
+            "player-1", "default",
+            new ContextualHelpRequest("scenario", null, null, false, null),
+            CancellationToken.None);
+
+        Assert.Equal(HelpSources.Suppressed, proactive.Source);
+        Assert.Empty(proactive.Message);
+        Assert.Equal(nameof(HelpModality.None), proactive.Modality);
+        Assert.Equal(HelpSources.OfflineRule, asked.Source);
+        Assert.NotEmpty(asked.Message);
+    }
+
     private sealed class RepositoryStub : IPlayerExperienceRepository
     {
         private PlayerProfile? profile;
+        public int SaveCount { get; private set; }
         public Task<PlayerProfile?> GetAsync(string userId, string frontId, CancellationToken cancellationToken) => Task.FromResult(profile);
         public Task AddAsync(PlayerProfile value, CancellationToken cancellationToken) { profile = value; return Task.CompletedTask; }
-        public Task SaveChangesAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task SaveChangesAsync(CancellationToken cancellationToken) { SaveCount++; return Task.CompletedTask; }
+    }
+
+    private sealed class ScenarioHelpStub(ScenarioHelpSnapshot? snapshot = null) : IScenarioHelpProvider
+    {
+        public Guid? SeenVersionId { get; private set; }
+        public string? SeenNodeId { get; private set; }
+        public string? SeenChoiceId { get; private set; }
+
+        public Task<ScenarioHelpSnapshot?> GetAsync(Guid scenarioVersionId, string? nodeId, string? choiceId, CancellationToken cancellationToken)
+        {
+            SeenVersionId = scenarioVersionId;
+            SeenNodeId = nodeId;
+            SeenChoiceId = choiceId;
+            return Task.FromResult(snapshot);
+        }
+    }
+
+    /// <summary>An Authoring that is down: the port degrades to null, it never throws.</summary>
+    private sealed class UnavailableScenarioHelpStub : IScenarioHelpProvider
+    {
+        public Task<ScenarioHelpSnapshot?> GetAsync(Guid scenarioVersionId, string? nodeId, string? choiceId, CancellationToken cancellationToken) =>
+            Task.FromResult<ScenarioHelpSnapshot?>(null);
+    }
+
+    private sealed class AiStub(string? answer = null, bool configured = false) : IAssistantAiClient
+    {
+        public AssistantAiContext? SeenContext { get; private set; }
+        public bool IsConfigured => configured;
+
+        public Task<string?> GenerateAsync(AssistantAiContext context, CancellationToken cancellationToken)
+        {
+            SeenContext = context;
+            return Task.FromResult(answer);
+        }
+    }
+
+    /// <summary>A provider that fails outright, standing in for an error or a timeout.</summary>
+    private sealed class FailingAiStub(Exception failure) : IAssistantAiClient
+    {
+        public bool IsConfigured => true;
+        public Task<string?> GenerateAsync(AssistantAiContext context, CancellationToken cancellationToken) =>
+            Task.FromException<string?>(failure);
     }
 
     private sealed class CatalogStub(bool withJourneys = true, bool emptyGate = false) : IPlayerExperienceCatalogProvider
