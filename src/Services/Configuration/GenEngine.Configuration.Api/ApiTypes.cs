@@ -17,7 +17,7 @@ public sealed class ApiExceptionHandler(IProblemDetailsService problemDetailsSer
         {
             ConfigurationDomainException domain when domain.Code == "revision_conflict" => (StatusCodes.Status409Conflict, domain.Code),
             ConfigurationDomainException domain => (StatusCodes.Status400BadRequest, domain.Code),
-            ConfigurationException application when application.Code == "configuration_not_found" => (StatusCodes.Status404NotFound, application.Code),
+            ConfigurationException application when application.Code is "configuration_not_found" or "asset_pack_not_found" => (StatusCodes.Status404NotFound, application.Code),
             ConfigurationException application when application.Code == "revision_conflict" => (StatusCodes.Status409Conflict, application.Code),
             ConfigurationException application => (StatusCodes.Status400BadRequest, application.Code),
             _ => (StatusCodes.Status500InternalServerError, "internal_error"),
