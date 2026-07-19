@@ -116,7 +116,22 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 - `POST /me/experience/onboarding/skip?frontId={frontId}` — passage idempotent si autorisé
 - `POST /me/experience/onboarding/reset?frontId={frontId}` — recommence le tutoriel courant
 - `GET /me/experience/journal?frontId={frontId}` — journal filtrable et agrégats personnels
-- `POST /me/experience/assistant/contextual-help?frontId={frontId}` — aide déterministe hors ligne et avertissement de chemin connu
+- `POST /me/experience/assistant/contextual-help?frontId={frontId}` — aide contextuelle résolue côté serveur
+
+  Corps : `context`, `scenarioVersionId`, `nodeId`, `choiceId`, `alreadyExplored`,
+  `authorHint`, `proactive`. `scenarioVersionId`, `nodeId` et `choiceId` servent à
+  relire l'aide d'auteur portée par la version publiée via la route interne
+  d'Authoring ; `authorHint` reste une surcharge cliente facultative.
+
+  Réponse : `source`, `message`, `isFallback`, `familiarName`, `avatarUrl`,
+  `modality`. `source` désigne la source du message **réellement retourné** —
+  `KnownPathWarning`, `Ai`, `AuthorHint`, `ScenarioHelp`, `OfflineRule` ou
+  `Suppressed` — et `isFallback` n'est vrai que pour `OfflineRule`, seule branche
+  qui ne s'appuie sur aucun contenu. `modality` vaut `Hint`, `Objective`,
+  `Consequence`, `Blocker`, `KnownPathWarning` ou `None`.
+
+  L'appel est en lecture seule : il ne modifie aucun état de session, ne consomme
+  aucun tour et n'entre dans aucun hash.
 - `POST /me/experience/shop/purchases?frontId={frontId}` — achat idempotent
 - `POST /internal/rewards` — applique une règle de récompense idempotente depuis un événement narratif
 - `POST /internal/progress-events` — journalise une interaction et consolide la maîtrise cross-session de façon idempotente
