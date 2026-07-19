@@ -17,6 +17,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddConfigurationInfrastructure(builder.Configuration);
+builder.Services.AddAssetPacks(builder.Configuration);
 AddJwtAuthentication(builder.Services, builder.Configuration);
 builder.Services.AddAuthorization(options =>
 {
@@ -33,12 +34,22 @@ if (app.Configuration.GetValue<bool>("Database:AutoMigrate"))
 }
 
 app.UseExceptionHandler();
+// The pack bytes are public CC0 content mounted before authentication: an
+// anonymous visitor of the demonstration must be able to load them, and gating
+// them behind a token would make the offline journey depend on a session.
+app.MapAssetPackFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapConfigurationHealthChecks();
 
 app.MapGet("/experience/{frontId}", async (string frontId, ConfigurationService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetPublishedAsync(frontId, cancellationToken).ConfigureAwait(false)));
+
+// Asset packs are read-only content shipped with the instance. They are exposed
+// next to the published experience, and for the same reason: a client must be
+// able to discover what an instance publishes before it holds any credential.
+app.MapGet("/asset-packs", (AssetPackService service) => Results.Ok(service.List()));
+app.MapGet("/asset-packs/{packId}", (string packId, AssetPackService service) => Results.Ok(service.Get(packId)));
 
 RouteGroupBuilder admin = app.MapGroup("/admin/configuration/{frontId}");
 admin.MapGet("", async (string frontId, ConfigurationService service, CancellationToken cancellationToken) =>

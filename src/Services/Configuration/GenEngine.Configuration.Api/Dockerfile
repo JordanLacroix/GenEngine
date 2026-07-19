@@ -11,6 +11,11 @@ RUN dotnet publish src/Services/Configuration/GenEngine.Configuration.Api/GenEng
 FROM mcr.microsoft.com/dotnet/aspnet:10.0.3-alpine3.22@sha256:e0fd89188698106364ea47cd6bbedc1fdea99363766932a1f4c256c87631ec53 AS final
 WORKDIR /app
 COPY --from=build --chown=app:app /app .
+# Asset packs are data shipped with the instance, not build output: they are
+# copied verbatim so the bytes served stay identical to the repository and the
+# manifest's SHA-256 remains verifiable. They are read-only and owned by the
+# non-root user, so the container filesystem can stay read-only.
+COPY --chown=app:app assets/ ./assets/
 USER app
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \

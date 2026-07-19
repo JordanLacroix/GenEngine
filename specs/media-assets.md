@@ -182,6 +182,47 @@ Règles :
 3. **Une session utilise le pack figé dans son snapshot de configuration**
    (invariant 12). Republier un pack ne modifie pas les sessions en cours.
 
+## 3 bis. Comment le pack est publié et servi
+
+Le pack n'est plus de la donnée inerte : `Configuration` le publie et sert ses octets.
+
+| Route | Rôle |
+|---|---|
+| `GET /asset-packs` | Liste des packs livrés par l'instance. |
+| `GET /asset-packs/{packId}` | Manifeste complet, `path` réécrit en chemin servable. |
+| `GET /asset-packs/{packId}/files/{chemin}` | Octets de l'asset. |
+
+**Pourquoi `Configuration` et pas un service dédié.** Un pack est un paramètre
+d'expérience, pas un domaine : il décrit ce qu'une instance publie, exactement
+comme la configuration décrit ce qu'elle active. L'ADR
+[`0005`](adr/0005-configuration-control-plane.md) fait de `Configuration` le
+control plane ; y ajouter la lecture d'un pack n'introduit ni frontière, ni base,
+ni mécanisme parallèle. Aucun service n'est ajouté.
+
+**Pourquoi ces routes sont anonymes.** Elles le sont pour la même raison que
+`GET /experience/{frontId}` : la démonstration s'adresse à un visiteur anonyme, et
+un asset placé derrière un jeton rendrait le parcours hors ligne dépendant d'une
+session. Le contenu servi est du CC0 public ; il ne porte aucune donnée
+d'instance.
+
+**Contrat de service.** Les trois types livrés sont déclarés explicitement
+(`image/svg+xml`, `image/png`, `audio/ogg`) plutôt que déduits : un navigateur
+refuse de décoder un son servi en `application/octet-stream`. Les réponses portent
+`Cache-Control: public, max-age=31536000, immutable` — les octets d'un `packVersion`
+donné ne changent jamais — et `X-Content-Type-Options: nosniff`. Un chemin
+remontant (`..`) ou absolu déclaré dans un manifeste fait **échouer le démarrage**
+au lieu d'être monté.
+
+**Lecture seule.** Les packs sont copiés dans l'image (`COPY assets/`), possédés
+par l'utilisateur non-root, et lus une seule fois au démarrage. Rien n'est écrit à
+l'exécution : le système de fichiers du conteneur reste en lecture seule.
+
+**Le client web sert aussi le pack.** `GenEngine.Web` embarque les mêmes octets
+sous `public/packs/` et publie son propre `/packs/manifest.json`. C'est délibéré :
+la démonstration doit tourner **sans backend**, et la seule origine qu'un visiteur
+anonyme atteint alors est celle qui sert l'application. Les deux copies sont
+identiques par empreinte SHA-256, vérifiée de chaque côté par un test.
+
 ## 4. Surcharger ou étendre le pack dans une instance client
 
 Une organisation cliente doit pouvoir apposer sa propre identité sans forker le
