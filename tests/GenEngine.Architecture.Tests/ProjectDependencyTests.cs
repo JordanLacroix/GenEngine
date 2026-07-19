@@ -9,6 +9,7 @@ public sealed class ProjectDependencyTests
         {
             ["GenEngine.Observability"] = new HashSet<string>(StringComparer.Ordinal),
             ["GenEngine.Narrative"] = new HashSet<string>(StringComparer.Ordinal),
+            ["GenEngine.Secrets"] = None(),
             ["GenEngine.Authoring.Domain"] = None(),
             ["GenEngine.Authoring.Application"] = Only(
                 "GenEngine.Authoring.Domain", "GenEngine.Narrative"),
@@ -29,7 +30,8 @@ public sealed class ProjectDependencyTests
                 "GenEngine.Identity.Application", "GenEngine.Identity.Infrastructure",
                 "GenEngine.Observability"),
             ["GenEngine.Configuration.Domain"] = None(),
-            ["GenEngine.Configuration.Application"] = Only("GenEngine.Configuration.Domain"),
+            ["GenEngine.Configuration.Application"] = Only(
+                "GenEngine.Configuration.Domain", "GenEngine.Secrets"),
             ["GenEngine.Configuration.Infrastructure"] = Only("GenEngine.Configuration.Application"),
             ["GenEngine.Configuration.Api"] = Only(
                 "GenEngine.Configuration.Application", "GenEngine.Configuration.Infrastructure",

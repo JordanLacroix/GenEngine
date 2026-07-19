@@ -104,6 +104,46 @@ La tranche suivante complète les périodes métier nommées, l'import de masse 
 - `install-diapason.sh` n'est pas idempotent : `POST /scenarios/import` crée toujours un nouveau brouillon ;
 - le seeder de configuration ne rejoue jamais sur une base non vide : une instance antérieure conserve son ancien document.
 
+### Tranche `feat/secret-resolution` — vérifiée le 19 juillet 2026
+
+**Constat de départ, vérifié** : `AiProviderDefinition.SecretReference` existait depuis
+longtemps et `ConfigurationService.GetPublishedAsync` prenait soin de l'effacer des projections
+anonymes, mais **aucun chemin du dépôt ne transformait cette référence en identifiant
+utilisable**. Les seules occurrences de `SecretReference` dans tout le dépôt étaient la
+déclaration du record, la ligne de redaction, la valeur par défaut et l'assertion de redaction
+dans les tests. La valeur par défaut était `"azure-foundry-credential"` : une chaîne opaque
+sans grammaire ni résolveur.
+
+- Nouveau building block [`GenEngine.Secrets`](../src/BuildingBlocks/GenEngine.Secrets/) — sans
+  dépendance, sans I/O disque : `SecretReference` (grammaire `scheme:identifier`),
+  `SecretValue` (rendus implicites rabattus sur `***`, `Reveal()` explicite),
+  `SecretResolution` (échec = valeur, cause close), `ISecretResolver`/`ISecretStore`,
+  `EnvironmentSecretResolver` (schéma `env`) et `SecretStore` (dispatch par schéma).
+- `AiProviderCredentialResolver` dans `Configuration.Application` traduit un
+  `AiProviderDefinition` en `AiProviderAvailability` (`ready`, `provider_disabled`,
+  `no_credential_required`, `secret_not_found`…) ou en `SecretValue?`.
+- Grammaire refusée à l'écriture : `PUT /admin/configuration/{frontId}` renvoie
+  `invalid_secret_reference` sans réémettre la valeur refusée.
+- Défaut migré vers `env:GENENGINE_AI_AZURE_FOUNDRY_KEY` ; variable câblée vide dans
+  `compose.yaml` (Authoring, PlayerExperience) et `.env.example`.
+- Grammaire et extensibilité documentées dans
+  [`platform-configuration.md`](platform-configuration.md#références-de-secrets).
+
+**Ce qui est testé** (`tests/GenEngine.Services.Tests/SecretResolutionTests.cs`, 66 tests au
+vert dans ce projet) : résolution réussie depuis l'environnement ; secret absent → fournisseur
+non utilisable, aucun fragment de référence dans la raison ; backend qui lève → rabattu sur
+`secret_not_found` ; huit grammaires invalides rejetées ; rejet explicite à l'`Upsert` ;
+`vault:` dégradé en `secret_scheme_unsupported` ; fournisseur `Offline` et fournisseur
+désactivé. Le test central `NoSecretCanReachAClientProjectionAnAvailabilityPayloadOrALog`
+résout **réellement** le secret, puis prouve son absence de la projection cliente sérialisée,
+du payload de disponibilité et de sept chemins de rendu de log.
+
+**Ce qui n'est pas testé et ne doit pas être présenté autrement** : aucun client de
+coffre-fort n'est livré. Le schéma `vault` est *réservé*, pas implémenté — il n'existe aucun
+code à tester, et rien ici n'a été validé contre un coffre-fort réel. Aucun appel à un
+fournisseur IA réel n'a été exercé : la résolution est branchée, la consommation par un client
+IA reste à faire (elle attend le port `IAssistantAiClient` de la PR #56, non fusionnée).
+
 Contexte livré au jalon 3 :
 
 - `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.

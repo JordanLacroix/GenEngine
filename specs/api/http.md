@@ -2,7 +2,8 @@
 
 ## Configuration
 
-- `GET /experience/{frontId}` retourne la dernière configuration publiée sans référence de secret.
+- `GET /experience/{frontId}` retourne la dernière configuration publiée sans référence de secret : `aiProviders[].secretReference` y est systématiquement `null`.
+- `PUT /admin/configuration/{frontId}` rejette en `invalid_secret_reference` toute `aiProviders[].secretReference` non conforme à la grammaire `scheme:identifier`. Le message d'erreur ne réémet jamais la valeur refusée.
 - `GET /admin/configuration/{frontId}` exige `config.read`.
 - `PUT /admin/configuration/{frontId}` exige `config.write` et un `expectedRevision` pour une mise à jour.
 - `POST /admin/configuration/{frontId}/publish` exige `config.publish` et publie une nouvelle version immuable.

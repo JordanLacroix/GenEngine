@@ -116,6 +116,10 @@ services:
       Configuration__BaseUrl: http://configuration:8080
       AzureFoundry__Endpoint: ${AZURE_FOUNDRY_ENDPOINT:-}
       AzureFoundry__Deployment: ${AZURE_FOUNDRY_DEPLOYMENT:-}
+      # Target of the `env:GENENGINE_AI_AZURE_FOUNDRY_KEY` secret reference held in the
+      # configuration document. Empty locally: the provider is then seen as not configured
+      # and the offline provider takes over.
+      GENENGINE_AI_AZURE_FOUNDRY_KEY: ${GENENGINE_AI_AZURE_FOUNDRY_KEY:-}
     ports:
       - "5201:8080"
     depends_on:
@@ -209,6 +213,7 @@ services:
       ConnectionStrings__PlayerExperience: Host=player-experience-db;Database=genengine_player_experience;Username=player_experience;Password=${PLAYER_EXPERIENCE_DB_PASSWORD:-player-experience-local-password}
       Configuration__BaseUrl: http://configuration:8080
       InternalApi__Key: ${GENENGINE_INTERNAL_KEY:-local-internal-key-change-me}
+      GENENGINE_AI_AZURE_FOUNDRY_KEY: ${GENENGINE_AI_AZURE_FOUNDRY_KEY:-}
     ports:
       - "5205:8080"
     depends_on:
