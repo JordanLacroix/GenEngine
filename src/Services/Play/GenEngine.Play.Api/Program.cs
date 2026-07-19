@@ -166,6 +166,28 @@ sessions.MapPost("/{id:guid}/continue", async (
     return Results.Ok(result);
 });
 
+sessions.MapPost("/{id:guid}/document-consultations", async (
+    Guid id,
+    ConsultDocumentRequest request,
+    ClaimsPrincipal user,
+    PlayService service,
+    IRewardDispatcher rewards,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    string actorId = GetUserId(user);
+    InputResult result = await service.ConsultDocumentAsync(
+        id,
+        actorId,
+        request.CommandId,
+        request.ExpectedRevision,
+        cancellationToken).ConfigureAwait(false);
+    await rewards.DispatchAsync(actorId, result.Session.FrontId, result.Rewards, cancellationToken).ConfigureAwait(false);
+    await rewards.DispatchProgressAsync(actorId, result.Session.FrontId, result.Progress, cancellationToken).ConfigureAwait(false);
+    RecordInputAudit(auditLog, actorId, id, request.CommandId, result.Replayed, "document_consulted");
+    return Results.Ok(result);
+});
+
 sessions.MapPost("/{id:guid}/answers", async (
     Guid id,
     SubmitAnswerRequest request,

@@ -1,6 +1,18 @@
 # Les dix scénarios
 
-Fichiers jouables : [`content/diapason/scenarios/`](../../../content/diapason/scenarios/). Chaque document est en `schemaVersion` 2 et validé par `ScenarioValidator` dans `GenEngine.Narrative.Tests.DiapasonContentTests`.
+Fichiers jouables : [`content/diapason/scenarios/`](../../../content/diapason/scenarios/). Les documents sont en `schemaVersion` 2, sauf les trois qui présentent un document au joueur (`la-note-de-service`, `la-revue-automatique`, `le-tri-des-candidatures`), déclarés en `schemaVersion` 6. Tous sont validés par `ScenarioValidator` dans `GenEngine.Narrative.Tests.DiapasonContentTests`.
+
+## Documents présentés au joueur
+
+Trois scénarios n'évoquent plus seulement leur pièce centrale : ils la montrent, via l'interaction `document` du schéma v6 (voir [`../scenario-schema.md`](../scenario-schema.md)). Les trois natures sont volontairement différentes, ce qui vérifie que le modèle tient hors d'un seul exemple :
+
+| Scénario | Interaction | Nature | Échantillon |
+|---|---|---|---|
+| La note de service | `la-note` | `Memo` | 4 paragraphes sur 27 |
+| La revue automatique | `le-diff` | `Diff` | aucun — le correctif est montré en entier |
+| Le tri des candidatures | `le-classement` | `Table` | 6 rangées sur 412 |
+
+Chacun est `isOptional: true` : **consulter n'est jamais obligatoire**. Chacun débloque en revanche un choix conditionné par `consultedDocument`, absent pour qui n'a pas lu — respectivement relever que « validée collégialement » ne nomme personne, opposer la règle CONC-014 au code réel, et interroger le motif qui classe le 380e. C'est la lecture, pas l'intuition, qui ouvre la sortie lucide.
 
 ## Parcours 1 — Le premier accord
 

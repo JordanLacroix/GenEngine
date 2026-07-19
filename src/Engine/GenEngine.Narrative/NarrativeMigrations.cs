@@ -48,6 +48,12 @@ public static class ScenarioMigrationPipeline
                 // from the canonical bytes and the migrated document plays and
                 // hashes exactly as it did.
                 4 => document with { SchemaVersion = 5 },
+
+                // v6 only adds the "document" interaction type and its
+                // "consultedDocument" condition. Both are opt-in: a v5 document
+                // declares neither, so raising the version rewrites nothing, keeps
+                // the exact same canonical bytes and the same published hash.
+                5 => document with { SchemaVersion = 6 },
                 _ => throw new NarrativeException(
                     "scenario_migration_missing",
                     $"No migration is registered from scenario schema {document.SchemaVersion}."),

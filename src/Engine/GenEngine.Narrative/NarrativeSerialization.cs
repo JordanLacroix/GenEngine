@@ -107,6 +107,12 @@ public static class ScenarioSimulator
                 continue;
             }
 
+            if (step.Kind is InteractionKind.Document)
+            {
+                state = NarrativeRuntime.ConsultDocument(scenario, state);
+                continue;
+            }
+
             if (step.Choices.Count == 0)
             {
                 throw new NarrativeException("no_visible_choice", "The simulator found no visible choice.");

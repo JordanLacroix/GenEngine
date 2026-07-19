@@ -21,7 +21,13 @@ public sealed class NarrativeMigrationGoldenTests
         Assert.Equal(1, scenarioMigration.OriginalSchemaVersion);
         Assert.Equal(NarrativeVersions.LatestSchema, scenarioMigration.Document.SchemaVersion);
         Assert.Equal(
-            ["scenario-v1-to-v2", "scenario-v2-to-v3", "scenario-v3-to-v4", "scenario-v4-to-v5"],
+            [
+                "scenario-v1-to-v2",
+                "scenario-v2-to-v3",
+                "scenario-v3-to-v4",
+                "scenario-v4-to-v5",
+                "scenario-v5-to-v6",
+            ],
             scenarioMigration.AppliedMigrations);
         Assert.Equal(GameSaveVersions.Current, save.FormatVersion);
         Assert.Equal(NarrativeVersions.Runtime, save.RuntimeVersion);
@@ -241,6 +247,118 @@ public sealed class NarrativeMigrationGoldenTests
 
         Assert.False(report.IsValid);
         Assert.Contains(report.Issues, static issue => issue.Code == "help_requires_schema_5");
+    }
+
+    /// <summary>
+    /// Canonical hash of <c>scenario-v5.json</c>, computed with the engine as it
+    /// was before the document interaction existed: the fixture was written first
+    /// and hashed by the pre-change binary at commit <c>43d2e11</c>, before
+    /// <c>DocumentInteraction</c>, <c>LatestSchema = 6</c> and the v5→v6 migration
+    /// were written. Freezing a value produced by the older engine is the only
+    /// assertion that proves the new document types stay out of the canonical bytes
+    /// of a document that does not declare them — an expectation regenerated after
+    /// the change would prove nothing.
+    /// </summary>
+    private const string PublishedSchemaFiveHash =
+        "028aff60843ebefd1d6a1f9701b76536646a119ddbaee2ab0f1287f1f952a591";
+
+    [Fact]
+    public void PublishedSchemaFiveSnapshotKeepsItsCanonicalHashAfterTheDocumentBump()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v5.json"));
+        string canonicalJson = System.Text.Encoding.UTF8.GetString(CanonicalSnapshot.GetCanonicalBytes(scenario));
+
+        Assert.Equal(PublishedSchemaFiveHash, CanonicalSnapshot.ComputeHash(scenario));
+        Assert.DoesNotContain("document", canonicalJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("consultedDocument", canonicalJson, StringComparison.Ordinal);
+        Assert.True(ScenarioValidator.Validate(scenario).IsValid);
+    }
+
+    /// <summary>
+    /// The final state is the one the pre-change engine produced from
+    /// <c>save-v5.json</c>. A session published before this change must follow the
+    /// exact same sequence: same turn counter, same interaction history, same
+    /// world, byte for byte.
+    /// </summary>
+    [Fact]
+    public void SchemaFiveSaveStillReplaysIdenticallyAfterTheDocumentBump()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v5.json"));
+        GameSave save = GameSaveSerializer.Deserialize(ReadGolden("save-v5.json"), 42UL, DateTimeOffset.UnixEpoch);
+
+        GameState replayed = NarrativeRuntime.SubmitChoice(
+            scenario,
+            NarrativeRuntime.Continue(scenario, save.State),
+            "answer-the-hall");
+        GameState expected = NarrativeJson.Deserialize<GameState>(ReadGolden("scenario-v5-replay-final-state.json"));
+
+        Assert.Empty(save.AppliedMigrations);
+        Assert.Equal(5, save.ScenarioSchemaVersion);
+        Assert.Equal(NarrativeJson.Serialize(expected), NarrativeJson.Serialize(replayed));
+    }
+
+    /// <summary>
+    /// A document declared before schema 6 is refused, and the check is bound to
+    /// its own capability constant: a v5 document that legitimately uses
+    /// <c>help</c> and <c>isOptional</c> must not be invalidated by the bump.
+    /// </summary>
+    [Fact]
+    public void DocumentDeclaredBeforeSchemaSixIsRejected()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v5.json"));
+        NarrativeNode start = scenario.Nodes[0];
+        ScenarioDocument withDocument = scenario with
+        {
+            Nodes =
+            [
+                start with
+                {
+                    Interactions =
+                    [
+                        new DocumentInteraction(
+                            "the-memo",
+                            "Consulter la note de service",
+                            new PresentedDocument(
+                                "Note de service",
+                                DocumentNature.Memo,
+                                [new DocumentParagraphBlock("Le hall sera accordé lundi.")]),
+                            []),
+                        .. start.Interactions!,
+                    ],
+                },
+                .. scenario.Nodes.Skip(1),
+            ],
+        };
+
+        ValidationReport report = ScenarioValidator.Validate(withDocument);
+
+        Assert.False(report.IsValid);
+        Assert.Contains(report.Issues, static issue => issue.Code == "document_requires_schema_6");
+    }
+
+    /// <summary>
+    /// The consulted-document condition is gated on the same capability constant,
+    /// independently of the interaction, so neither half can slip into an older
+    /// document unnoticed.
+    /// </summary>
+    [Fact]
+    public void ConsultedDocumentConditionDeclaredBeforeSchemaSixIsRejected()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v5.json"));
+        ScenarioDocument withCondition = scenario with
+        {
+            Nodes =
+            [
+                scenario.Nodes[0] with { EnterCondition = new ConsultedDocumentCondition("the-memo") },
+                .. scenario.Nodes.Skip(1),
+            ],
+        };
+
+        ValidationReport report = ScenarioValidator.Validate(withCondition);
+
+        Assert.False(report.IsValid);
+        Assert.Contains(report.Issues, static issue => issue.Code == "consulted_document_requires_schema_6");
+        Assert.Contains(report.Issues, static issue => issue.Code == "consulted_document_missing");
     }
 
     private static string ReadGolden(string name) =>
