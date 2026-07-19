@@ -2,19 +2,47 @@ using GenEngine.PlayerExperience.Domain;
 
 namespace GenEngine.PlayerExperience.Application;
 
-public sealed record FamiliarOption(Guid Id, string Name, string Description, string Form, string Tone, string WritingStyle, string Accent, int HelpLevel, IReadOnlyList<string> Capabilities, IReadOnlyList<string> AvailableForms, IReadOnlyList<string> AvailableTones, string? PortraitUrl, string? AvatarUrl, string? BackgroundUrl, string? License, string? Attribution);
+/// <summary>One previewable value of a familiar personalisation axis, as published.</summary>
+public sealed record FamiliarAxisOption(string Value, string Label, string Description, string? AccentToken, string? AssetReference, int Order);
+
+/// <summary>A closed personalisation axis. No axis accepts free text: everything a player picks is catalogued and therefore previewable.</summary>
+public sealed record FamiliarAxis(string Axis, string Label, string Description, string DefaultValue, IReadOnlyList<FamiliarAxisOption> Options);
+
+public sealed record FamiliarOption(Guid Id, string Name, string Description, string Form, string Tone, string WritingStyle, string Accent, int HelpLevel, IReadOnlyList<string> Capabilities, IReadOnlyList<string> AvailableForms, IReadOnlyList<string> AvailableTones, string? PortraitUrl, string? AvatarUrl, string? BackgroundUrl, string? License, string? Attribution, IReadOnlyList<FamiliarAxis>? Axes = null);
 public sealed record RewardRule(string Trigger, string ReferenceId, int Amount, string Description);
 public sealed record ShopOffer(Guid Id, string Name, string Description, int Price, string RewardType, string RewardReference, bool Enabled);
 public sealed record OnboardingStep(Guid Id, string Title, string Body, string Target, string Action, int Order, bool Required);
 public sealed record OnboardingTutorial(Guid Id, int Version, bool Enabled, bool AllowSkip, bool RequiredAfterUpgrade, IReadOnlyList<OnboardingStep> Steps);
 public sealed record AssistantPolicy(bool Enabled, bool RequireFirstRunConfiguration, bool Proactive, bool WarnOnKnownPath, int DefaultFrequency, IReadOnlyList<string> OfflineCapabilities);
-public sealed record PlayerExperienceCatalog(string CurrencyCode, string CurrencyName, string CurrencyIcon, int InitialBalance, IReadOnlyList<FamiliarOption> Familiars, IReadOnlyList<RewardRule> RewardRules, IReadOnlyList<ShopOffer> Offers, OnboardingTutorial Onboarding, AssistantPolicy Assistant);
-public sealed record FamiliarSelection(Guid FamiliarId, string Form, string Tone, string WritingStyle, string Accent, int HelpLevel, string? CustomName = null, int InterventionFrequency = 2, bool Proactive = true);
+public sealed record PlayerExperienceCatalog(
+    string CurrencyCode,
+    string CurrencyName,
+    string CurrencyIcon,
+    int InitialBalance,
+    IReadOnlyList<FamiliarOption> Familiars,
+    IReadOnlyList<RewardRule> RewardRules,
+    IReadOnlyList<ShopOffer> Offers,
+    OnboardingTutorial Onboarding,
+    AssistantPolicy Assistant,
+    FinalePlan? Finale = null,
+    IReadOnlyList<CategoryPlan>? Categories = null,
+    IReadOnlyList<JourneyPlan>? Journeys = null);
+
+/// <summary>
+/// A familiar personalisation submitted by a player.
+/// </summary>
+/// <remarks>
+/// <paramref name="Axes"/> is the current form: a map of axis key to catalogued value.
+/// The four positional fields are the historical shape and remain accepted, so a client
+/// that has not been updated keeps configuring its familiar. When both are supplied,
+/// <paramref name="Axes"/> wins for the keys it carries.
+/// </remarks>
+public sealed record FamiliarSelection(Guid FamiliarId, string Form, string Tone, string WritingStyle, string Accent, int HelpLevel, string? CustomName = null, int InterventionFrequency = 2, bool Proactive = true, IReadOnlyDictionary<string, string>? Axes = null);
 public sealed record WalletEntryView(Guid Id, int Amount, string Reason, int BalanceAfter, DateTimeOffset CreatedAt);
 public sealed record OnboardingStateView(Guid TutorialId, int Version, string Status, IReadOnlyList<Guid> CompletedStepIds, DateTimeOffset? CompletedAt, DateTimeOffset? SkippedAt, int Revision);
 public sealed record JournalEntryView(Guid Id, string Type, string Title, string Summary, Guid? JourneyId, Guid? CategoryId, Guid? ScenarioId, Guid? ScenarioVersionId, Guid? SessionId, string? ReferenceId, DateTimeOffset OccurredAt);
 public sealed record ScenarioMasteryView(Guid ScenarioId, Guid ScenarioVersionId, IReadOnlyList<string> ChoiceIds, IReadOnlyList<string> NodeIds, IReadOnlyList<string> EndingIds, int DiscoveredObjectives, int TotalObjectives, int MasteryPercent, DateTimeOffset UpdatedAt);
-public sealed record PlayerExperienceView(Guid Id, string FrontId, int Revision, int Balance, string CurrencyCode, string CurrencyName, string CurrencyIcon, FamiliarSelection? Familiar, FamiliarOption? FamiliarDefinition, OnboardingStateView Onboarding, IReadOnlyList<ScenarioMasteryView> Masteries, IReadOnlyList<Guid> OwnedOfferIds, IReadOnlyList<WalletEntryView> RecentEntries, IReadOnlyList<JournalEntryView> RecentJournal);
+public sealed record PlayerExperienceView(Guid Id, string FrontId, int Revision, int Balance, string CurrencyCode, string CurrencyName, string CurrencyIcon, FamiliarSelection? Familiar, FamiliarOption? FamiliarDefinition, OnboardingStateView Onboarding, IReadOnlyList<ScenarioMasteryView> Masteries, IReadOnlyList<Guid> OwnedOfferIds, IReadOnlyList<WalletEntryView> RecentEntries, IReadOnlyList<JournalEntryView> RecentJournal, FinaleView? Finale = null);
 public sealed record PlayerBootstrapView(string NextAction, PlayerExperienceView Experience, OnboardingTutorial Tutorial, AssistantPolicy Assistant);
 public sealed record JournalView(IReadOnlyList<JournalEntryView> Items, int Total, IReadOnlyDictionary<string, int> TotalsByType);
 public sealed record RewardCommand(string FrontId, string UserId, string Trigger, string ReferenceId, string IdempotencyKey);
@@ -48,14 +76,10 @@ public sealed class PlayerExperienceService(IPlayerExperienceRepository reposito
         PlayerExperienceCatalog catalog = await catalogs.GetAsync(frontId, cancellationToken).ConfigureAwait(false);
         FamiliarOption familiar = catalog.Familiars.SingleOrDefault(item => item.Id == selection.FamiliarId)
             ?? throw new PlayerExperienceException("familiar_not_found", "The selected familiar is unavailable.");
-        if (!familiar.AvailableForms.Contains(selection.Form, StringComparer.OrdinalIgnoreCase)
-            || !familiar.AvailableTones.Contains(selection.Tone, StringComparer.OrdinalIgnoreCase))
-        {
-            throw new PlayerExperienceException("invalid_familiar_configuration", "The selected form or tone is unavailable.");
-        }
+        IReadOnlyDictionary<string, string> axisSelections = ResolveAxisSelections(familiar, selection);
 
         PlayerProfile profile = await GetOrCreateAsync(userId, frontId, catalog, cancellationToken).ConfigureAwait(false);
-        profile.ConfigureFamiliar(selection.FamiliarId, selection.Form, selection.Tone, selection.WritingStyle, selection.Accent, selection.HelpLevel, selection.CustomName, selection.InterventionFrequency, selection.Proactive, expectedRevision, timeProvider.GetUtcNow());
+        profile.ConfigureFamiliar(selection.FamiliarId, axisSelections, selection.HelpLevel, selection.CustomName, selection.InterventionFrequency, selection.Proactive, expectedRevision, timeProvider.GetUtcNow());
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return Map(profile, catalog);
     }
@@ -126,6 +150,8 @@ public sealed class PlayerExperienceService(IPlayerExperienceRepository reposito
         {
             profile.RecordExploration(scenarioId, versionId, sessionId, command.ChoiceId ?? string.Empty, command.TargetNodeId ?? string.Empty, command.Completed, command.EndingId, command.TotalObjectives, command.IdempotencyKey, now);
         }
+
+        EvaluateFinale(profile, catalog, now);
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return Map(profile, catalog);
     }
@@ -174,6 +200,129 @@ public sealed class PlayerExperienceService(IPlayerExperienceRepository reposito
         return Map(profile, catalog);
     }
 
+    /// <summary>
+    /// Resolves the axis values a player submitted against the published catalogue.
+    /// </summary>
+    /// <remarks>
+    /// Every value must belong to its axis: an out-of-catalogue value is refused rather
+    /// than stored, which is precisely what <c>writingStyle</c> and <c>accent</c> never
+    /// enforced. An axis the player did not answer falls back to the axis default, so a
+    /// profile configured before the axis existed stays valid without any migration of
+    /// its data. An axis key the catalogue does not declare is refused too, otherwise a
+    /// typo would silently persist a preference nothing ever reads.
+    /// </remarks>
+    private static Dictionary<string, string> ResolveAxisSelections(FamiliarOption familiar, FamiliarSelection selection)
+    {
+        IReadOnlyList<FamiliarAxis> axes = familiar.Axes ?? [];
+        if (axes.Count == 0)
+        {
+            // Defensive: a catalogue served by an engine older than the axes. Fall back
+            // to the historical two-list check rather than accepting anything.
+            if (!familiar.AvailableForms.Contains(selection.Form, StringComparer.OrdinalIgnoreCase)
+                || !familiar.AvailableTones.Contains(selection.Tone, StringComparer.OrdinalIgnoreCase))
+            {
+                throw new PlayerExperienceException("invalid_familiar_configuration", "The selected form or tone is unavailable.");
+            }
+
+            return new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["form"] = selection.Form,
+                ["tone"] = selection.Tone,
+                ["writingStyle"] = selection.WritingStyle,
+                ["accent"] = selection.Accent,
+            };
+        }
+
+        Dictionary<string, string> submitted = new(StringComparer.Ordinal);
+        AddLegacy(submitted, "form", selection.Form);
+        AddLegacy(submitted, "tone", selection.Tone);
+        AddLegacy(submitted, "writingStyle", selection.WritingStyle);
+        AddLegacy(submitted, "accent", selection.Accent);
+        foreach (KeyValuePair<string, string> axis in selection.Axes ?? new Dictionary<string, string>(StringComparer.Ordinal))
+        {
+            submitted[axis.Key.Trim()] = axis.Value;
+        }
+
+        HashSet<string> known = axes.Select(static axis => axis.Axis).ToHashSet(StringComparer.Ordinal);
+        if (submitted.Keys.Any(key => !known.Contains(key)))
+        {
+            throw new PlayerExperienceException("unknown_familiar_axis", "The selection references an axis this familiar does not offer.");
+        }
+
+        Dictionary<string, string> resolved = new(StringComparer.Ordinal);
+        foreach (FamiliarAxis axis in axes)
+        {
+            if (!submitted.TryGetValue(axis.Axis, out string? value) || string.IsNullOrWhiteSpace(value))
+            {
+                resolved[axis.Axis] = axis.DefaultValue;
+                continue;
+            }
+
+            FamiliarAxisOption option = axis.Options.FirstOrDefault(item => string.Equals(item.Value, value.Trim(), StringComparison.OrdinalIgnoreCase))
+                ?? throw new PlayerExperienceException("invalid_familiar_configuration", $"The value selected for axis '{axis.Axis}' is unavailable.");
+            resolved[axis.Axis] = option.Value;
+        }
+
+        return resolved;
+
+        static void AddLegacy(Dictionary<string, string> target, string axis, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value)) target[axis] = value;
+        }
+    }
+
+    /// <summary>
+    /// Evaluates the finale after progress was recorded and stamps it the first time it
+    /// is satisfied. Nothing is locked afterwards — the stamp is only ever read to
+    /// display the ending, never to deny a command.
+    /// </summary>
+    private static void EvaluateFinale(PlayerProfile profile, PlayerExperienceCatalog catalog, DateTimeOffset now)
+    {
+        if (catalog.Finale is not FinalePlan plan || !plan.Enabled || profile.FinaleReachedAt is not null) return;
+        IReadOnlyList<FinaleConditionProgress> conditions = FinaleEvaluator.Evaluate(plan, BuildProgress(profile), catalog.Categories ?? [], catalog.Journeys ?? []);
+        if (!FinaleEvaluator.IsSatisfied(plan, conditions)) return;
+        if (profile.MarkFinaleReached(plan.Id, now))
+        {
+            _ = profile.RecordJournalEntry($"finale:{plan.Id}", "FinaleReached", plan.Title, plan.Summary, null, null, null, null, null, plan.Id.ToString(), now, now);
+        }
+    }
+
+    private static FinaleView? MapFinale(PlayerProfile profile, PlayerExperienceCatalog catalog)
+    {
+        if (catalog.Finale is not FinalePlan plan) return null;
+        IReadOnlyList<FinaleConditionProgress> conditions = FinaleEvaluator.Evaluate(plan, BuildProgress(profile), catalog.Categories ?? [], catalog.Journeys ?? []);
+        return new FinaleView(
+            plan.Id,
+            plan.Title,
+            plan.Summary,
+            plan.Body,
+            profile.FinaleReachedAt is not null && profile.FinaleId == plan.Id,
+            profile.FinaleId == plan.Id ? profile.FinaleReachedAt : null,
+            plan.Mode.ToString(),
+            conditions,
+            plan.VisualUrl,
+            plan.MusicUrl,
+            plan.LabelKey);
+    }
+
+    /// <summary>
+    /// Projects the recorded mastery into the shape the evaluator needs. A scenario is
+    /// completed as soon as one of its versions produced an ending: replaying it can
+    /// only ever add endings, never take one back.
+    /// </summary>
+    private static FinaleEvaluator.ScenarioProgress[] BuildProgress(PlayerProfile profile) =>
+        profile.ScenarioMasteries
+            .GroupBy(static mastery => mastery.ScenarioId)
+            .Select(static group =>
+            {
+                string[] endings = group
+                    .SelectMany(static mastery => System.Text.Json.JsonSerializer.Deserialize<string[]>(mastery.EndingIdsJson) ?? [])
+                    .Distinct(StringComparer.Ordinal)
+                    .ToArray();
+                return new FinaleEvaluator.ScenarioProgress(group.Key, endings.Length > 0, endings, group.Max(static mastery => mastery.MasteryPercent));
+            })
+            .ToArray();
+
     private async Task<PlayerProfile> GetOrCreateAsync(string userId, string frontId, PlayerExperienceCatalog catalog, CancellationToken cancellationToken)
     {
         PlayerProfile? profile = await repository.GetAsync(userId, frontId, cancellationToken).ConfigureAwait(false);
@@ -188,13 +337,14 @@ public sealed class PlayerExperienceService(IPlayerExperienceRepository reposito
     {
         FamiliarOption? familiarDefinition = profile.FamiliarId is Guid familiarId ? catalog.Familiars.FirstOrDefault(item => item.Id == familiarId) : null;
         return new(profile.Id, profile.FrontId, profile.Revision, profile.Balance, catalog.CurrencyCode, catalog.CurrencyName, catalog.CurrencyIcon,
-            profile.FamiliarId is null ? null : new FamiliarSelection(profile.FamiliarId.Value, profile.FamiliarForm, profile.FamiliarTone, profile.FamiliarWritingStyle, profile.FamiliarAccent, profile.FamiliarHelpLevel, profile.FamiliarCustomName, profile.FamiliarInterventionFrequency, profile.FamiliarProactive),
+            profile.FamiliarId is null ? null : new FamiliarSelection(profile.FamiliarId.Value, profile.FamiliarForm, profile.FamiliarTone, profile.FamiliarWritingStyle, profile.FamiliarAccent, profile.FamiliarHelpLevel, profile.FamiliarCustomName, profile.FamiliarInterventionFrequency, profile.FamiliarProactive, profile.FamiliarAxisSelections),
             familiarDefinition,
             MapOnboarding(profile, catalog.Onboarding),
             profile.ScenarioMasteries.OrderByDescending(static item => item.UpdatedAt).Select(MapMastery).ToArray(),
             profile.OwnedItems.Select(static item => item.OfferId).ToArray(),
             profile.WalletEntries.OrderByDescending(static entry => entry.CreatedAt).Take(20).Select(static entry => new WalletEntryView(entry.Id, entry.Amount, entry.Reason, entry.BalanceAfter, entry.CreatedAt)).ToArray(),
-            profile.JournalEntries.OrderByDescending(static entry => entry.OccurredAt).Take(20).Select(MapJournal).ToArray());
+            profile.JournalEntries.OrderByDescending(static entry => entry.OccurredAt).Take(20).Select(MapJournal).ToArray(),
+            MapFinale(profile, catalog));
     }
 
     private static OnboardingStateView MapOnboarding(PlayerProfile profile, OnboardingTutorial tutorial)

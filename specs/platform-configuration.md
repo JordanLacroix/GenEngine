@@ -112,6 +112,18 @@ Le service propriétaire d'une ressource applique les policies localement à par
 
 Le modèle neutre comprend : identifiant, nom, apparence et assets, licence, traits de style, niveau/fréquence d'aide, capacités autorisées et fallback. Les préférences utilisateur sont bornées par la configuration du front et le RBAC.
 
+La personnalisation passe par des **axes catalogués** — `form`, `tone`, `writingStyle`, `accent`, `aura`, `silhouette`, `speechRhythm`, `languageRegister`, `interventionDensity` — et jamais par du texte libre. Chaque option porte valeur stable, libellé, description de son effet, jeton d'accent facultatif et référence d'asset facultative, donc elle est prévisualisable avant d'être choisie. Une valeur hors catalogue est refusée côté serveur ; un axe non renseigné retombe sur son défaut, ce qui laisse lisibles les profils et les configurations antérieurs à l'axe. Le seul champ resté libre est le nom personnel, borné et refusant tout caractère de balisage ou de contrôle.
+
+## Fin de jeu
+
+Un front peut déclarer un scénario de fin global avec des conditions composables (`All` ou `Any`) portant sur les scénarios terminés, une catégorie complétée, un parcours achevé, un ensemble de fins atteintes ou un seuil de maîtrise. Les conditions s'évaluent de façon déterministe à partir de la maîtrise cross-session déjà enregistrée par `PlayerExperience` ; aucun second système de suivi n'est introduit.
+
+Atteindre la fin est un seuil franchi et mémorisé, jamais un état terminal : rien n'est verrouillé et le joueur continue. Le modèle ne comporte volontairement aucun paramètre permettant de rendre la fin bloquante — un opérateur ne doit pas pouvoir configurer un cul-de-sac.
+
+## Aide intégrée des champs
+
+Tout champ de paramétrage ou d'administration doit pouvoir s'expliquer lui-même. `Configuration` publie un catalogue de descripteurs adressés par chemin de champ (`game.name`, `economy.currencyCode`, `familiars[].axes[].options[].value`) portant libellé, description, exemple et contrainte lisible. Les deux clients le consomment ; les textes ne sont pas dupliqués. L'exhaustivité est vérifiée par un test qui compare le type du document au catalogue dans les deux sens, donc un descripteur oublié est détecté au lieu de passer inaperçu.
+
 Au démarrage d'une session, `Play` fige la configuration effective utile au runtime dans un snapshot versionné. Une évolution administrative s'applique aux nouvelles sessions ou via une migration explicite, jamais silencieusement.
 
 Le contexte transmis à une aide externe est construit sur allowlist et exclut identifiants, email, texte privé non requis et secrets. L'assistant propose ; une action ayant un effet narratif repasse par une commande métier validée.

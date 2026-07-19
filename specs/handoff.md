@@ -104,6 +104,18 @@ La tranche suivante complète les périodes métier nommées, l'import de masse 
 - `install-diapason.sh` n'est pas idempotent : `POST /scenarios/import` crée toujours un nouveau brouillon ;
 - le seeder de configuration ne rejoue jamais sur une base non vide : une instance antérieure conserve son ancien document.
 
+### Tranche `feat/familiar-fieldhelp-finale` — vérifiée le 19 juillet 2026
+
+Trois besoins distincts réunis parce qu'ils vivent dans le même document de configuration. 204 tests backend au vert, `dotnet build -warnaserror` propre.
+
+- **Familier réellement personnalisable.** Les axes `writingStyle` et `accent`, jusqu'ici acceptés en texte libre sans aucune validation, sont désormais catalogués comme `form` et `tone`. Cinq axes s'ajoutent : `aura`, `silhouette`, `speechRhythm`, `languageRegister`, `interventionDensity`. Chaque option porte valeur stable, libellé, description de l'effet, jeton d'accent et référence d'asset facultative, donc chaque axe est prévisualisable. Une valeur hors catalogue est refusée (`invalid_familiar_configuration`), un axe inconnu aussi (`unknown_familiar_axis`). `customName` reste libre mais refuse `<`, `>`, `&` et les caractères de contrôle. Compatibilité assurée dans les deux sens : une configuration sans axes voit son catalogue dérivé en conservant les valeurs déjà utilisées, `availableForms`/`availableTones` restent servis mais sont désormais dérivés, et un profil antérieur reste lisible via les quatre colonnes historiques alimentées depuis la nouvelle carte `jsonb`.
+- **Aide intégrée par champ.** `GET /admin/configuration/field-descriptors` (`config.read`) sert un descripteur par chemin de champ (`game.name`, `economy.offers[].price`…) avec libellé, description, exemple et contrainte lisible. La granularité retenue est le chemin de champ, documentée dans `specs/configuration-catalog.md`. `ConfigurationFieldCatalogTests` compare le type `ExperienceDocument` parcouru par réflexion au catalogue **dans les deux sens** : un champ non décrit et un descripteur orphelin font tous deux échouer les tests.
+- **Scénario de fin.** Bloc `finale` facultatif avec conditions composables `All`/`Any` et cinq types de condition (`ScenariosCompleted`, `CategoryCompleted`, `JourneyCompleted`, `EndingsReached`, `MasteryPercentReached`). L'évaluation est pure, déterministe, en arithmétique entière, et s'appuie exclusivement sur `ScenarioMastery` — **aucun second système de suivi**. Atteindre la fin estampille `finaleId`/`finaleReachedAt` et écrit une entrée de journal une seule fois ; **rien n'est verrouillé** et le modèle ne comporte volontairement aucun drapeau permettant de rendre la fin bloquante. Un test joue un scénario, encaisse une récompense et vérifie l'estampille inchangée après le déclenchement.
+- Migration EF `AddFamiliarAxesAndFinale` : trois colonnes ajoutées à `player_profiles`. Le `defaultValue` généré pour la colonne `jsonb` a été corrigé à la main de `""` vers `"{}"` — une chaîne vide n'est pas du JSON valide et les lignes existantes seraient devenues illisibles.
+- Le motif `*bin\\Debug/` a été ajouté à `.gitignore` : il n'y figurait pas, et `dotnet ef` crée bien sur macOS un dossier dont le nom contient un antislash littéral que `[Bb]in/` ne couvre pas.
+
+**Non livré, assumé** : le câblage des deux clients. Le moteur sert les axes, les descripteurs de champs et la progression vers la fin ; le rendu de l'aperçu par axe, l'aide par champ dans les écrans d'administration et l'écran de fin restent à faire côté Web et iOS, dans leurs dépôts respectifs.
+
 Contexte livré au jalon 3 :
 
 - `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.

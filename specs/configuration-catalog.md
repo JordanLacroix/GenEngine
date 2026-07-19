@@ -21,7 +21,9 @@ Les portées possibles sont `platform`, `front`, `unit`, `group`, `journey`, `ca
 
 L'import de memberships est une politique d'exploitation du service propriétaire : activé par défaut, limité à 500 lignes par commande et borné entre 1 et 5 000. `Organization:MembershipImport:Enabled=false` le désactive explicitement avec `membership_import_disabled`; `Organization:MembershipImport:MaxRows` règle la limite plateforme. L'API effectue toujours une prévalidation complète avant écriture et n'applique aucune ligne si le rapport contient une erreur.
 | Jeu | Politique de session, pause/reprise, tentatives, reprise après échec, visibilité de l'arbre, aides, résultats et idempotence | `session.*`, `play.config.*` |
-| Assistant | Familiers, assets/licences, style, ton, fréquence, capacités, niveaux d'aide, indices offline et préférences autorisées | `assistant.*` |
+| Assistant | Familiers, assets/licences, axes de personnalisation catalogués, fréquence, capacités, niveaux d'aide, indices offline et préférences autorisées | `assistant.*` |
+| Fin de jeu | Scénario de fin global, conditions composables `All`/`Any`, seuils, catégories/parcours/fins visés et médias associés | `config.*` |
+| Aide intégrée | Descripteurs de champs du document de configuration : libellé, description, exemple et contrainte lisible par chemin de champ | `config.read` |
 | IA | Providers, modèles, profils, routage, fallback, double avis, prompts, structured outputs, tools autorisés, cache, résilience, sûreté, pricing et quotas | `ai.*` |
 | Économie | Devises, wallets, reward types, inventaires, shops, offres, prix, stock, limites, promotions, entitlements et compensations | `shop.*`, `wallet.*`, `economy.*` |
 | Médias | Types/taille, stockage, rétention, scan, licences, consentement, validation document/photo et règles d'accès | `media.*` |
@@ -146,6 +148,22 @@ Promotions, bundles, boutique saisonnière et cosmétiques de familier utilisent
 Un `ContentPack` peut combiner configuration de front, terminologie, rôles templates, parcours/catégories/scénarios, familiers, prompts sans secrets, providers logiques, devises, récompenses, boutiques, KPI, aide et assets licenciés.
 
 L'application d'un pack produit un plan de changement, détecte les conflits, valide les dépendances et licences, permet une prévisualisation, exige les permissions de chaque domaine touché et conserve une trace de provenance. Aucun pack ne peut accorder à son opérateur des permissions qu'il ne possède pas.
+
+## Aide intégrée par champ
+
+« On est en train de construire une usine » : tout champ des paramètres ou de l'administration doit dire ce qu'il est. `Configuration` sert donc un catalogue de descripteurs — libellé, description, exemple, contrainte lisible — adressés **par chemin de champ** (`game.name`, `economy.offers[].price`, `familiars[].axes[].options[].value`), c'est-à-dire les noms JSON du document joints par un point, `[]` marquant un élément de collection.
+
+Ce choix de granularité est le plus direct : il ne demande aucune table de correspondance côté client, il survit au déplacement d'un champ dans son bloc, et il permet à un composant de formulaire de retrouver son aide à partir du seul chemin qu'il édite déjà.
+
+L'exhaustivité est une propriété testée, pas une intention : le type `ExperienceDocument` est parcouru par réflexion et comparé au catalogue dans les deux sens, donc un champ ajouté sans descripteur — comme un descripteur devenu orphelin — fait échouer la suite de tests. Les deux clients consomment cette route au lieu de dupliquer les textes.
+
+## Fin de jeu configurable
+
+Un front peut déclarer un scénario de fin global : identité, textes de clôture, médias facultatifs et conditions composables en `All` ou `Any`. Les types de condition livrés sont `ScenariosCompleted`, `CategoryCompleted`, `JourneyCompleted`, `EndingsReached` et `MasteryPercentReached`.
+
+L'évaluation s'appuie exclusivement sur `ScenarioMastery`, déjà porteur de la maîtrise cross-session par (profil, version de scénario) : aucun second système de suivi n'est créé. Elle est déterministe et n'utilise que de l'arithmétique entière.
+
+Atteindre la fin est modélisé comme un **seuil franchi et mémorisé**, jamais comme un état terminal : rien n'est verrouillé, et le modèle ne permet volontairement pas de configurer l'inverse.
 
 ## Règle d'entretien
 

@@ -62,7 +62,8 @@ public sealed record FamiliarDefinition(
     string? AvatarUrl = null,
     string? BackgroundUrl = null,
     string? License = null,
-    string? Attribution = null);
+    string? Attribution = null,
+    IReadOnlyList<FamiliarAxisDefinition>? Axes = null);
 public sealed record RewardRuleDefinition(string Trigger, string ReferenceId, int Amount, string Description);
 public sealed record OfferDefinition(Guid Id, string Name, string Description, int Price, string RewardType, string RewardReference, bool Enabled);
 public sealed record EconomyDefinition(string CurrencyCode, string CurrencyName, string CurrencyIcon, int InitialBalance, IReadOnlyList<RewardRuleDefinition> RewardRules, IReadOnlyList<OfferDefinition> Offers);
@@ -132,7 +133,8 @@ public sealed record ExperienceDocument(
     OnboardingDefinition? Onboarding = null,
     AssistantPolicyDefinition? AssistantPolicy = null,
     JournalPolicyDefinition? Journal = null,
-    MediaDefinition? Media = null);
+    MediaDefinition? Media = null,
+    FinaleDefinition? Finale = null);
 
 /// <summary>
 /// Stable identifiers of the Diapason reference configuration.
@@ -249,7 +251,10 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             new CategoryDefinition(DiapasonIds.Autonomie, "Autonomie", "Garder une compétence qu'on pourrait déléguer.", "aube", 6, true),
         ],
         [
-            new FamiliarDefinition(Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "Tierce", "Une voix qui ne répond jamais à votre place : elle demande sur quoi vous vous appuyez.", "spark", "Socratic", "Warm", "amber", 2, ["hint", "recap", "rephrase"], ["spark", "owl", "fox"], ["Warm", "Playful", "Direct", "Mysterious"], null, null, null, null, null),
+            // The axis catalogue is left implicit: Normalize expands it from the forms
+            // and tones below plus the built-in axes, which is exactly the path an
+            // instance configured before the axes existed takes.
+            new FamiliarDefinition(Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "Tierce", "Une voix qui ne répond jamais à votre place : elle demande sur quoi vous vous appuyez.", "tuning-fork", "Socratic", "Warm", "amber", 2, ["hint", "recap", "rephrase"], ["tuning-fork", "spark", "echo", "owl", "fox"], ["Warm", "Playful", "Direct", "Mysterious", "Neutral"], null, null, null, null, null),
         ],
         new EconomyDefinition("ACCORD", "Accords", "♪", 0,
             [
@@ -309,7 +314,8 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         CreateDefaultOnboarding(),
         CreateDefaultAssistantPolicy(),
         new JournalPolicyDefinition(true, true, 0, true),
-        CreateDefaultMedia());
+        CreateDefaultMedia(),
+        FinaleCatalog.CreateDiapasonDefault());
 
     private async Task<ExperienceConfiguration> GetRequiredAsync(string frontId, CancellationToken cancellationToken) =>
         await repository.GetAsync(frontId, cancellationToken).ConfigureAwait(false)
@@ -439,6 +445,11 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             throw new ConfigurationException("invalid_familiar", "Familiars require a name, a valid help level and HTTPS asset URLs.");
         }
 
+        foreach (FamiliarDefinition familiar in document.Familiars)
+        {
+            ValidateFamiliarAxes(familiar);
+        }
+
         if (document.Economy.InitialBalance < 0 || document.Economy.RewardRules.Any(static rule => rule.Amount <= 0) || document.Economy.Offers.Any(static offer => offer.Price < 0))
         {
             throw new ConfigurationException("invalid_economy", "Economy amounts and prices must be valid positive values.");
@@ -476,6 +487,96 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         }
 
         ValidateMedia(document.Media ?? CreateDefaultMedia());
+        ValidateFinale(document.Finale, categoryIds, journeyIds);
+    }
+
+    /// <summary>
+    /// A finale is optional, but a declared one must be evaluable without guessing:
+    /// every condition carries the operand its type needs and points at content that
+    /// actually exists, otherwise the trigger could never fire and the player would
+    /// wait for an ending that does not come.
+    /// </summary>
+    private static void ValidateFinale(FinaleDefinition? finale, HashSet<Guid> categoryIds, HashSet<Guid> journeyIds)
+    {
+        if (finale is null) return;
+
+        if (string.IsNullOrWhiteSpace(finale.Title)
+            || finale.Conditions.Count is 0 or > FinaleCatalog.MaximumConditions
+            || finale.Conditions.Select(static condition => condition.Id).Distinct().Count() != finale.Conditions.Count
+            || !IsValidAssetUrl(finale.VisualUrl)
+            || !IsValidAssetUrl(finale.MusicUrl))
+        {
+            throw new ConfigurationException("invalid_finale", "A finale requires a title, unique conditions within their limit and HTTPS assets.");
+        }
+
+        foreach (FinaleConditionDefinition condition in finale.Conditions)
+        {
+            bool valid = condition.Type switch
+            {
+                FinaleConditionType.ScenariosCompleted => condition.Threshold is > 0,
+                FinaleConditionType.CategoryCompleted => condition.CategoryId is Guid categoryId && categoryIds.Contains(categoryId),
+                FinaleConditionType.JourneyCompleted => condition.JourneyId is Guid journeyId && journeyIds.Contains(journeyId),
+                FinaleConditionType.EndingsReached => condition.EndingIds is { Count: > 0 }
+                    && condition.EndingIds.All(static endingId => !string.IsNullOrWhiteSpace(endingId))
+                    && condition.Threshold is null or > 0
+                    && (condition.Threshold ?? condition.EndingIds.Count) <= condition.EndingIds.Count,
+                FinaleConditionType.MasteryPercentReached => condition.Threshold is > 0 and <= 100,
+                _ => false,
+            };
+
+            if (!valid)
+            {
+                throw new ConfigurationException("invalid_finale_condition", "A finale condition must carry the operands its type requires and reference existing content.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// A familiar axis is a closed catalogue, never free text: a client must be able to
+    /// render and explain every value before the player picks it. This is what
+    /// <c>writingStyle</c> and <c>accent</c> lacked, and why they were unpreviewable.
+    /// </summary>
+    private static void ValidateFamiliarAxes(FamiliarDefinition familiar)
+    {
+        IReadOnlyList<FamiliarAxisDefinition> axes = familiar.Axes ?? [];
+        if (axes.Count > FamiliarCatalog.MaximumAxes
+            || axes.Select(static axis => axis.Axis?.Trim() ?? string.Empty)
+                .Distinct(StringComparer.Ordinal)
+                .Count() != axes.Count)
+        {
+            throw new ConfigurationException("invalid_familiar_axis", "Familiar axes must be uniquely keyed and within their count limit.");
+        }
+
+        foreach (FamiliarAxisDefinition axis in axes)
+        {
+            if (string.IsNullOrWhiteSpace(axis.Axis)
+                || axis.Axis.Length > FamiliarCatalog.MaximumValueLength
+                || string.IsNullOrWhiteSpace(axis.Label)
+                || axis.Options.Count is 0 or > FamiliarCatalog.MaximumOptionsPerAxis)
+            {
+                throw new ConfigurationException("invalid_familiar_axis", "A familiar axis requires a key, a label and between 1 and 24 options.");
+            }
+
+            if (axis.Options.Any(static option =>
+                    string.IsNullOrWhiteSpace(option.Value)
+                    || option.Value.Length > FamiliarCatalog.MaximumValueLength
+                    || string.IsNullOrWhiteSpace(option.Label)
+                    || option.Value.Any(char.IsControl)
+                    || !IsValidAssetUrl(option.AssetReference)))
+            {
+                throw new ConfigurationException("invalid_familiar_axis", "A familiar option requires a printable value, a label and a valid asset reference.");
+            }
+
+            if (axis.Options.Select(static option => option.Value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).Count() != axis.Options.Count)
+            {
+                throw new ConfigurationException("invalid_familiar_axis", "Familiar option values must be unique inside their axis.");
+            }
+
+            if (!axis.Options.Any(option => string.Equals(option.Value, axis.DefaultValue, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ConfigurationException("invalid_familiar_axis", "The default value of a familiar axis must be one of its options.");
+            }
+        }
     }
 
     /// <summary>
@@ -559,6 +660,10 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
                 Tags = category.Tags ?? [],
                 ScenarioIds = category.ScenarioIds ?? [],
             }).ToArray(),
+            // The familiar personalisation catalogue is always materialised, so a
+            // document written before the axes existed publishes the same contract as
+            // one authored today and no client has to special-case a missing block.
+            Familiars = document.Familiars.Select(FamiliarCatalog.Expand).ToArray(),
             Journeys = document.Journeys ?? [],
             Assignments = document.Assignments ?? [],
             Intro = document.Intro ?? CreateDefaultIntro(),
@@ -569,6 +674,9 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             AssistantPolicy = document.AssistantPolicy ?? CreateDefaultAssistantPolicy(),
             Journal = document.Journal ?? new JournalPolicyDefinition(true, true, 0, true),
             Media = document.Media ?? CreateDefaultMedia(),
+            // Left null when absent rather than defaulted: an instance that declares no
+            // finale simply has none, and inventing one would change what its players see.
+            Finale = document.Finale,
         };
     }
 
@@ -714,6 +822,16 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         ["experience.familiar.helpHigh"] = "Très présent",
         ["experience.familiar.apply"] = "Appliquer cette personnalité",
         ["experience.familiar.saved"] = "Votre familier s’adaptera dès la prochaine scène.",
+        ["experience.familiar.axis.aura"] = "Aura",
+        ["experience.familiar.axis.silhouette"] = "Silhouette",
+        ["experience.familiar.axis.speechRhythm"] = "Rythme d’élocution",
+        ["experience.familiar.axis.languageRegister"] = "Registre de langage",
+        ["experience.familiar.axis.interventionDensity"] = "Densité d’intervention",
+        ["experience.familiar.preview"] = "Aperçu",
+        ["finale.title"] = "Ce qui reste après vous",
+        ["finale.reached"] = "Vous avez atteint la fin. Rien ne se ferme : les branches non ouvertes vous attendent.",
+        ["finale.progress"] = "Progression vers la fin",
+        ["finale.continue"] = "Continuer à jouer",
         ["experience.wallet.title"] = "Portefeuille",
         ["experience.wallet.empty"] = "Vos choix écriront ici les premières lignes de votre progression.",
         ["experience.shop.title"] = "Magasin",

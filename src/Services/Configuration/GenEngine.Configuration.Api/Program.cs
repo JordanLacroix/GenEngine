@@ -51,6 +51,12 @@ app.MapGet("/experience/{frontId}", async (string frontId, ConfigurationService 
 app.MapGet("/asset-packs", (AssetPackService service) => Results.Ok(service.List()));
 app.MapGet("/asset-packs/{packId}", (string packId, AssetPackService service) => Results.Ok(service.Get(packId)));
 
+// Per-field integrated help. It is instance-independent — it describes the schema,
+// not a front — so it sits beside the admin routes rather than inside the per-front
+// group, and both clients read the same sentences instead of writing their own.
+app.MapGet("/admin/configuration/field-descriptors", () => Results.Ok(ConfigurationFieldCatalog.Descriptors))
+    .RequireAuthorization("config.read");
+
 RouteGroupBuilder admin = app.MapGroup("/admin/configuration/{frontId}");
 admin.MapGet("", async (string frontId, ConfigurationService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetAdminAsync(frontId, cancellationToken).ConfigureAwait(false))).RequireAuthorization("config.read");
