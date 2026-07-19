@@ -14,6 +14,26 @@ public sealed class ConfigurationServiceTests
         Converters = { new JsonStringEnumConverter() },
     };
 
+    /// <summary>
+    /// A theme whose colour map is omitted by the caller arrives as null, not as
+    /// an empty map. It must be refused as invalid_branding, not dereferenced —
+    /// an operator can act on the first and not on an opaque 500.
+    /// </summary>
+    [Fact]
+    public async Task AThemeWithoutColoursIsRefusedAsInvalidBranding()
+    {
+        var service = new ConfigurationService(new ConfigurationRepositoryStub(), TimeProvider.System);
+        ExperienceDocument document = ConfigurationService.CreateDefault("default") with
+        {
+            Branding = new BrandingDefinition(Theme: new BrandingThemeDefinition(null!)),
+        };
+
+        ConfigurationException exception = await Assert.ThrowsAsync<ConfigurationException>(
+            () => service.UpsertAsync("default", null, document, CancellationToken.None));
+
+        Assert.Equal("invalid_branding", exception.Code);
+    }
+
     [Fact]
     public async Task PublishedViewRedactsSensitiveOperatorDataAndKeepsThePlayableCatalog()
     {
@@ -41,8 +61,12 @@ public sealed class ConfigurationServiceTests
         Assert.Contains(published.Document.Economy.RewardRules, static rule => rule.Trigger == "ScenarioCompleted");
 
         // Never served again: tenant identifiers, provider endpoints and the
-        // internal organization structure.
-        Assert.Null(published.Document.Organization);
+        // internal organization structure. The organization is emptied rather
+        // than nulled — withholding the unit tree is the point, and a null would
+        // break the iOS client, whose `organization` property is not optional.
+        Assert.NotNull(published.Document.Organization);
+        Assert.Empty(published.Document.Organization!.Units);
+        Assert.Empty(published.Document.Organization.Description);
         Assert.Empty(published.Document.Assignments!);
         Assert.Null(published.Document.Authentication.EntraTenantId);
         Assert.Null(published.Document.Authentication.EntraClientId);

@@ -268,7 +268,13 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
     /// </summary>
     private static ExperienceDocument Anonymize(ExperienceDocument document) => document with
     {
-        Organization = null,
+        // Emptied rather than nulled. The goal is to withhold the unit tree, and
+        // an empty organization does that just as well — while a null breaks the
+        // iOS client, whose `organization` is a non-optional property and whose
+        // decoder therefore fails the whole document, not just this field.
+        Organization = document.Organization is null
+            ? null
+            : new OrganizationDefinition(document.Organization.Name, string.Empty, []),
         Assignments = [],
         Authentication = document.Authentication with { EntraTenantId = null, EntraClientId = null },
         AiProviders = document.AiProviders
@@ -704,8 +710,16 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         }
     }
 
-    private static void ValidateColorMap(IReadOnlyDictionary<string, string> colors, string what)
+    private static void ValidateColorMap(IReadOnlyDictionary<string, string>? colors, string what)
     {
+        // A positional record parameter that the request body omits arrives as
+        // null, not as an empty map. Dereferencing it here would surface as an
+        // opaque 500 instead of the invalid_branding an operator can act on.
+        if (colors is null)
+        {
+            throw new ConfigurationException("invalid_branding", $"The {what} must define its colours.");
+        }
+
         if (colors.Count > 60
             || colors.Any(static color => string.IsNullOrWhiteSpace(color.Key) || color.Key.Length > 40 || !IsHexColor(color.Value)))
         {
