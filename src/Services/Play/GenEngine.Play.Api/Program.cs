@@ -40,6 +40,19 @@ app.MapPlayHealthChecks();
 
 RouteGroupBuilder sessions = app.MapGroup("/sessions").RequireAuthorization("session.play");
 
+// Narrative map of a published version, consultable outside any session.
+app.MapGet("/scenario-versions/{versionId:guid}/tree", async (
+    Guid versionId,
+    ClaimsPrincipal user,
+    PlayService service,
+    CancellationToken cancellationToken) =>
+    Results.Ok(await service.GetStructureAsync(
+        GetUserId(user),
+        versionId,
+        user.HasClaim("scope", "*"),
+        cancellationToken).ConfigureAwait(false)))
+    .RequireAuthorization("session.play");
+
 sessions.MapPost("/", async (
     StartSessionRequest request,
     ClaimsPrincipal user,

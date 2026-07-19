@@ -42,6 +42,7 @@ Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs u
 - `GET /sessions/{id}`
 - `GET /sessions/{id}/current-step`
 - `GET /sessions/{id}/tree` — arbre complet avec état courant, visité, inexploré ou verrouillé et explication des conditions
+- `GET /scenario-versions/{versionId}/tree` — topologie d’une version publiée **sans session** : `initialNodeId`, nœuds (`id`, `text`, `isEnding`) et arêtes (`sourceNodeId`, `targetNodeId`, `inputId`, `text`). Les états et explications de conditions dépendent d’un état de monde et sont donc volontairement absents ; le client colorie la carte avec la seule mémoire de progression. Mêmes affectations de contenu que le démarrage de session
 - `GET /sessions/{id}/player` — synthèse de progression, collection et journal joueur déterministes
 - `POST /sessions/{id}/inputs`
 - `POST /sessions/{id}/continue` — progression d'une interaction de narration, commande idempotente

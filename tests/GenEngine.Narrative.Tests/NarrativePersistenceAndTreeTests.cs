@@ -105,6 +105,34 @@ public sealed class NarrativePersistenceAndTreeTests
         Assert.Equal("end", edge.TargetNodeId);
     }
 
+    [Fact]
+    public void StructureExposesTheSameTopologyAsTheStatefulTree()
+    {
+        ScenarioDocument scenario = CreateTreeScenario();
+        NarrativeTree tree = NarrativeTreeBuilder.Build(scenario, NarrativeRuntime.Start(scenario));
+
+        NarrativeStructure structure = NarrativeTreeBuilder.BuildStructure(scenario);
+
+        Assert.Equal(tree.InitialNodeId, structure.InitialNodeId);
+        Assert.Equal(
+            tree.Nodes.Select(node => (node.Id, node.Text, node.IsEnding)),
+            structure.Nodes.Select(node => (node.Id, node.Text, node.IsEnding)));
+        Assert.Equal(
+            tree.Edges.Select(edge => (edge.SourceNodeId, edge.TargetNodeId, edge.InputId, edge.Text)),
+            structure.Edges.Select(edge => (edge.SourceNodeId, edge.TargetNodeId, edge.InputId, edge.Text)));
+    }
+
+    [Fact]
+    public void StructureRejectsAnInvalidScenario()
+    {
+        ScenarioDocument scenario = CreateTreeScenario() with { InitialNodeId = "missing" };
+
+        NarrativeException exception = Assert.Throws<NarrativeException>(
+            () => NarrativeTreeBuilder.BuildStructure(scenario));
+
+        Assert.Equal("invalid_scenario", exception.Code);
+    }
+
     private static ScenarioDocument CreateTreeScenario() => new(
         NarrativeVersions.Schema,
         "Tree",

@@ -85,28 +85,11 @@ public sealed class PlayService(
         bool bypassAssignments,
         CancellationToken cancellationToken)
     {
-        PublishedSnapshotContract snapshot = await authoringClient.GetAsync(scenarioVersionId, cancellationToken)
-            .ConfigureAwait(false);
-        if (!bypassAssignments)
-        {
-            if (!Guid.TryParse(ownerId, out Guid userId))
-            {
-                throw new PlayException("invalid_user_id", "The authenticated user identifier is invalid.");
-            }
-
-            await contentAccessClient.EnsureCanStartAsync(
-                userId,
-                snapshot.FrontId,
-                snapshot.ScenarioId,
-                snapshot.CategoryId,
-                cancellationToken).ConfigureAwait(false);
-        }
-        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(snapshot.SnapshotJson);
-        string actualHash = CanonicalSnapshot.ComputeHash(scenario);
-        if (!string.Equals(actualHash, snapshot.SnapshotHash, StringComparison.Ordinal))
-        {
-            throw new PlayException("snapshot_hash_mismatch", "The published snapshot hash is invalid.");
-        }
+        (PublishedSnapshotContract snapshot, ScenarioDocument scenario) = await LoadAuthorizedScenarioAsync(
+            ownerId,
+            scenarioVersionId,
+            bypassAssignments,
+            cancellationToken).ConfigureAwait(false);
 
         GameState state = NarrativeRuntime.Start(scenario);
         DateTimeOffset now = GetUtcNow();
@@ -149,6 +132,62 @@ public sealed class PlayService(
     {
         GameSession session = await GetRequiredAsync(id, ownerId, cancellationToken).ConfigureAwait(false);
         return NarrativeTreeBuilder.Build(DeserializeScenario(session), DeserializeState(session));
+    }
+
+    /// <summary>
+    /// Topology of a published version, without any session. Lets a player consult
+    /// the narrative map of a story outside a run; availability and lock reasons
+    /// depend on a world state and are therefore not part of this projection.
+    /// </summary>
+    public async Task<NarrativeStructure> GetStructureAsync(
+        string ownerId,
+        Guid scenarioVersionId,
+        bool bypassAssignments,
+        CancellationToken cancellationToken)
+    {
+        (_, ScenarioDocument scenario) = await LoadAuthorizedScenarioAsync(
+            ownerId,
+            scenarioVersionId,
+            bypassAssignments,
+            cancellationToken).ConfigureAwait(false);
+        return NarrativeTreeBuilder.BuildStructure(scenario);
+    }
+
+    /// <summary>
+    /// Fetches a published snapshot, enforces the player's content assignments and
+    /// verifies the canonical hash before returning the deserialized scenario.
+    /// </summary>
+    private async Task<(PublishedSnapshotContract Snapshot, ScenarioDocument Scenario)> LoadAuthorizedScenarioAsync(
+        string ownerId,
+        Guid scenarioVersionId,
+        bool bypassAssignments,
+        CancellationToken cancellationToken)
+    {
+        PublishedSnapshotContract snapshot = await authoringClient.GetAsync(scenarioVersionId, cancellationToken)
+            .ConfigureAwait(false);
+        if (!bypassAssignments)
+        {
+            if (!Guid.TryParse(ownerId, out Guid userId))
+            {
+                throw new PlayException("invalid_user_id", "The authenticated user identifier is invalid.");
+            }
+
+            await contentAccessClient.EnsureCanStartAsync(
+                userId,
+                snapshot.FrontId,
+                snapshot.ScenarioId,
+                snapshot.CategoryId,
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(snapshot.SnapshotJson);
+        string actualHash = CanonicalSnapshot.ComputeHash(scenario);
+        if (!string.Equals(actualHash, snapshot.SnapshotHash, StringComparison.Ordinal))
+        {
+            throw new PlayException("snapshot_hash_mismatch", "The published snapshot hash is invalid.");
+        }
+
+        return (snapshot, scenario);
     }
 
     public async Task<PlayerProjection> GetPlayerProjectionAsync(
