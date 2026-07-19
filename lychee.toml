@@ -7,6 +7,9 @@ accept = [200, 204, 206, 429]
 exclude = [
   '^http://localhost',
   '^http://127\\.0\\.0\\.1',
+  # Badges décoratifs : leur disponibilité ne dit rien de la justesse de la
+  # documentation, et leurs délais d'attente rendaient la CI non déterministe.
+  '^https://img\.shields\.io',
   'https://github.com/JordanLacroix/GenEngine/actions/workflows/scorecard.yml/badge.svg',
   'https://github.com/JordanLacroix/GenEngine/security/advisories/new',
   'https://dotnet.microsoft.com/',
