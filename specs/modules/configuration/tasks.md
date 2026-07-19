@@ -16,6 +16,24 @@
 | CFG-010 | todo | Publier le catalogue typé complet des clés moteur et plateforme |
 | CFG-011 | todo | Gérer brouillon, diff, approbation, planification, rollback et provenance |
 
+## Contenu de référence — Diapason
+
+Bible d'univers et documentation : [`specs/domain/diapason/`](../../domain/diapason/). Contenu jouable : [`content/diapason/`](../../../content/diapason/).
+
+| ID | Statut | Tâche |
+|---|---|---|
+| DIA-001 | done | Écrire la bible d'univers, le ton, la position du joueur et le lien à la grammaire visuelle/sonore du POC |
+| DIA-002 | done | Définir une taxonomie par posture (six catégories) et la justifier |
+| DIA-003 | done | Écrire dix scénarios ancrés en 2026, avec fins de rupture imposant une reprise |
+| DIA-004 | done | Exprimer la progression par trois parcours et leurs `PrerequisiteJourneyIds` |
+| DIA-005 | done | Amorcer Diapason comme configuration de référence à la première initialisation |
+| DIA-006 | done | Fournir un script d'installation du contenu jouable via les API publiques |
+| DIA-007 | done | Documenter la rotation quotidienne déterministe et la couvrir par un test |
+| DIA-008 | todo | Exposer la rotation quotidienne dans le modèle de configuration (`SpotlightDefinition`) — nécessite une décision produit |
+| DIA-009 | todo | Rendre `install-diapason.sh` idempotent (Authoring crée un brouillon à chaque import) |
+| DIA-010 | todo | Distinguer une fin d'échec d'une fin de réussite (`outcome` sur le nœud terminal) — bloque récompenses et projections |
+| DIA-011 | todo | Déclarer et valider les `scope` de `recordNotableEvent` côté configuration |
+
 ## Organization
 
 | ID | Statut | Tâche |

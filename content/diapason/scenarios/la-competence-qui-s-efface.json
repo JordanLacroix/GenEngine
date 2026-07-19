@@ -1,0 +1,333 @@
+{
+  "schemaVersion": 2,
+  "title": "La compétence qui s'efface",
+  "initialNodeId": "panne",
+  "nodes": [
+    {
+      "id": "panne",
+      "text": "Un vendredi, 15 h 20. Le réseau de l'entreprise est coupé.",
+      "onEnterEffects": [
+        { "$type": "setCharacteristic", "name": "autonomie", "value": 1 },
+        { "$type": "assign", "name": "heures", "value": 5 }
+      ],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "ouverture",
+          "text": "Un incident chez l'opérateur. Pas d'accès extérieur, donc pas d'assistant. Le service de facturation, lui, tourne toujours, en local, et il vient de commencer à produire des montants faux pour environ un client sur trente. La clôture mensuelle part ce soir à 20 h. Vous êtes la personne d'astreinte ; votre tutrice est en train de rentrer de Lyon et ne sera pas joignable avant 18 h.",
+          "continueEffects": []
+        },
+        {
+          "$type": "narration",
+          "id": "constat",
+          "text": "Vous ouvrez le code. Vous connaissez ce module : vous l'avez écrit en janvier. Vous le regardez pendant quatre minutes et vous vous rendez compte que vous ne savez pas comment il marche. Vous savez ce qu'il fait, vous savez quels fichiers il touche, vous vous souvenez des conversations. Mais la boucle de rapprochement au milieu — celle avec les trois index et le décalage de période — vous l'avez acceptée d'un coup, elle était juste, elle passait les tests, et vous n'avez jamais eu à la tenir dans votre tête.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "code-signe-non-compris" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "premier-geste",
+          "prompt": "15 h 30. Quatre heures et demie.",
+          "choices": [
+            {
+              "id": "attendre",
+              "text": "Attendre le retour du réseau : sans assistant, vous perdez du temps pour rien",
+              "targetNodeId": "attente",
+              "effects": [
+                { "$type": "increment", "name": "heures", "amount": -2 }
+              ]
+            },
+            {
+              "id": "reconstruire",
+              "text": "Reprendre la boucle ligne à ligne, avec un papier, jusqu'à pouvoir l'expliquer",
+              "targetNodeId": "reconstruction",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "autonomie", "amount": 1 },
+                { "$type": "increment", "name": "heures", "amount": -2 }
+              ]
+            },
+            {
+              "id": "contourner",
+              "text": "Ne pas comprendre : isoler les clients touchés et corriger les montants à la main",
+              "targetNodeId": "contournement",
+              "effects": [
+                { "$type": "increment", "name": "heures", "amount": -1 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attente",
+      "text": "17 h 30. Toujours rien.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "vide",
+          "text": "Deux heures passées à rafraîchir une page de statut et à relire le même fichier sans le comprendre davantage. L'attente n'était pas une stratégie, c'était un réflexe : vous avez cherché à retrouver la condition dans laquelle vous savez travailler, au lieu de travailler dans celle où vous êtes. Il reste deux heures et demie.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Deux heures d'attente d'un outil, pendant un incident.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "suite",
+          "prompt": "17 h 30.",
+          "choices": [
+            {
+              "id": "reconstruire",
+              "text": "S'y mettre",
+              "targetNodeId": "reconstruction",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "autonomie", "amount": 1 }
+              ]
+            },
+            {
+              "id": "contourner",
+              "text": "Corriger les montants à la main",
+              "targetNodeId": "contournement",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reconstruction",
+      "text": "Papier, crayon, un exemple.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "travail",
+          "text": "Vous prenez un seul client faux et vous déroulez la boucle à la main, valeur par valeur. C'est lent, humiliant et efficace. Au bout de quarante minutes, vous voyez : le troisième index suppose que les périodes sont contiguës. Depuis la migration de mars, elles ne le sont plus pour les clients ayant changé de forfait en cours de mois — environ un sur trente. Le défaut n'est pas dans la boucle. Il est dans une hypothèse que la boucle porte et que personne n'a jamais écrite.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "hypothese-de-contiguite" },
+            { "$type": "collect", "item": "deroulement-papier" }
+          ]
+        },
+        {
+          "$type": "quiz",
+          "id": "nature-de-la-dette",
+          "prompt": "Ce qui vous a coûté quarante minutes, ce n'est pas la complexité du code. C'est…",
+          "answers": [
+            { "id": "fatigue", "text": "la fatigue et la pression de l'incident" },
+            { "id": "jamais-construit", "text": "un modèle mental que vous n'avez jamais construit, parce qu'on vous a livré la solution" },
+            { "id": "documentation", "text": "l'absence de documentation du module" }
+          ],
+          "correctAnswerId": "jamais-construit",
+          "correctEffects": [
+            { "$type": "changeCharacteristic", "name": "autonomie", "amount": 1 },
+            { "$type": "discoverEvidence", "evidence": "modele-mental-absent" }
+          ],
+          "incorrectEffects": [
+            { "$type": "increment", "name": "erreurs", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "correction",
+          "prompt": "18 h 10. Vous savez ce qui casse.",
+          "choices": [
+            {
+              "id": "corriger",
+              "text": "Corriger la boucle et écrire le test qui fixe l'hypothèse",
+              "targetNodeId": "correction",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 }
+              ]
+            },
+            {
+              "id": "patcher",
+              "text": "Corriger la boucle : le test attendra, la clôture est à 20 h",
+              "targetNodeId": "patch-seul",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "correction",
+      "text": "19 h 05.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "resultat",
+          "text": "Le test énonce l'hypothèse qui manquait : « les périodes d'un même client peuvent présenter des discontinuités ». Il échoue sur l'ancien code et passe sur le nouveau. La clôture part à 19 h 40. Le réseau, lui, revient à 19 h 55 — vous n'en avez plus besoin. Ce qui restera de cette soirée n'est pas la correction : c'est que le module que vous aviez signé en janvier est devenu, ce soir, un module que vous comprenez.",
+          "continueEffects": [
+            { "$type": "grantReward", "reward": "frequence-du-doute" },
+            { "$type": "changeCharacteristic", "name": "autonomie", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "characteristicGate",
+          "id": "consolidation",
+          "condition": {
+            "$type": "all",
+            "conditions": [
+              { "$type": "hasEvidence", "evidence": "modele-mental-absent" },
+              { "$type": "characteristicAtLeast", "name": "autonomie", "value": 3 }
+            ]
+          },
+          "satisfiedTargetNodeId": "fin-accord",
+          "failedTargetNodeId": "fin-partielle",
+          "satisfiedEffects": [
+            { "$type": "recordNotableEvent", "label": "Vous avez identifié la dette, pas seulement le bug.", "scope": "autonomie" }
+          ],
+          "failedEffects": []
+        }
+      ]
+    },
+    {
+      "id": "patch-seul",
+      "text": "19 h 20, sans test.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "resultat",
+          "text": "La clôture part à 19 h 30, correcte. L'hypothèse de contiguïté, elle, reste non écrite : vous êtes désormais la seule personne au monde à savoir qu'elle existe, et vous l'oublierez d'ici trois mois. Comprendre quelque chose et ne pas le fixer quelque part, c'est reproduire exactement le geste qui vous a coûté la soirée.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Une compréhension non fixée se perd comme les autres.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "lundi",
+          "prompt": "Lundi matin, vous avez vingt minutes.",
+          "choices": [
+            {
+              "id": "ecrire",
+              "text": "Écrire le test qui énonce l'hypothèse",
+              "targetNodeId": "correction",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 }
+              ]
+            },
+            {
+              "id": "passer",
+              "text": "Le module marche. Passer à autre chose.",
+              "targetNodeId": "fin-rupture-non-fixe",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "contournement",
+      "text": "Les montants à la main.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "travail",
+          "text": "Vous identifiez cent quatre clients touchés et vous corrigez leurs montants un par un dans l'interface d'administration. Trois heures. La clôture part à 19 h 50, juste. C'est une bonne décision d'astreinte : vous avez traité le symptôme dans la fenêtre disponible sans toucher à du code que vous ne comprenez pas. C'est aussi, si elle s'arrête là, la manière dont un module devient définitivement opaque.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Symptôme traité dans les temps, cause intacte.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "lundi",
+          "prompt": "Lundi matin. Le mois prochain, ce sera cent quatre clients de plus.",
+          "choices": [
+            {
+              "id": "reconstruire",
+              "text": "Bloquer une demi-journée pour reprendre la boucle jusqu'à pouvoir l'expliquer",
+              "targetNodeId": "reconstruction",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "autonomie", "amount": 1 }
+              ]
+            },
+            {
+              "id": "automatiser",
+              "text": "Écrire un script qui refera la correction manuelle chaque mois",
+              "targetNodeId": "fin-rupture-script",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-accord",
+      "text": "Fin — Ce qu'on garde",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Déléguer une tâche fait gagner du temps ; déléguer la compréhension fait perdre la capacité de reprendre la main, et cette perte est invisible jusqu'au jour où elle est totale. Elle ne se manifeste pas comme de l'ignorance — vous saviez tout du module sauf comment il marche — mais comme une confiance sans appui. La question utile n'est pas « faut-il utiliser ces outils » : c'est « qu'est-ce que je dois encore pouvoir faire seul, et à quel rythme est-ce que je le vérifie ». Vous avez une réponse pour ce module. Il y en a quarante autres dans ce dépôt.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : compétence reprise, hypothèse écrite, dette nommée.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-partielle",
+      "text": "Fin — Le bug corrigé",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous avez compris la boucle, corrigé le défaut et livré à l'heure : c'est une soirée réussie. Vous en sortez avec un bug de moins et sans avoir nommé ce qui s'est réellement passé à 15 h 34, quand vous avez regardé pendant quatre minutes un code que vous aviez signé sans le comprendre. Ce moment-là était l'information importante de la journée. Rejouez, et regardez-le.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : incident résolu, dépendance non examinée.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-non-fixe",
+      "text": "Rupture — Le module marche",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "En octobre, une autre migration recrée le même type de discontinuité ailleurs. Personne ne fait le lien, parce que la seule trace de l'hypothèse était dans votre mémoire d'un vendredi soir de mai. Vous aviez payé quarante minutes pour cette connaissance et vous l'avez laissée s'évaporer pour en économiser vingt. Reprenez au vendredi 15 h 20.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : connaissance chèrement acquise, non transmise.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-script",
+      "text": "Rupture — Le script mensuel",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Le script tourne chaque mois et corrige cent et quelques montants. Il tourne encore deux ans plus tard, sur un module que personne n'ouvre plus, et il finit par corriger des cas qu'il ne devrait plus corriger. Automatiser un contournement, c'est rendre permanent le fait de ne pas comprendre : la douleur disparaît, la zone opaque grandit. Reprenez au vendredi 15 h 20.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : contournement automatisé, opacité rendue permanente.", "scope": "rupture" }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,443 @@
+{
+  "schemaVersion": 2,
+  "title": "La spécification avant le code",
+  "initialNodeId": "demande",
+  "nodes": [
+    {
+      "id": "demande",
+      "text": "Lundi 10 h. Une demande de trois phrases.",
+      "onEnterEffects": [
+        { "$type": "setCharacteristic", "name": "transmission", "value": 1 },
+        { "$type": "assign", "name": "jours", "value": 10 }
+      ],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "ouverture",
+          "text": "Votre tutrice vous confie une fonctionnalité pour la plateforme de réservation de salles : « Il faut qu'on puisse annuler une réservation. Avec un remboursement des crédits si c'est annulé assez tôt. Tu peux faire ça pour le sprint prochain ? » Trois phrases. Dix jours. Vous ouvrez votre éditeur ; l'assistant a déjà proposé une implémentation complète de `cancelReservation` avant que vous ayez fini de lire la demande. Elle compile. Elle est élégante. Elle a une constante `REFUND_WINDOW_HOURS = 24` que personne n'a jamais décidée.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "constante-inventee" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "premier-geste",
+          "prompt": "Le code est là, sous vos yeux, prêt à être accepté.",
+          "choices": [
+            {
+              "id": "accepter",
+              "text": "Accepter la proposition et l'adapter : on ajustera les détails en revue",
+              "targetNodeId": "code-d-abord",
+              "effects": [
+                { "$type": "increment", "name": "jours", "amount": -2 }
+              ]
+            },
+            {
+              "id": "specifier",
+              "text": "Fermer l'éditeur et écrire d'abord ce que « annuler » veut dire",
+              "targetNodeId": "specification",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 },
+                { "$type": "increment", "name": "jours", "amount": -1 }
+              ]
+            },
+            {
+              "id": "questions",
+              "text": "Renvoyer une liste de questions à votre tutrice et attendre",
+              "targetNodeId": "questions-en-l-air",
+              "effects": [
+                { "$type": "increment", "name": "jours", "amount": -3 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "questions-en-l-air",
+      "text": "Jeudi.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "silence",
+          "text": "Neuf questions ouvertes, deux réponses. « Ça dépend des cas », « à voir avec le métier ». Vos questions étaient justes et informulables : elles demandaient à quelqu'un d'imaginer un système qui n'existe pas encore. Une question ouverte se répond mal ; une proposition écrite se corrige bien. Il vous reste sept jours.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Des questions ouvertes obtiennent des réponses ouvertes.", "scope": "transmission" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "suite",
+          "prompt": "Sept jours.",
+          "choices": [
+            {
+              "id": "specifier",
+              "text": "Écrire vous-même la version que vous croyez juste, et la faire corriger",
+              "targetNodeId": "specification",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 }
+              ]
+            },
+            {
+              "id": "coder",
+              "text": "Coder l'interprétation la plus probable",
+              "targetNodeId": "code-d-abord",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "specification",
+      "text": "Deux heures, un document, aucune ligne de code.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "regle-1",
+          "text": "Vous n'écrivez pas un cahier des charges : vous écrivez ce qui doit être vrai. Une spécification utile n'est pas une description de solution, c'est une liste d'affirmations qu'on peut vérifier une par une et qui deviendront des tests. Vous commencez par le vocabulaire, parce que c'est là que les malentendus se logent. « Annuler » — qui peut annuler ? Le réservataire, oui. L'organisateur de la salle ? La demande ne le dit pas. C'est une question fermée : la réponse est oui ou non.",
+          "continueEffects": []
+        },
+        {
+          "$type": "narration",
+          "id": "regle-2",
+          "text": "Vous écrivez huit affirmations. « Une réservation annulée plus de N heures avant son début rembourse la totalité des crédits. » « Une réservation annulée moins de N heures avant son début ne rembourse rien. » « Une réservation déjà commencée ne peut pas être annulée. » « Une annulation est idempotente : annuler deux fois ne rembourse qu'une fois. » « Un remboursement ne peut jamais porter le solde au-delà de ce qui a été débité. » Puis, en haut du document, une seule ligne en gras : N reste à décider, et personne dans cette équipe n'a le droit de le décider seul.",
+          "continueEffects": [
+            { "$type": "collect", "item": "huit-affirmations" },
+            { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "freeText",
+          "id": "cas-manquant",
+          "prompt": "Relisez vos huit affirmations. Un cas fréquent n'est couvert par aucune d'elles : lequel manque-t-il, et pourquoi est-il critique ? Répondez en une ou deux phrases.",
+          "requiredTerms": ["annulation", "salle", "remboursement", "organisateur", "idempotence", "simultane"],
+          "minimumMatches": 2,
+          "acceptedEffects": [
+            { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 },
+            { "$type": "discoverEvidence", "evidence": "cas-limite-identifie" }
+          ],
+          "rejectedEffects": [
+            { "$type": "increment", "name": "erreurs", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "narration",
+          "id": "regle-3",
+          "text": "Le cas manquant est celui où la salle elle-même est fermée : l'annulation ne vient pas du réservataire, et le délai ne devrait alors jouer aucun rôle. Vous ajoutez une neuvième affirmation. Une spécification n'a pas pour but d'être exhaustive du premier coup ; elle a pour but d'être assez précise pour que son incomplétude devienne visible. Un texte vague ne révèle jamais ce qui lui manque.",
+          "continueEffects": [
+            { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "validation",
+          "prompt": "Mardi 9 h. Le document fait une page et demie.",
+          "choices": [
+            {
+              "id": "faire-valider",
+              "text": "Le faire relire par votre tutrice et le responsable métier, avant toute ligne de code",
+              "targetNodeId": "revue-de-spec",
+              "effects": []
+            },
+            {
+              "id": "coder-avec",
+              "text": "Commencer à coder en s'appuyant dessus : il est assez clair",
+              "targetNodeId": "code-sans-validation",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "revue-de-spec",
+      "text": "Quarante minutes de relecture.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "corrections",
+          "text": "Le responsable métier tranche N en quatre secondes : quarante-huit heures, pas vingt-quatre, parce que les salles se relouent mal du jour au lendemain. La constante que l'assistant avait proposée lundi était fausse de moitié, et rien dans le code ne l'aurait signalé. Il ajoute une règle que vous n'auriez jamais devinée : les annulations d'un même compte au-delà de trois par mois ne sont plus remboursées, sinon les gens bloquent des salles « au cas où ». Votre tutrice, elle, corrige une affirmation : l'idempotence doit tenir sur vingt-quatre heures, pas indéfiniment.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "regles-metier-non-devinables" },
+            { "$type": "collect", "item": "specification-validee" }
+          ]
+        },
+        {
+          "$type": "quiz",
+          "id": "role-de-la-spec",
+          "prompt": "Face à un assistant capable de produire l'implémentation en trois secondes, à quoi sert la spécification écrite d'abord ?",
+          "answers": [
+            { "id": "documentation", "text": "à documenter le code pour les développeurs suivants" },
+            { "id": "decision", "text": "à faire prendre par des humains les décisions que le code prendra par défaut" },
+            { "id": "process", "text": "à respecter le processus qualité de l'entreprise" }
+          ],
+          "correctAnswerId": "decision",
+          "correctEffects": [
+            { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 },
+            { "$type": "discoverEvidence", "evidence": "spec-porte-les-decisions" }
+          ],
+          "incorrectEffects": [
+            { "$type": "increment", "name": "erreurs", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "implementation",
+          "prompt": "Mardi 11 h. Neuf affirmations validées, huit jours devant vous.",
+          "choices": [
+            {
+              "id": "tests-d-abord",
+              "text": "Transformer les neuf affirmations en tests exécutables, puis laisser l'assistant proposer l'implémentation",
+              "targetNodeId": "implementation",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "coder-direct",
+              "text": "Implémenter directement en gardant le document ouvert à côté",
+              "targetNodeId": "implementation-sans-tests",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "implementation",
+      "text": "Neuf tests, puis le code.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "boucle",
+          "text": "Les neuf affirmations deviennent neuf tests en une heure et demie. Ils échouent tous : c'est le but. Vous laissez alors l'assistant proposer l'implémentation, et cette fois le rapport de force est inversé — ce n'est plus lui qui décide de la règle, c'est la suite de tests qui l'accepte ou la refuse. Sa première proposition passe six tests sur neuf. Elle échoue sur l'idempotence, sur la salle fermée et sur le plafond mensuel : exactement les trois règles qu'aucun modèle ne pouvait deviner, parce qu'elles ne sont écrites nulle part au monde sauf dans votre document de mardi.",
+          "continueEffects": [
+            { "$type": "grantReward", "reward": "frequence-du-doute" },
+            { "$type": "changeCharacteristic", "name": "autonomie", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "characteristicGate",
+          "id": "solidite",
+          "condition": {
+            "$type": "all",
+            "conditions": [
+              { "$type": "hasItem", "item": "specification-validee" },
+              { "$type": "hasEvidence", "evidence": "spec-porte-les-decisions" }
+            ]
+          },
+          "satisfiedTargetNodeId": "fin-accord",
+          "failedTargetNodeId": "fin-partielle",
+          "satisfiedEffects": [
+            { "$type": "recordNotableEvent", "label": "La suite de tests est devenue l'autorité que l'assistant doit satisfaire.", "scope": "transmission" }
+          ],
+          "failedEffects": []
+        }
+      ]
+    },
+    {
+      "id": "implementation-sans-tests",
+      "text": "Le document à côté de l'écran.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "derive",
+          "text": "Vous implémentez en regardant le document, et vous le respectez — à peu près. Le plafond mensuel devient « trois annulations glissantes sur trente jours » parce que c'était plus simple à écrire ; l'idempotence est gérée par un identifiant de requête, ce qui la rend valable pour cinq minutes et non vingt-quatre heures. Un document qui n'est pas exécutable ne contraint rien : il est relu par une personne fatiguée qui a déjà le code en tête.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Une spécification non exécutable dérive silencieusement.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "rattrapage",
+          "prompt": "Jeudi. Le code fonctionne.",
+          "choices": [
+            {
+              "id": "tests",
+              "text": "Écrire maintenant les neuf tests à partir des affirmations, et voir ce qui casse",
+              "targetNodeId": "implementation",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "livrer",
+              "text": "Livrer : le document a été validé, le code le suit",
+              "targetNodeId": "fin-rupture-derive",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code-sans-validation",
+      "text": "Votre spécification, non relue.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "probleme",
+          "text": "Vos huit affirmations sont bien écrites, cohérentes, testables. Vous avez tranché N à vingt-quatre heures, faute de mieux, en vous disant que ce serait facile à changer. Vous ne connaissiez pas la règle des trois annulations mensuelles, et vous ne pouviez pas la connaître. Écrire seul une spécification claire ne fait que produire une erreur claire : la valeur de l'exercice tient entièrement au moment où quelqu'un d'autre la corrige.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Une spécification non validée est une hypothèse bien rédigée.", "scope": "transmission" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "retour",
+          "prompt": "Il vous reste huit jours.",
+          "choices": [
+            {
+              "id": "valider",
+              "text": "Arrêter et faire relire les huit affirmations",
+              "targetNodeId": "revue-de-spec",
+              "effects": []
+            },
+            {
+              "id": "continuer",
+              "text": "Continuer : on corrigera en recette",
+              "targetNodeId": "fin-rupture-hypothese",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "code-d-abord",
+      "text": "Le code d'abord.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "vitesse",
+          "text": "En une journée et demie, la fonctionnalité est complète, testée sur le chemin nominal, et franchement bonne. Vous êtes en avance de huit jours. En revue, votre tutrice pose une question : « Pourquoi vingt-quatre heures ? » Vous cherchez la réponse et vous ne la trouvez pas, parce qu'il n'y en a pas : cette valeur vient d'une complétion, et elle est maintenant présente dans quatre fichiers, deux tests et une migration.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Une valeur non décidée s'est répandue dans quatre fichiers.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "reaction",
+          "prompt": "Elle attend.",
+          "choices": [
+            {
+              "id": "reprendre",
+              "text": "« Je n'en sais rien. Je reprends à zéro par les règles. »",
+              "targetNodeId": "specification",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "justifier",
+              "text": "Justifier après coup : vingt-quatre heures est une valeur raisonnable",
+              "targetNodeId": "fin-rupture-justification",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-accord",
+      "text": "Fin — Ce qui doit être vrai",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "La fonctionnalité part en production au neuvième jour, sans incident. Ce n'est pas le résultat intéressant. Le résultat intéressant tient dans le déplacement : quand une machine produit l'implémentation en trois secondes, écrire du code cesse d'être le travail, et décider ce que le code doit garantir le devient. Une spécification pilotée par les faits ne décrit pas une solution — elle énonce ce qui doit être vrai, sous une forme qu'une machine peut vérifier et qu'un humain doit signer. Les trois règles qui ont sauvé cette fonctionnalité n'étaient devinables par aucun modèle : elles n'existaient que dans la tête d'un responsable métier, jusqu'à ce qu'une page et demie oblige quelqu'un à les dire.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : spécification exécutable écrite, validée, puis imposée à l'implémentation.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-partielle",
+      "text": "Fin — La méthode sans la raison",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous avez écrit les tests avant le code et la fonctionnalité est solide. Il vous manque la raison pour laquelle cela a fonctionné, et sans elle la méthode se réduira au premier sprint tendu à « on écrira les tests après ». Ce qui a compté n'est pas l'ordre des fichiers : c'est que des décisions qu'aucune machine ne pouvait prendre ont été arrachées à des humains, par écrit, avant d'être figées dans du code. Rejouez, et faites valider le document.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : bonne pratique appliquée, principe non consolidé.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-justification",
+      "text": "Rupture — Une valeur raisonnable",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vingt-quatre heures est en effet une valeur raisonnable, et elle est fausse : le métier fonctionne à quarante-huit. Vous avez fabriqué une justification pour une décision que vous n'aviez pas prise, ce qui est la manière la plus rapide de rendre une erreur indéboulonnable — désormais quelqu'un la défendra. La question n'était pas si la valeur était raisonnable, mais qui l'avait choisie. Reprenez lundi 10 h.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : rationalisation a posteriori d'un défaut de complétion.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-derive",
+      "text": "Rupture — Le code suit le document",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Le document dit vingt-quatre heures d'idempotence ; le code en garantit cinq minutes. En novembre, un double clic sur un réseau lent rembourse deux fois quatre cents crédits, quatorze fois dans le même mois. La spécification validée existait, et elle n'a rien empêché, parce qu'aucune machine ne la lisait. Un texte que rien n'exécute est une intention. Reprenez lundi 10 h.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : spécification validée mais non exécutable.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-hypothese",
+      "text": "Rupture — On corrigera en recette",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "En recette, le responsable métier découvre que rien n'empêche un compte de bloquer douze salles par mois et de tout annuler la veille. La règle n'est pas un détail d'affichage : elle change le modèle de données. Trois jours de travail à refaire, sur les deux qui restaient. Une hypothèse bien écrite reste une hypothèse tant que personne d'autre ne l'a signée, et le moment le moins cher pour la faire signer était mardi matin. Reprenez lundi 10 h.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : validation repoussée jusqu'au point le plus coûteux.", "scope": "rupture" }
+          ]
+        }
+      ]
+    }
+  ]
+}

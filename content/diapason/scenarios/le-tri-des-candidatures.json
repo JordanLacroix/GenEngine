@@ -1,0 +1,443 @@
+{
+  "schemaVersion": 2,
+  "title": "Le tri des candidatures",
+  "initialNodeId": "mission",
+  "nodes": [
+    {
+      "id": "mission",
+      "text": "Mars. Quatre cent douze candidatures, douze places.",
+      "onEnterEffects": [
+        { "$type": "setCharacteristic", "name": "arbitrage", "value": 1 },
+        { "$type": "assign", "name": "jours", "value": 5 }
+      ],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "ouverture",
+          "text": "Vous êtes en alternance aux ressources humaines d'un groupe industriel. On vous confie le premier tri des candidatures d'alternance : quatre cent douze dossiers, douze postes, cinq jours. L'an dernier, deux personnes y ont passé trois semaines. Cette année, on a acheté un outil de classement. Votre mission tient en une phrase : « Tu fais tourner l'outil et tu nous remontes les cinquante meilleurs. »",
+          "continueEffects": []
+        },
+        {
+          "$type": "narration",
+          "id": "outil",
+          "text": "L'outil produit un score sur cent et une phrase d'explication par candidat. Vous le lancez sur les douze recrutements de l'an dernier, pour voir. Il place onze des douze recrutés dans son premier quart : impressionnant. Vous regardez le douzième, celui qu'il classe term 380e. C'est la personne que l'équipe considère aujourd'hui comme la meilleure recrue des cinq dernières années.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "le-380e" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "premiere-reaction",
+          "prompt": "Il est lundi matin. Cinq jours.",
+          "choices": [
+            {
+              "id": "lancer",
+              "text": "Onze sur douze, c'est un très bon taux. Lancer et remonter les cinquante premiers.",
+              "targetNodeId": "livraison-rapide",
+              "effects": [
+                { "$type": "increment", "name": "jours", "amount": -1 }
+              ]
+            },
+            {
+              "id": "creuser",
+              "text": "Comprendre pourquoi le 380e est 380e avant de faire confiance au reste",
+              "targetNodeId": "enquete",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 },
+                { "$type": "increment", "name": "jours", "amount": -1 }
+              ]
+            },
+            {
+              "id": "refuser",
+              "text": "Refuser d'utiliser l'outil et trier les 412 dossiers à la main",
+              "targetNodeId": "manuel",
+              "effects": [
+                { "$type": "increment", "name": "jours", "amount": -4 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "manuel",
+      "text": "Jeudi soir.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epuisement",
+          "text": "Vous avez lu deux cent quatre-vingts dossiers en quatre jours. Les cinquante premiers ont eu droit à sept minutes chacun ; les derniers, à quarante secondes. Vous avez développé, sans le décider, vos propres raccourcis : l'école, le nom de l'entreprise du stage précédent, la mise en page. Refuser un tri automatique ne vous a pas donné un tri humain — cela vous a donné un tri automatique non écrit, non mesurable et non contestable, dont vous êtes le seul modèle.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Un tri manuel sous contrainte de temps est aussi un tri par proxy.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "suite",
+          "prompt": "Il reste un jour.",
+          "choices": [
+            {
+              "id": "creuser",
+              "text": "Utiliser l'outil comme second regard et comparer avec votre liste",
+              "targetNodeId": "enquete",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "livrer",
+              "text": "Livrer votre liste : au moins elle est humaine",
+              "targetNodeId": "fin-rupture-artisanal",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "enquete",
+      "text": "Ce que l'outil mesure.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "variables",
+          "text": "La documentation liste dix-neuf variables. Aucune ne s'appelle « origine sociale » ni « genre » : ce serait illégal, et l'éditeur y a veillé. En revanche, il y a « continuité du parcours en mois », « prestige de l'établissement d'origine » et « qualité rédactionnelle de la lettre ». Le 380e a interrompu ses études quatorze mois pour s'occuper d'un parent malade, vient d'un IUT, et écrit court. Trois variables neutres qui, ensemble, décrivent assez précisément une classe sociale.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "variables-proxy" },
+            { "$type": "collect", "item": "liste-des-dix-neuf-variables" }
+          ]
+        },
+        {
+          "$type": "quiz",
+          "id": "nature-du-biais",
+          "prompt": "L'outil reproduit un biais alors qu'aucune variable interdite n'est utilisée. Pourquoi ?",
+          "answers": [
+            { "id": "bug", "text": "parce qu'il est mal entraîné et qu'il faut le corriger" },
+            { "id": "proxy", "text": "parce que des variables autorisées peuvent reconstituer une variable interdite" },
+            { "id": "donnees", "text": "parce que les données d'entraînement sont trop anciennes" }
+          ],
+          "correctAnswerId": "proxy",
+          "correctEffects": [
+            { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 },
+            { "$type": "discoverEvidence", "evidence": "proxy-reconstitue-l-interdit" }
+          ],
+          "incorrectEffects": [
+            { "$type": "increment", "name": "erreurs", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "narration",
+          "id": "mesure",
+          "text": "Vous faites une chose simple et décisive : vous prenez les cent premiers du classement et les cent derniers, et vous comparez la seule chose que vous avez le droit de comparer en agrégé — le type d'établissement d'origine. Dans le premier groupe, quatre-vingts sur cent viennent de six établissements. Dans le dernier, cent viennent de soixante-quatorze établissements différents. L'outil ne classe pas des candidats : il classe des écoles.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "six-etablissements" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "decision",
+          "prompt": "Mercredi soir. Il reste deux jours et douze places.",
+          "choices": [
+            {
+              "id": "abandonner",
+              "text": "Recommander d'abandonner l'outil",
+              "targetNodeId": "abandon",
+              "effects": []
+            },
+            {
+              "id": "recadrer",
+              "text": "Garder l'outil pour éliminer les dossiers hors critères, et reprendre à la main la décision de classement",
+              "targetNodeId": "recadrage",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "livrer",
+              "text": "Livrer les cinquante premiers en signalant le problème dans un paragraphe",
+              "targetNodeId": "fin-rupture-note-en-bas",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "abandon",
+      "text": "Vous recommandez d'arrêter.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "reponse",
+          "text": "La réponse arrive en quinze minutes : « On a 412 dossiers, 12 places et deux jours. Tu proposes quoi à la place ? » Ce n'est pas une objection de mauvaise foi. Un refus qui ne propose pas de méthode de remplacement n'est pas un arbitrage : c'est un renvoi du problème à celui qui l'a posé, avec la contrainte intacte.",
+          "continueEffects": []
+        },
+        {
+          "$type": "choiceSet",
+          "id": "suite",
+          "prompt": "Il reste deux jours.",
+          "choices": [
+            {
+              "id": "recadrer",
+              "text": "Proposer un usage réduit de l'outil et un classement humain",
+              "targetNodeId": "recadrage",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "insister",
+              "text": "Maintenir le refus sans alternative",
+              "targetNodeId": "fin-rupture-refus-sec",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "recadrage",
+      "text": "Ce que l'outil a le droit de décider.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "methode",
+          "text": "Vous séparez deux fonctions que l'outil confondait. Éliminer : critères vérifiables et opposables — diplôme préparé, disponibilité du rythme d'alternance, mobilité déclarée. L'outil fait cela très bien et sans jugement ; il élimine cent quarante dossiers en douze secondes, et chaque élimination est justifiable en une phrase. Classer : cela suppose de comparer des trajectoires, ce que l'outil fait en comparant des origines. Vous le lui retirez.",
+          "continueEffects": [
+            { "$type": "changeCharacteristic", "name": "transmission", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "characteristicGate",
+          "id": "solidite",
+          "condition": {
+            "$type": "all",
+            "conditions": [
+              { "$type": "hasEvidence", "evidence": "six-etablissements" },
+              { "$type": "hasEvidence", "evidence": "proxy-reconstitue-l-interdit" }
+            ]
+          },
+          "satisfiedTargetNodeId": "presentation",
+          "failedTargetNodeId": "presentation-fragile",
+          "satisfiedEffects": [
+            { "$type": "recordNotableEvent", "label": "Une distinction nette entre éliminer et classer, appuyée sur une mesure.", "scope": "arbitrage" }
+          ],
+          "failedEffects": [
+            { "$type": "recordNotableEvent", "label": "Une bonne méthode sans mesure reste une préférence personnelle.", "scope": "arbitrage" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "presentation",
+      "text": "Vendredi 11 h.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "seance",
+          "text": "Vous présentez deux cent soixante-douze dossiers retenus, un rejet motivé pour les cent quarante autres, et une liste de classement établie par trois personnes sur deux critères écrits à l'avance. Vous montrez aussi les deux chiffres : quatre-vingts sur cent, six établissements. La DRH regarde longtemps la diapositive. Elle demande si l'outil a servi à trier les candidatures de l'an dernier. Oui. « Sortez-moi les mêmes chiffres sur l'an dernier. » Ce n'est plus votre sujet, et c'est exactement ce qu'il fallait qu'il devienne.",
+          "continueEffects": [
+            { "$type": "grantReward", "reward": "frequence-des-biais" },
+            { "$type": "changeCharacteristic", "name": "arbitrage", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "cloture",
+          "prompt": "Il est midi.",
+          "choices": [
+            {
+              "id": "terminer",
+              "text": "Sortir de la salle",
+              "targetNodeId": "fin-accord",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "presentation-fragile",
+      "text": "Vendredi 11 h, sans les chiffres.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "seance",
+          "text": "Votre méthode est bonne et vous la défendez mal, parce que vous n'avez que des impressions à opposer à un score sur cent. « Vous trouvez que l'outil est injuste. Moi je trouve qu'il est cohérent avec nos recrutements passés. » Cette phrase est imparable tant que personne n'a mesuré ce que « cohérent avec le passé » signifie ici.",
+          "continueEffects": []
+        },
+        {
+          "$type": "choiceSet",
+          "id": "retour",
+          "prompt": "Elle vous donne jusqu'à 15 h.",
+          "choices": [
+            {
+              "id": "mesurer",
+              "text": "Aller sortir la mesure",
+              "targetNodeId": "enquete",
+              "effects": []
+            },
+            {
+              "id": "ceder",
+              "text": "Céder et livrer le classement de l'outil",
+              "targetNodeId": "fin-rupture-cede",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "livraison-rapide",
+      "text": "Lundi 16 h. Cinquante noms.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "efficacite",
+          "text": "Vous livrez en une journée ce qui prenait trois semaines. On vous félicite, et la félicitation est méritée sur le seul critère que vous avez appliqué : le délai. Les entretiens ont lieu en avril. Les douze recrutés viennent de cinq établissements. En juin, la responsable de la diversité demande d'où vient la liste. Vous répondez : de l'outil. Elle demande sur quels critères. Vous ne savez pas.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Une décision livrée sans que personne ne puisse en expliquer la règle.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "juin",
+          "prompt": "Elle attend une réponse pour vendredi.",
+          "choices": [
+            {
+              "id": "enqueter",
+              "text": "Aller enfin regarder ce que l'outil mesure",
+              "targetNodeId": "enquete",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "renvoyer",
+              "text": "Renvoyer vers l'éditeur de l'outil",
+              "targetNodeId": "fin-rupture-editeur",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-accord",
+      "text": "Fin — Éliminer n'est pas classer",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Un outil de tri ne devient dangereux qu'au moment où on lui confie la partie du travail qui engage un jugement. Éliminer sur des critères vérifiables, c'est de l'exécution : la machine y est meilleure que vous, plus régulière et plus rapide. Classer des trajectoires humaines, c'est un arbitrage : il exige des critères écrits d'avance, des personnes nommées et la possibilité d'être contesté. Vous n'avez pas refusé l'automatisation ; vous avez tracé la ligne au bon endroit, et vous avez apporté le chiffre qui rend cette ligne défendable.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : frontière posée entre exécution automatisable et jugement.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-artisanal",
+      "text": "Rupture — Au moins elle est humaine",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Votre liste est humaine, et elle est pire. Quatre jours, deux cent quatre-vingts dossiers lus, cent trente jamais ouverts, des critères qui ont dérivé d'heure en heure, et aucune trace permettant à quiconque de contester quoi que ce soit. « Humain » n'est pas un gage d'équité : c'est un gage d'opacité quand la fatigue décide. Reprenez lundi matin.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : biais humain non mesuré préféré à un biais machine mesurable.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-note-en-bas",
+      "text": "Rupture — Le paragraphe d'alerte",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous avez livré les cinquante noms et signalé le problème en fin de document. Les cinquante noms ont été utilisés. Le paragraphe a été lu par personne, et il vous servira, plus tard, à dire que vous aviez prévenu. Un avertissement qui accompagne la livraison de ce qu'on dénonce ne protège que son auteur. Reprenez lundi matin.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : alerte décorative jointe à une livraison conforme.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-refus-sec",
+      "text": "Rupture — Le refus sans méthode",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous avez tenu votre refus. La mission a été reprise vendredi par quelqu'un d'autre qui a lancé l'outil et livré les cinquante premiers en deux heures. Vous aviez raison, la contrainte n'a pas bougé, et le seul effet de votre position a été de retirer du processus la personne qui avait compris le problème. Un arbitrage se juge à ce qu'il produit, pas à ce qu'il refuse. Reprenez lundi matin.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : refus sans alternative praticable.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-cede",
+      "text": "Rupture — Cohérent avec le passé",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous aviez la bonne méthode et vous l'avez abandonnée faute de pouvoir la défendre. « Cohérent avec nos recrutements passés » est précisément la définition d'un système qui reproduit ; il fallait deux requêtes et vingt minutes pour le montrer. Reprenez lundi matin, et allez chercher les deux chiffres avant d'entrer dans la salle.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : position juste abandonnée faute de mesure.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-editeur",
+      "text": "Rupture — Voyez avec l'éditeur",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "L'éditeur répond en trois semaines qu'aucune variable protégée n'est utilisée, ce qui est vrai et ne répond à rien. Douze personnes ont été recrutées sur une règle que votre organisation ne connaît pas et ne peut pas défendre. Acheter un outil ne transfère pas la responsabilité de la décision : elle reste chez celui qui l'applique. Reprenez lundi matin.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : responsabilité renvoyée au fournisseur.", "scope": "rupture" }
+          ]
+        }
+      ]
+    }
+  ]
+}

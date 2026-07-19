@@ -97,6 +97,17 @@ docker compose up --build --detach --wait
 docker compose down
 ```
 
+### Installer la configuration de référence « Le Diapason »
+
+Sur une instance neuve, Configuration amorce automatiquement l'expérience **Le Diapason** : six catégories de posture, trois parcours avec prérequis, économie en `ACCORD` et scénario de démonstration. Le contenu jouable s'installe ensuite via les API publiques :
+
+```bash
+export GENENGINE_ADMIN_USER_NAME=... GENENGINE_ADMIN_PASSWORD=...
+./scripts/install-diapason.sh
+```
+
+Le script importe, valide, analyse et publie les dix scénarios de [`content/diapason/`](content/diapason/), puis les rattache à leur catégorie. Il n'est pas idempotent : à exécuter une fois par instance. Voir [`specs/domain/diapason/seeding.md`](specs/domain/diapason/seeding.md).
+
 Compose démarre six API et six PostgreSQL isolés. Le smoke vérifie aussi l'expérience publiée par Configuration, le bootstrap joueur, l'onboarding persistant, le journal et l'aide contextuelle, puis couvre le jeu global, les catégories, les familiers, l'économie et le provider Foundry sans fuite de secret. Les quatre parcours narratifs vérifient le jeu classique, les interactions typées, le texte libre confirmé, puis les effets différés et la projection joueur. Le smoke administratif complet est conçu pour une base Identity vierge : dès qu'un premier administrateur existe, l'API refuse volontairement un second bootstrap. Les valeurs par défaut sont réservées au développement local ; copiez `.env.example` vers `.env`, configurez notamment une clé de bootstrap aléatoire, puis remplacez tous les secrets dès que l’environnement est partagé.
 
 ### Lancer l’observabilité locale
@@ -300,6 +311,7 @@ Le workflow [`ci.yml`](.github/workflows/ci.yml) exécute la restauration, le bu
 | [`specs/process/backup-restore.md`](specs/process/backup-restore.md) | Sauvegarde/restauration chiffrées des bases, clés dev/prod et procédure de test |
 | [`specs/api/http.md`](specs/api/http.md) | Contrats HTTP publics et interservices |
 | [`specs/domain/`](specs/domain/) | Scénarios, runtime, déterminisme et exemples exécutables |
+| [`specs/domain/diapason/`](specs/domain/diapason/) | Bible d'univers, taxonomie par posture, rotation quotidienne et installation de la configuration de référence |
 
 ### Maintenir ce README
 

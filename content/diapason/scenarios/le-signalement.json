@@ -1,0 +1,466 @@
+{
+  "schemaVersion": 2,
+  "title": "Le signalement",
+  "initialNodeId": "decouverte",
+  "nodes": [
+    {
+      "id": "decouverte",
+      "text": "Un mardi soir, en cherchant autre chose.",
+      "onEnterEffects": [
+        { "$type": "setCharacteristic", "name": "courage", "value": 1 },
+        { "$type": "assign", "name": "jours", "value": 14 }
+      ],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "ouverture",
+          "text": "Vous êtes en alternance chez l'éditeur de la plateforme pédagogique qu'utilisent quarante établissements. Vous cherchez l'origine d'une lenteur et vous ouvrez une table que vous n'aviez jamais eu de raison d'ouvrir : `learner_signals`. Elle contient, pour chaque élève, l'horodatage de chaque frappe au clavier, les pauses de plus de huit secondes, le nombre de retours en arrière, et un score calculé toutes les nuits, nommé `engagement_risk`.",
+          "continueEffects": []
+        },
+        {
+          "$type": "narration",
+          "id": "portee",
+          "text": "Vous remontez la chaîne. Le score alimente un tableau de bord accessible aux référents pédagogiques, sous l'intitulé « élèves à accompagner ». Il n'apparaît nulle part dans la documentation contractuelle. Il n'apparaît pas non plus dans l'information faite aux familles, que vous relisez deux fois. Trois cent mille comptes. La table a été créée il y a onze mois.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "table-non-documentee" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "premier-geste",
+          "prompt": "Il est 20 h 40. Vous êtes seul dans l'open space.",
+          "choices": [
+            {
+              "id": "capturer",
+              "text": "Documenter précisément ce que vous voyez avant d'en parler à qui que ce soit",
+              "targetNodeId": "documentation",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "lucidite", "amount": 1 }
+              ]
+            },
+            {
+              "id": "publier",
+              "text": "Ce sont des mineurs. Publier immédiatement sur un forum professionnel.",
+              "targetNodeId": "fin-rupture-publication",
+              "effects": []
+            },
+            {
+              "id": "fermer",
+              "text": "Fermer l'onglet. Vous n'étiez pas censé regarder cette table.",
+              "targetNodeId": "fin-rupture-oubli",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "documentation",
+      "text": "Ce qu'on établit avant de parler.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "methode",
+          "text": "Vous n'exportez rien : sortir des données d'élèves pour dénoncer la collecte de données d'élèves vous mettrait du mauvais côté et détruirait votre propre position. Vous notez les noms de tables, les dates de création dans l'historique de migration, le nom du tableau de bord, la référence du contrat type et la page exacte de l'information aux familles où le sujet aurait dû figurer. Six lignes. Vérifiables par n'importe qui ayant les droits, sans qu'aucune donnée personnelle ne quitte le système.",
+          "continueEffects": [
+            { "$type": "collect", "item": "dossier-de-six-lignes" }
+          ]
+        },
+        {
+          "$type": "quiz",
+          "id": "nature-du-probleme",
+          "prompt": "Le problème principal que vous avez à établir est…",
+          "answers": [
+            { "id": "technique", "text": "que la collecte est techniquement excessive" },
+            { "id": "ecart", "text": "l'écart entre ce que le produit fait et ce qu'il déclare faire" },
+            { "id": "intention", "text": "que quelqu'un a voulu surveiller les élèves" }
+          ],
+          "correctAnswerId": "ecart",
+          "correctEffects": [
+            { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 },
+            { "$type": "discoverEvidence", "evidence": "ecart-fait-declare" }
+          ],
+          "incorrectEffects": [
+            { "$type": "increment", "name": "erreurs", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "destinataire",
+          "prompt": "Mercredi matin. À qui portez-vous ces six lignes ?",
+          "choices": [
+            {
+              "id": "tuteur",
+              "text": "À votre tuteur : c'est la voie normale",
+              "targetNodeId": "tuteur",
+              "effects": []
+            },
+            {
+              "id": "dpo",
+              "text": "Au délégué à la protection des données, qui a une obligation d'instruction",
+              "targetNodeId": "dpo",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 }
+              ]
+            },
+            {
+              "id": "autorite",
+              "text": "Directement à l'autorité de contrôle",
+              "targetNodeId": "saut-externe",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tuteur",
+      "text": "Mercredi 9 h 30.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "reponse",
+          "text": "Il lit les six lignes en silence. Puis : « Je sais. » Un temps. « C'est une demande de trois gros clients, arrivée l'an dernier. On l'a livrée vite, on devait mettre à jour les documents contractuels, et personne ne l'a fait. Ça fait onze mois que je me dis qu'il faut que je remonte ça. » Il n'est ni cynique ni menaçant. Il est fatigué, et il vient de vous transmettre le problème.",
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "connu-et-non-traite" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "suite",
+          "prompt": "« Laisse-moi voir comment on peut présenter ça. »",
+          "choices": [
+            {
+              "id": "delai",
+              "text": "Accepter, en fixant ensemble une date : « on en reparle vendredi ? »",
+              "targetNodeId": "delai",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "attendre",
+              "text": "Accepter et attendre qu'il revienne vers vous",
+              "targetNodeId": "attente-longue",
+              "effects": [
+                { "$type": "increment", "name": "jours", "amount": -10 }
+              ]
+            },
+            {
+              "id": "dpo",
+              "text": "Le prévenir que vous saisissez aussi le délégué à la protection des données",
+              "targetNodeId": "dpo",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "delai",
+      "text": "Vendredi.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "retour",
+          "text": "Il n'a rien fait. Ce n'est pas de la mauvaise volonté : il a eu une semaine de production, deux incidents et un client furieux. Une date sans destinataire officiel n'engage personne. Ce que vous avez appris tient en une phrase : dans une organisation sous charge, un problème qui n'a pas de propriétaire nommé n'existe pas, quelle que soit sa gravité.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Un problème sans propriétaire nommé n'avance jamais.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "suite",
+          "prompt": "Il est vendredi 18 h.",
+          "choices": [
+            {
+              "id": "dpo",
+              "text": "Saisir le délégué à la protection des données, en informant votre tuteur",
+              "targetNodeId": "dpo",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+              ]
+            },
+            {
+              "id": "renoncer",
+              "text": "Vous avez fait votre part. Laisser tomber.",
+              "targetNodeId": "fin-rupture-part-faite",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "attente-longue",
+      "text": "Dix jours plus tard.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "silence",
+          "text": "Rien. Vous n'avez pas relancé, parce que relancer un tuteur quand on est apprenti est inconfortable, et cet inconfort a coûté dix jours de collecte sur trois cent mille comptes. Le confort de celui qui alerte n'est pas gratuit : il est payé par ceux qui ne savent pas qu'ils sont concernés.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Dix jours de collecte non déclarée, faute d'une relance.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "suite",
+          "prompt": "Il vous reste un peu de crédit et vos six lignes.",
+          "choices": [
+            {
+              "id": "dpo",
+              "text": "Saisir le délégué à la protection des données",
+              "targetNodeId": "dpo",
+              "effects": []
+            },
+            {
+              "id": "renoncer",
+              "text": "Considérer que ce n'est plus votre affaire",
+              "targetNodeId": "fin-rupture-part-faite",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "saut-externe",
+      "text": "L'autorité de contrôle, directement.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "consequence",
+          "text": "Le formulaire est simple et le signalement est recevable. Il est aussi, à cet instant, prématuré : vous n'avez pas encore utilisé une seule voie interne, et la première question de l'instruction sera précisément celle-là. Le signalement externe protège son auteur lorsqu'il est postérieur à une tentative interne ou lorsqu'il y a un risque de destruction de preuves. Ici, il vous expose et il ralentit tout : l'entreprise entre en posture de défense juridique avant d'avoir eu la possibilité de corriger.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Une voie externe ouverte avant toute voie interne.", "scope": "consequence" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "suite",
+          "prompt": "Le formulaire n'est pas encore envoyé.",
+          "choices": [
+            {
+              "id": "interne",
+              "text": "Le garder prêt et commencer par le délégué à la protection des données",
+              "targetNodeId": "dpo",
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 }
+              ]
+            },
+            {
+              "id": "envoyer",
+              "text": "Envoyer maintenant",
+              "targetNodeId": "fin-rupture-externe",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dpo",
+      "text": "Le délégué à la protection des données.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "characteristicGate",
+          "id": "recevabilite",
+          "condition": {
+            "$type": "all",
+            "conditions": [
+              { "$type": "hasItem", "item": "dossier-de-six-lignes" },
+              { "$type": "hasEvidence", "evidence": "ecart-fait-declare" }
+            ]
+          },
+          "satisfiedTargetNodeId": "instruction",
+          "failedTargetNodeId": "instruction-faible",
+          "satisfiedEffects": [
+            { "$type": "recordNotableEvent", "label": "Un signalement recevable : des faits vérifiables, aucune donnée exfiltrée.", "scope": "courage" }
+          ],
+          "failedEffects": []
+        }
+      ]
+    },
+    {
+      "id": "instruction",
+      "text": "Ce qui se passe ensuite.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "suite",
+          "text": "Elle a une obligation d'instruire et elle instruit. La collecte est suspendue en quatre jours, le score `engagement_risk` est retiré des tableaux de bord, et l'entreprise déclare elle-même le manquement — ce qui change tout dans le traitement qui suivra. Votre tuteur n'est pas sanctionné ; le sujet remonte comme un défaut de processus, ce qu'il était. Vous, vous êtes convoqué une fois, pour vérifier que vous n'avez rien extrait. Vos six lignes le prouvent en trente secondes.",
+          "continueEffects": [
+            { "$type": "grantReward", "reward": "frequence-du-doute" },
+            { "$type": "changeCharacteristic", "name": "courage", "amount": 1 }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "cloture",
+          "prompt": "Trois semaines plus tard.",
+          "choices": [
+            {
+              "id": "terminer",
+              "text": "Reprendre votre ticket sur la lenteur",
+              "targetNodeId": "fin-accord",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "instruction-faible",
+      "text": "Sans dossier.",
+      "onEnterEffects": [],
+      "choices": [],
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "flou",
+          "text": "Vous racontez ce que vous avez vu, de mémoire, avec des approximations sur les dates et un nom de table incertain. Elle prend des notes, promet de regarder, et vous demande de ne pas en parler autour de vous. Un signalement flou se traite comme une rumeur : lentement, et à la discrétion de celui qui le reçoit.",
+          "continueEffects": []
+        },
+        {
+          "$type": "choiceSet",
+          "id": "retour",
+          "prompt": "Vous avez encore accès à la base.",
+          "choices": [
+            {
+              "id": "documenter",
+              "text": "Retourner établir les six lignes exactes",
+              "targetNodeId": "documentation",
+              "effects": []
+            },
+            {
+              "id": "attendre",
+              "text": "Attendre qu'elle revienne vers vous",
+              "targetNodeId": "fin-rupture-rumeur",
+              "effects": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-accord",
+      "text": "Fin — Six lignes",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Signaler n'est pas dénoncer, et ce n'est pas non plus une question de tempérament. C'est une procédure : établir un écart vérifiable entre ce qu'un système fait et ce qu'il déclare, ne rien sortir, choisir un destinataire qui a l'obligation d'instruire, et fixer une échéance. Le courage, ici, ne consiste pas à s'exposer ; il consiste à ne pas s'arrêter à la première personne qui vous dit qu'elle sait déjà. Trois cent mille comptes ont cessé d'être mesurés à leur vitesse de frappe.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Scénario terminé : signalement interne établi, instruit et corrigé.", "scope": "learning" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-publication",
+      "text": "Rupture — Le forum",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Le fil est repris en deux jours par la presse spécialisée. L'entreprise entre en défense, verrouille les accès, et la première chose établie par l'enquête interne est l'identité de la personne qui a publié une capture d'écran contenant huit identifiants d'élèves. La collecte, elle, est suspendue quatre mois plus tard. Vous aviez raison sur tout et vous avez rendu la correction plus lente en exposant les personnes que vous vouliez protéger. Reprenez au mardi soir.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : publication immédiate, données exposées, correction retardée.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-oubli",
+      "text": "Rupture — L'onglet fermé",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous fermez l'onglet. La table continue de se remplir : quatre-vingt-douze millions de lignes de plus avant la fin de votre alternance. « Je n'étais pas censé regarder » est vrai et n'a jamais fait disparaître ce qu'on a vu. Vous avez seulement transformé une information en poids personnel, sans effet sur le monde. Reprenez au mardi soir.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : détournement du regard.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-part-faite",
+      "text": "Rupture — J'ai fait ma part",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Vous avez parlé à une personne, elle n'a rien fait, et vous en avez conclu que votre part était faite. Une alerte se mesure à l'existence d'un destinataire qui a l'obligation d'instruire, pas au nombre de personnes à qui on en a parlé. Il y en avait un dans le bâtiment, à deux étages. Reprenez au mardi soir.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : alerte arrêtée au premier interlocuteur sans obligation.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-externe",
+      "text": "Rupture — Le formulaire envoyé",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "L'instruction s'ouvre. Sa première question est : quelles voies internes ont été utilisées ? Aucune. L'entreprise répond qu'elle n'a jamais été informée, ce qui est exact, et le dossier devient un contentieux de dix-huit mois au lieu d'une correction de quatre jours. La collecte continue pendant ce temps. L'ordre des démarches n'est pas une formalité : il décide de la vitesse à laquelle le tort cesse. Reprenez au mardi soir.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : escalade externe prématurée.", "scope": "rupture" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fin-rupture-rumeur",
+      "text": "Rupture — La rumeur",
+      "onEnterEffects": [],
+      "choices": [],
+      "isEnding": true,
+      "interactions": [
+        {
+          "$type": "narration",
+          "id": "epilogue",
+          "text": "Elle n'est jamais revenue vers vous. Vous aviez raison, vous l'avez dit à la bonne personne, et vous l'avez dit de mémoire. Un signalement approximatif place son destinataire devant un choix qu'il n'a pas les moyens de faire, et il choisit de ne rien faire. Six lignes exactes valaient une heure de travail. Reprenez au mardi soir.",
+          "continueEffects": [
+            { "$type": "recordNotableEvent", "label": "Rupture : bon destinataire, dossier inexistant.", "scope": "rupture" }
+          ]
+        }
+      ]
+    }
+  ]
+}
