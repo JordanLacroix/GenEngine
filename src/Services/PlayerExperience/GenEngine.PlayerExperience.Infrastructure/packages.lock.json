@@ -298,6 +298,9 @@
       "genengine.playerexperience.domain": {
         "type": "Project"
       },
+      "genengine.secrets": {
+        "type": "Project"
+      },
       "Microsoft.EntityFrameworkCore.Relational": {
         "type": "CentralTransitive",
         "requested": "[10.0.9, )",

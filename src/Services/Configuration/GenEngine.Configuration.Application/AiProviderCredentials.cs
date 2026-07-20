@@ -14,6 +14,27 @@ public sealed record AiProviderAvailability(
     string Reason);
 
 /// <summary>
+/// Connection details a trusted backend service needs to actually reach an AI provider.
+/// <para>
+/// Unlike the anonymous <c>GET /experience</c> projection, this view keeps the endpoint,
+/// the deployment and the <em>opaque</em> secret reference (never the secret value): the
+/// consuming service resolves that reference against its own local resolver. It is served
+/// only over the internal, key-guarded route, exactly as Authoring serves published
+/// snapshots between services.
+/// </para>
+/// </summary>
+public sealed record AiProviderConnectionView(
+    Guid Id,
+    string Name,
+    AiProviderType Type,
+    bool Enabled,
+    string Endpoint,
+    string Deployment,
+    string Authentication,
+    string? SecretReference,
+    IReadOnlyList<string> Capabilities);
+
+/// <summary>
 /// Turns the opaque <see cref="AiProviderDefinition.SecretReference"/> into a usable credential.
 /// A provider whose secret cannot be resolved is reported as not usable; callers degrade to the
 /// offline provider instead of failing.

@@ -2,6 +2,7 @@ using System.Text.Json;
 
 using GenEngine.PlayerExperience.Application;
 using GenEngine.PlayerExperience.Domain;
+using GenEngine.Secrets;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -451,9 +452,26 @@ public static class PlayerExperienceInfrastructureExtensions
         })
         .AddStandardResilienceHandler(AssistantHelpResilience.Configure);
 
-        // AI stays optional: without a provider registered over it, this default
-        // reports itself unconfigured and help resolves offline.
-        services.AddSingleton<IAssistantAiClient, OfflineAssistantAiClient>();
+        // AI stays optional. A real provider is wired only when this deployment can
+        // resolve its credential locally — the target of the env-scheme secret
+        // reference is present. Without it (CI, Docker, a plain checkout) the offline
+        // provider is registered and help resolves entirely from published content and
+        // the offline rules, exactly as before. Enabling the provider still requires an
+        // enabled aiProviders[] entry in the published document; the resolution is per
+        // front, so this switch never speaks for a front that did not opt in.
+        if (!string.IsNullOrWhiteSpace(configuration["GENENGINE_AI_AZURE_FOUNDRY_KEY"]))
+        {
+            services.AddSingleton<ISecretStore>(_ => SecretStore.CreateLocal());
+            services.AddHttpClient<IAssistantProviderCatalog, ConfigurationAssistantProviderCatalog>(
+                client => client.BaseAddress = new Uri(baseUrl));
+            services.AddHttpClient<IAssistantAiClient, AzureFoundryAssistantAiClient>(
+                client => client.Timeout = TimeSpan.FromSeconds(8));
+        }
+        else
+        {
+            services.AddSingleton<IAssistantAiClient, OfflineAssistantAiClient>();
+        }
+
         services.AddScoped<PlayerExperienceService>();
         services.AddSingleton(TimeProvider.System);
         services.AddHealthChecks().AddCheck<PlayerExperienceDatabaseHealthCheck>("player-experience-database");

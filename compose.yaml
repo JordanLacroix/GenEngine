@@ -193,6 +193,9 @@ services:
     environment:
       <<: *api-environment
       ConnectionStrings__Configuration: Host=configuration-db;Database=genengine_configuration;Username=configuration;Password=${CONFIGURATION_DB_PASSWORD:-configuration-local-password}
+      # Guards GET /internal/ai-providers/{frontId}, the trusted route PlayerExperience reads
+      # to reach a configured AI provider. Empty grammar (<16 chars) keeps the route closed.
+      InternalApi__Key: ${GENENGINE_INTERNAL_KEY:-local-internal-key-change-me}
     ports:
       - "5204:8080"
     depends_on:
