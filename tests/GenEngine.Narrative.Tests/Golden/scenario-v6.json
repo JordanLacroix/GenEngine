@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 6,
+  "title": "Golden documented journey",
+  "initialNodeId": "start",
+  "nodes": [
+    {
+      "id": "start",
+      "text": "The tuning fork hums in the atrium.",
+      "enterCondition": null,
+      "onEnterEffects": [
+        { "$type": "assign", "name": "attention", "value": 1 }
+      ],
+      "choices": [],
+      "isEnding": false,
+      "media": {
+        "visualUrl": "diapason-core:scene.atrium",
+        "visualDescription": "Un atrium doré traversé par une lumière haute.",
+        "soundUrl": "https://assets.example.org/ambience-atrium-v1.ogg"
+      },
+      "help": {
+        "objective": "Décider comment aborder le hall.",
+        "hint": "Le hall répond à qui l'a d'abord lu."
+      },
+      "interactions": [
+        {
+          "$type": "document",
+          "id": "memo",
+          "prompt": "La note de service est posée sur le pupitre.",
+          "document": {
+            "title": "Note de service — accordage",
+            "nature": "Memo",
+            "headers": [
+              { "name": "De", "value": "Direction technique" },
+              { "name": "Objet", "value": "Accordage du hall" }
+            ],
+            "blocks": [
+              { "$type": "paragraph", "text": "Le hall a été réaccordé sans relevé préalable." }
+            ],
+            "excerpt": { "shownUnits": 1, "totalUnits": 4, "unit": "Paragraphs" }
+          },
+          "consultEffects": [
+            { "$type": "discoverEvidence", "evidence": "read-the-memo" }
+          ]
+        },
+        {
+          "$type": "narration",
+          "id": "intro",
+          "text": "The hall listens before it answers.",
+          "isOptional": true,
+          "continueEffects": [
+            { "$type": "discoverEvidence", "evidence": "heard-the-hall" }
+          ]
+        },
+        {
+          "$type": "choiceSet",
+          "id": "first-decision",
+          "prompt": "How do you approach the hall?",
+          "choices": [
+            {
+              "id": "leave",
+              "text": "Step back into the corridor",
+              "targetNodeId": "ending",
+              "condition": null,
+              "effects": []
+            },
+            {
+              "id": "answer-the-hall",
+              "text": "Answer the hall in kind",
+              "targetNodeId": "ending",
+              "condition": { "$type": "consultedDocument", "interactionId": "memo" },
+              "effects": [
+                { "$type": "grantReward", "reward": "attentive-ear" }
+              ],
+              "media": {
+                "soundUrl": "diapason-core:sfx.choice.confirm",
+                "animationCue": "choice-confirm"
+              },
+              "help": {
+                "blocker": "Il faut avoir lu la note pour répondre au hall."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ending",
+      "text": "The interval resolves.",
+      "enterCondition": null,
+      "onEnterEffects": [
+        { "$type": "recordNotableEvent", "label": "The fork was heard." }
+      ],
+      "choices": [],
+      "isEnding": true
+    }
+  ]
+}

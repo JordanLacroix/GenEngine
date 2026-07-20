@@ -785,6 +785,21 @@ public sealed class NarrativeRuntime
                     currentTurn,
                     world.LogicalDay));
                 break;
+            // A player stat is not session state, so it is recorded as an external
+            // event rather than written anywhere in the world. See
+            // GrantPlayerStatEffect for why the engine cannot own the value.
+            case GrantPlayerStatEffect stat:
+                world.ExternalEvents.Add(new ExternalEffectEvent(
+                    checked(world.ExternalEvents.Count + 1),
+                    GrantPlayerStatEffect.PlayerStatEventName,
+                    new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        [GrantPlayerStatEffect.AmountAttribute] = stat.Amount.ToString(CultureInfo.InvariantCulture),
+                        [GrantPlayerStatEffect.StatAttribute] = stat.Stat,
+                    },
+                    currentTurn,
+                    world.LogicalDay));
+                break;
             case SetCharacteristicEffect characteristic:
                 world.Characteristics[characteristic.Name] = characteristic.Value;
                 break;
@@ -1120,7 +1135,7 @@ public static class ScenarioValidator
             }
 
             ValidateCondition(node.EnterCondition, $"nodes.{node.Id}.enterCondition", nodes, issues, 0);
-            ValidateEffects(node.OnEnterEffects, $"nodes.{node.Id}.onEnterEffects", nodes, issues, 0);
+            ValidateEffects(node.OnEnterEffects, $"nodes.{node.Id}.onEnterEffects", nodes, issues, 0, scenario.SchemaVersion);
 
             if (hasTypedInteractions && scenario.SchemaVersion < NarrativeVersions.InteractionsSchema)
             {
@@ -1225,7 +1240,7 @@ public static class ScenarioValidator
                         issues.Add(Error("narration_text_required", interactionPath, "Narration requires text."));
                     }
 
-                    ValidateEffects(narration.ContinueEffects, $"{interactionPath}.continueEffects", nodes, issues, 0);
+                    ValidateEffects(narration.ContinueEffects, $"{interactionPath}.continueEffects", nodes, issues, 0, schemaVersion);
                     break;
                 case ChoiceSetInteraction choiceSet:
                     if (string.IsNullOrWhiteSpace(choiceSet.Prompt))
@@ -1241,7 +1256,7 @@ public static class ScenarioValidator
                     ValidateChoices(choiceSet.Choices, $"{interactionPath}.choices", nodes, issues, schemaVersion);
                     break;
                 case QuizInteraction quiz:
-                    ValidateQuiz(quiz, interactionPath, nodes, issues);
+                    ValidateQuiz(quiz, interactionPath, nodes, issues, schemaVersion);
                     break;
                 case CharacteristicGateInteraction gate:
                     if (index != interactions.Count - 1)
@@ -1269,11 +1284,11 @@ public static class ScenarioValidator
                     }
 
                     ValidateCondition(gate.Condition, $"{interactionPath}.condition", nodes, issues, 0);
-                    ValidateEffects(gate.SatisfiedEffects, $"{interactionPath}.satisfiedEffects", nodes, issues, 0);
-                    ValidateEffects(gate.FailedEffects, $"{interactionPath}.failedEffects", nodes, issues, 0);
+                    ValidateEffects(gate.SatisfiedEffects, $"{interactionPath}.satisfiedEffects", nodes, issues, 0, schemaVersion);
+                    ValidateEffects(gate.FailedEffects, $"{interactionPath}.failedEffects", nodes, issues, 0, schemaVersion);
                     break;
                 case FreeTextInteraction freeText:
-                    ValidateFreeText(freeText, interactionPath, nodes, issues);
+                    ValidateFreeText(freeText, interactionPath, nodes, issues, schemaVersion);
                     break;
                 case DocumentInteraction document:
                     ValidateDocumentInteraction(document, interactionPath, nodes, issues, schemaVersion);
@@ -1416,7 +1431,7 @@ public static class ScenarioValidator
             ValidateDocumentBlock(document.Blocks[index], $"{documentPath}.blocks[{index}]", issues);
         }
 
-        ValidateEffects(interaction.ConsultEffects, $"{path}.consultEffects", nodes, issues, 0);
+        ValidateEffects(interaction.ConsultEffects, $"{path}.consultEffects", nodes, issues, 0, schemaVersion);
     }
 
     /// <summary>
@@ -1661,7 +1676,8 @@ public static class ScenarioValidator
         FreeTextInteraction freeText,
         string path,
         Dictionary<string, NarrativeNode> nodes,
-        List<ValidationIssue> issues)
+        List<ValidationIssue> issues,
+        int schemaVersion)
     {
         if (string.IsNullOrWhiteSpace(freeText.Prompt))
         {
@@ -1691,15 +1707,16 @@ public static class ScenarioValidator
                 "Minimum matches must be positive and cannot exceed the number of required terms."));
         }
 
-        ValidateEffects(freeText.AcceptedEffects, $"{path}.acceptedEffects", nodes, issues, 0);
-        ValidateEffects(freeText.RejectedEffects, $"{path}.rejectedEffects", nodes, issues, 0);
+        ValidateEffects(freeText.AcceptedEffects, $"{path}.acceptedEffects", nodes, issues, 0, schemaVersion);
+        ValidateEffects(freeText.RejectedEffects, $"{path}.rejectedEffects", nodes, issues, 0, schemaVersion);
     }
 
     private static void ValidateQuiz(
         QuizInteraction quiz,
         string path,
         Dictionary<string, NarrativeNode> nodes,
-        List<ValidationIssue> issues)
+        List<ValidationIssue> issues,
+        int schemaVersion)
     {
         if (string.IsNullOrWhiteSpace(quiz.Prompt))
         {
@@ -1729,12 +1746,48 @@ public static class ScenarioValidator
             }
         }
 
-        ValidateEffects(quiz.CorrectEffects, $"{path}.correctEffects", nodes, issues, 0);
-        ValidateEffects(quiz.IncorrectEffects, $"{path}.incorrectEffects", nodes, issues, 0);
+        ValidateEffects(quiz.CorrectEffects, $"{path}.correctEffects", nodes, issues, 0, schemaVersion);
+        ValidateEffects(quiz.IncorrectEffects, $"{path}.incorrectEffects", nodes, issues, 0, schemaVersion);
     }
 
     private const int MaximumAssetUrlLength = 2_048;
     private const int MaximumAnimationCueLength = 64;
+
+    /// <summary>Maximum length of a player stat key, matching the configuration slug limit.</summary>
+    private const int MaximumPlayerStatKeyLength = 40;
+
+    /// <summary>
+    /// Upper bound of a single grant. It is not the configured ceiling — the engine
+    /// cannot read one — only a sanity bound that keeps an authoring typo from
+    /// writing an absurd amount into a published snapshot.
+    /// </summary>
+    private const int MaximumPlayerStatGrant = 1_000_000;
+
+    /// <summary>
+    /// Same slug grammar as the configuration key it must match: lowercase letters,
+    /// digits and dashes. Deliberately narrower than free text so an author cannot
+    /// invent a key that no published configuration could ever declare.
+    /// </summary>
+    private static bool IsPlayerStatKey(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length > MaximumPlayerStatKeyLength)
+        {
+            return false;
+        }
+
+        foreach (char character in value)
+        {
+            bool allowed = (character >= 'a' && character <= 'z')
+                || (character >= '0' && character <= '9')
+                || character == '-';
+            if (!allowed)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
     private const int MaximumVisualDescriptionLength = 500;
     private const int MaximumHelpLength = 500;
 
@@ -1945,7 +1998,7 @@ public static class ScenarioValidator
             }
 
             ValidateCondition(choice.Condition, $"{choicePath}.condition", nodes, issues, 0);
-            ValidateEffects(choice.Effects, $"{choicePath}.effects", nodes, issues, 0);
+            ValidateEffects(choice.Effects, $"{choicePath}.effects", nodes, issues, 0, schemaVersion);
             ValidateChoiceMedia(choice, choicePath, schemaVersion, issues);
             ValidateAuthorHelp(choice.Help, $"{choicePath}.help", schemaVersion, issues);
         }
@@ -2024,7 +2077,8 @@ public static class ScenarioValidator
         string path,
         Dictionary<string, NarrativeNode> nodes,
         ICollection<ValidationIssue> issues,
-        int depth)
+        int depth,
+        int schemaVersion)
     {
         if (depth > MaximumEffectDepth)
         {
@@ -2056,7 +2110,7 @@ public static class ScenarioValidator
                     }
 
                     ValidateCondition(schedule.Condition, $"{effectPath}.condition", nodes, issues, depth + 1);
-                    ValidateEffects([schedule.Effect], $"{effectPath}.effect", nodes, issues, depth + 1);
+                    ValidateEffects([schedule.Effect], $"{effectPath}.effect", nodes, issues, depth + 1, schemaVersion);
                     break;
                 case AdvanceLogicalTimeEffect { Days: < 0 }:
                     issues.Add(Error("logical_time_days_invalid", effectPath, "Logical time cannot move backwards."));
@@ -2112,6 +2166,38 @@ public static class ScenarioValidator
                     break;
                 case ChangeCharacteristicEffect characteristic when string.IsNullOrWhiteSpace(characteristic.Name):
                     issues.Add(Error("effect_name_required", effectPath, "A characteristic effect requires a name."));
+                    break;
+                case GrantPlayerStatEffect stat:
+                    // Bound to its own capability constant, never to LatestSchema:
+                    // raising the latest version must not silently invalidate every
+                    // document published before it.
+                    if (schemaVersion < NarrativeVersions.PlayerStatSchema)
+                    {
+                        issues.Add(Error(
+                            "player_stat_requires_schema_7",
+                            effectPath,
+                            $"Player stat grants require schema version {NarrativeVersions.PlayerStatSchema}."));
+                    }
+
+                    if (!IsPlayerStatKey(stat.Stat))
+                    {
+                        issues.Add(Error(
+                            "player_stat_key_invalid",
+                            effectPath,
+                            $"A player stat key must be 1 to {MaximumPlayerStatKeyLength} characters of a-z, 0-9 and '-'."));
+                    }
+
+                    // The engine does not know the configured ceiling, so it can only
+                    // refuse a grant that could never mean anything: zero or negative.
+                    // Saturation is decided by PlayerExperience, which owns the cap.
+                    if (stat.Amount is <= 0 or > MaximumPlayerStatGrant)
+                    {
+                        issues.Add(Error(
+                            "player_stat_amount_invalid",
+                            effectPath,
+                            $"A player stat grant must be between 1 and {MaximumPlayerStatGrant}."));
+                    }
+
                     break;
             }
         }

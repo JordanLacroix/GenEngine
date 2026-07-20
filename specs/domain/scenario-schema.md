@@ -1,10 +1,10 @@
 # Format de scénario
 
-Un `ScenarioDocument` contient `schemaVersion`, `title`, `initialNodeId` et une liste de nœuds. Le schéma v1 conserve les choix portés directement par le nœud. Le schéma v2 peut définir une séquence `interactions` typée. Le schéma v3 ajoute des médias optionnels sur les nœuds et les choix. Le schéma v4 ajoute le drapeau `isOptional` qui rend une interaction facultative. Le schéma v5 ajoute un objet `help` facultatif sur les nœuds et les choix. Le schéma v6 ajoute l'interaction `document` et la condition `consultedDocument` ; les six formats restent exécutables.
+Un `ScenarioDocument` contient `schemaVersion`, `title`, `initialNodeId` et une liste de nœuds. Le schéma v1 conserve les choix portés directement par le nœud. Le schéma v2 peut définir une séquence `interactions` typée. Le schéma v3 ajoute des médias optionnels sur les nœuds et les choix. Le schéma v4 ajoute le drapeau `isOptional` qui rend une interaction facultative. Le schéma v5 ajoute un objet `help` facultatif sur les nœuds et les choix. Le schéma v6 ajoute l'interaction `document` et la condition `consultedDocument`. Le schéma v7 ajoute l'effet `grantPlayerStat` ; les sept formats restent exécutables.
 
 Les interactions v2 disponibles sont `narration`, `quiz`, `choiceSet`, `characteristicGate` et `freeText`. Une narration progresse par une commande continue, un quiz applique des effets corrects ou incorrects sans révéler la réponse dans l'état courant, et un ensemble de choix termine un nœud non final en ciblant le nœud suivant. Un gate évalue automatiquement une condition, applique les effets de réussite ou d'échec, puis entre dans la branche correspondante sans consommer un tour joueur. Une saisie libre compare de façon déterministe et insensible à la casse/aux accents les termes attendus ; son résultat doit être confirmé avant d'appliquer les effets. Un nœud final peut dérouler ses interactions avant de passer à `Completed`.
 
-Les conditions autorisées sont : `always`, `all`, `any`, `not`, `variableEquals`, `variableAtLeast`, `hasItem`, `hasEvidence`, `relationAtLeast`, `hasReward`, `visitedNode` et `characteristicAtLeast`. Les effets autorisés sont : `assign`, `increment`, `collect`, `removeItem`, `discoverEvidence`, `changeRelation`, `grantReward`, `recordNotableEvent`, `schedule`, `advanceLogicalTime`, `emitExternalEvent`, `setCharacteristic` et `changeCharacteristic`. Tout discriminant inconnu est refusé ; aucun script ou type arbitraire n'est exécuté.
+Les conditions autorisées sont : `always`, `all`, `any`, `not`, `variableEquals`, `variableAtLeast`, `hasItem`, `hasEvidence`, `relationAtLeast`, `hasReward`, `visitedNode` et `characteristicAtLeast`. Les effets autorisés sont : `assign`, `increment`, `collect`, `removeItem`, `discoverEvidence`, `changeRelation`, `grantReward`, `recordNotableEvent`, `schedule`, `advanceLogicalTime`, `emitExternalEvent`, `setCharacteristic`, `changeCharacteristic` et `grantPlayerStat`. Tout discriminant inconnu est refusé ; aucun script ou type arbitraire n'est exécuté.
 
 Un effet `schedule` peut attendre un nombre de tours, un nombre de jours logiques et une condition déclarative. Les trois contraintes renseignées doivent être satisfaites ; une condition encore fausse conserve l'effet en attente et elle est réévaluée après chaque transition. `advanceLogicalTime` fait progresser uniquement l'horloge déterministe de la partie, jamais l'heure système. Les déclenchements simultanés sont ordonnés par tour, jour logique puis ordre de programmation et protégés par un budget borné.
 
@@ -149,6 +149,39 @@ Consulter est une commande joueur comme une autre : elle consomme un tour et por
 Toutes les collections sont bornées (64 blocs, 200 lignes, 200 rangées, 12 colonnes, 12 en-têtes, 4 000 caractères par texte) pour qu'un scénario ne fasse pas entrer une charge non bornée dans un snapshot publié.
 
 Les types sont entièrement nouveaux et l'interaction est opt-in : un document qui n'en déclare aucun produit exactement les mêmes octets canoniques et le même hash qu'avant leur introduction. Une fixture golden fige le hash d'un snapshot v5 et son état final rejoué, tous deux calculés avec le moteur d'avant le changement.
+
+## Statistiques joueur (schéma v7)
+
+L'effet `grantPlayerStat` accorde des points d'une statistique **joueur** :
+
+```json
+{ "$type": "grantPlayerStat", "stat": "lucidite", "amount": 5 }
+```
+
+Il s'écrit partout où un effet s'écrit : `onEnterEffects` d'un nœud, `effects` d'un choix, `continueEffects` d'une narration, `correctEffects`/`incorrectEffects` d'un quiz, `consultEffects` d'un document, `acceptedEffects`/`rejectedEffects` d'une saisie libre, `satisfiedEffects`/`failedEffects` d'un gate, et sous un `schedule`.
+
+### Pourquoi il ne ressemble à aucun autre effet
+
+Tous les autres effets modifient le `WorldState` de **la session**. Celui-ci ne le peut pas : une statistique vit dans `PlayerExperience`, persiste d'un scénario à l'autre, et son plafond est publié par `Configuration` — trois choses que le moteur n'a pas le droit de connaître, puisqu'il n'effectue aucune I/O et doit rester une fonction pure du scénario, du monde et des commandes (invariants 3, 4 et 7).
+
+Le moteur **enregistre donc seulement l'intention**. Appliquer l'effet ajoute à `world.externalEvents` un événement `player.stat` portant les attributs `stat` et `amount`, exactement le chemin que `economy.reward` emprunte déjà. Aucun couplage n'est introduit : la session reste complète et rejouable seule, le déterminisme est intact, et le moteur n'apprend jamais si la statistique existe ni ce qu'elle vaut au bout du compte.
+
+### La frontière session → joueur
+
+1. le moteur enregistre `player.stat` dans `externalEvents` ;
+2. `Play` ne relaie que les événements **ajoutés par la commande courante** et en fait un `PlayerStatDispatch` portant la clé d'idempotence `session:{sessionId}:external:{sequence}` — la même famille de clés que les récompenses, donc une commande rejouée ne crédite jamais deux fois ;
+3. `Play` appelle `POST /internal/player-stats` sur `PlayerExperience` ;
+4. `PlayerExperience` est **la seule autorité** sur la valeur : il la fait démarrer à zéro, l'incrémente et la sature au plafond publié.
+
+Aucun nouveau couplage n'est créé : c'est le chemin interservice déjà emprunté par `POST /internal/rewards` et `POST /internal/progress-events`.
+
+### Validation
+
+- `player_stat_requires_schema_7` : l'effet déclaré sur un document antérieur au schéma v7. La vérification est conditionnée à la constante de capacité `PlayerStatSchema`, jamais à `LatestSchema` ;
+- `player_stat_key_invalid` : `stat` vide, de plus de 40 caractères, ou hors du jeu `a-z`, `0-9` et `-`. La grammaire est **la même** que celle de `playerStats.stats[].key` côté configuration : une clé qu'un côté accepte et que l'autre refuse serait une statistique qu'aucun scénario ne pourrait alimenter ;
+- `player_stat_amount_invalid` : `amount` nul, négatif ou supérieur à 1 000 000. Le moteur ne connaît pas le plafond configuré ; il ne refuse donc qu'un gain qui ne pourrait jamais rien vouloir dire. La saturation est décidée par `PlayerExperience`, qui détient le plafond.
+
+L'effet est entièrement nouveau et opt-in : un document qui n'en déclare aucun produit exactement les mêmes octets canoniques et le même hash qu'avant son introduction. Une fixture golden fige le hash d'un snapshot v6 et son état final rejoué, tous deux calculés avec le moteur d'avant le changement (commit `b7bc549`).
 
 Les brouillons v1 importés ou remplacés dans Authoring sont migrés en v2 avant stockage, sans réécriture rétroactive des snapshots déjà publiés. Les migrations refusent les versions et types JSON inconnus, mais restent distinctes de la validation métier afin qu'Authoring puisse conserver puis diagnostiquer un brouillon incomplet via `/validate`. Des fixtures golden figent un scénario v1, une sauvegarde v1 et l'état final attendu après migration puis replay, ainsi qu'un scénario v2, sa sauvegarde et son état final pour vérifier qu'un snapshot publié avant les médias rejoue à l'identique. `NarrativeTreeBuilder` projette un scénario et une sauvegarde en arbre complet avec nœuds courants, visités, inexplorés ou verrouillés.
 

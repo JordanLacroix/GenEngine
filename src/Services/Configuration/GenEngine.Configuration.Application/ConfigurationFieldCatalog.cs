@@ -330,5 +330,12 @@ public static class ConfigurationFieldCatalog
         new("finale.conditions[].journeyId", "Parcours visé", "Le parcours à terminer entièrement.", "(identifiant de parcours)", "Requis et existant pour JourneyCompleted."),
         new("finale.conditions[].endingIds[]", "Fins visées", "Les identifiants de fins de scénario à avoir atteintes.", "fin-rupture-silence", "Requis et non vide pour EndingsReached."),
         new("finale.conditions[].scenarioIds[]", "Scénarios visés", "Restreint le décompte à ces scénarios. Vide signifie tous les scénarios.", "(identifiants de scénario)", null),
+
+        new("playerStats.enabled", "Statistiques actives", "Désactivé, le catalogue reste publié et les valeurs déjà acquises restent lisibles, mais aucun gain narratif n'est plus appliqué. Couper les statistiques ne détruit jamais ce qu'un joueur a gagné.", "true", null),
+        new("playerStats.stats[].id", "Identifiant de la statistique", "La clé stable de la statistique. Elle n'est jamais réattribuée après publication.", "9a1d4c70-5b2e-4f18-8c33-6e0d17b4a101", "Unique dans le document."),
+        new("playerStats.stats[].key", "Clé courte", "Le slug qu'un auteur écrit dans un effet « grantPlayerStat » et sous lequel la valeur est mémorisée par joueur. C'est la jointure entre le scénario et le profil : il ne se renomme pas et ne se traduit pas.", "lucidite", "Unique dans le document ; 1 à 40 caractères parmi a-z, 0-9 et « - »."),
+        new("playerStats.stats[].label", "Libellé", "Le nom affiché de la statistique sur le profil du joueur.", "Lucidité", "Obligatoire, 80 caractères au plus."),
+        new("playerStats.stats[].description", "Description", "Ce que la statistique mesure, écrit pour le joueur qui la lit sur son profil.", "Ce que vous avez su voir avant d'interpréter.", "Obligatoire, 500 caractères au plus."),
+        new("playerStats.stats[].maximum", "Plafond", "La valeur maximale atteignable. Toute statistique démarre à zéro ; un gain qui dépasserait le plafond sature à cette valeur au lieu d'échouer, pour qu'un auteur n'ait jamais à connaître la valeur courante du joueur.", "100", "Strictement positif, 1 000 000 au plus."),
     ];
 }

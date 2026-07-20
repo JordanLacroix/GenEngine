@@ -44,13 +44,35 @@ public sealed record SessionView(
     int Turn);
 
 public sealed record RewardDispatch(string Trigger, string ReferenceId, string IdempotencyKey);
+
+/// <summary>
+/// One player-stat grant recorded by the engine and relayed to PlayerExperience.
+/// </summary>
+/// <remarks>
+/// This is the whole of the session-to-player boundary crossing. The engine records
+/// the intent as an external event because a stat is neither session state nor
+/// something a deterministic engine may resolve — the ceiling lives in the published
+/// configuration and the current value lives in the player profile. Play only forwards
+/// it, carrying the same <c>session:{id}:external:{sequence}</c> idempotency key the
+/// rewards use, so a retried command never grants twice. PlayerExperience is the only
+/// authority on the resulting value and its saturation.
+/// </remarks>
+public sealed record PlayerStatDispatch(string Stat, int Amount, string IdempotencyKey);
 public sealed record ProgressDispatch(string IdempotencyKey, string Type, string Title, string Summary, Guid ScenarioId, Guid ScenarioVersionId, Guid SessionId, string ReferenceId, string? ChoiceId, string TargetNodeId, string? EndingId, bool Completed, int TotalObjectives);
-public sealed record InputResult(SessionView Session, CurrentStep CurrentStep, bool Replayed, IReadOnlyList<RewardDispatch> Rewards, ProgressDispatch Progress);
+public sealed record InputResult(SessionView Session, CurrentStep CurrentStep, bool Replayed, IReadOnlyList<RewardDispatch> Rewards, ProgressDispatch Progress)
+{
+    /// <summary>
+    /// Player-stat grants produced by this command. Defaulted so a command replayed
+    /// from a response serialized before player stats existed deserializes cleanly.
+    /// </summary>
+    public IReadOnlyList<PlayerStatDispatch> PlayerStats { get; init; } = [];
+}
 
 public interface IRewardDispatcher
 {
     Task DispatchAsync(string userId, string frontId, IReadOnlyList<RewardDispatch> rewards, CancellationToken cancellationToken);
     Task DispatchProgressAsync(string userId, string frontId, ProgressDispatch progress, CancellationToken cancellationToken);
+    Task DispatchPlayerStatsAsync(string userId, string frontId, IReadOnlyList<PlayerStatDispatch> stats, CancellationToken cancellationToken);
 }
 
 public interface IContentAccessClient
@@ -341,12 +363,16 @@ public sealed class PlayService(
             + (node.Interactions?.OfType<ChoiceSetInteraction>().Sum(static interaction => interaction.Choices.Count) ?? 0)
             + (node.Interactions?.OfType<QuizInteraction>().Sum(static interaction => interaction.Answers.Count) ?? 0))
             + scenario.Nodes.Count(static node => node.IsEnding);
+        // Only the events this command appended: replaying the whole list would
+        // re-dispatch every reward and every stat grant of the session.
+        ExternalEffectEvent[] emitted = nextState.World.ExternalEvents
+            .Skip(currentState.World.ExternalEvents.Count)
+            .ToArray();
         InputResult result = new(
             Map(session, nextState),
             NarrativeRuntime.GetCurrentStep(scenario, nextState),
             false,
-            nextState.World.ExternalEvents
-                .Skip(currentState.World.ExternalEvents.Count)
+            emitted
                 .Where(static item => string.Equals(item.EventName, "economy.reward", StringComparison.OrdinalIgnoreCase))
                 .Where(static item => item.Attributes.ContainsKey("trigger") && item.Attributes.ContainsKey("referenceId"))
                 .Select(item => new RewardDispatch(
@@ -367,7 +393,18 @@ public sealed class PlayService(
                 nextState.CurrentNodeId,
                 endingId,
                 completed,
-                Math.Max(1, totalObjectives)));
+                Math.Max(1, totalObjectives)))
+        {
+            PlayerStats = emitted
+                .Where(static item => string.Equals(item.EventName, GrantPlayerStatEffect.PlayerStatEventName, StringComparison.Ordinal))
+                .Select(item => (Event: item, Parsed: TryReadStatGrant(item)))
+                .Where(static candidate => candidate.Parsed is not null)
+                .Select(candidate => new PlayerStatDispatch(
+                    candidate.Parsed!.Value.Stat,
+                    candidate.Parsed.Value.Amount,
+                    $"session:{id}:external:{candidate.Event.Sequence}"))
+                .ToArray(),
+        };
         await repository.AddProcessedCommandAsync(
             ProcessedCommand.Create(commandId, id, NarrativeJson.Serialize(result), now),
             cancellationToken).ConfigureAwait(false);
@@ -413,6 +450,27 @@ public sealed class PlayService(
     private async Task<GameSession> GetRequiredAsync(Guid id, string ownerId, CancellationToken cancellationToken) =>
         await repository.GetAsync(id, ownerId, cancellationToken).ConfigureAwait(false)
         ?? throw new PlayException("session_not_found", "The game session was not found.");
+
+    /// <summary>
+    /// Reads a <c>player.stat</c> external event. A malformed one is skipped rather than
+    /// thrown on: the event is carried by a published, hash-verified snapshot that the
+    /// validator already accepted, so a shape we cannot read here can only come from a
+    /// document published by a newer engine — and a player's turn must not fail because
+    /// of a grant this build does not understand.
+    /// </summary>
+    private static (string Stat, int Amount)? TryReadStatGrant(ExternalEffectEvent item)
+    {
+        if (!item.Attributes.TryGetValue(GrantPlayerStatEffect.StatAttribute, out string? stat)
+            || string.IsNullOrWhiteSpace(stat)
+            || !item.Attributes.TryGetValue(GrantPlayerStatEffect.AmountAttribute, out string? rawAmount)
+            || !int.TryParse(rawAmount, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out int amount)
+            || amount <= 0)
+        {
+            return null;
+        }
+
+        return (stat, amount);
+    }
 
     private static ScenarioDocument DeserializeScenario(GameSession session) =>
         NarrativeJson.Deserialize<ScenarioDocument>(session.SnapshotJson);
