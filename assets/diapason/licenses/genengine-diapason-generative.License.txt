@@ -1,0 +1,15 @@
+GenEngine — Assets génératifs Diapason
+CC0 1.0 Universal (domaine public)
+
+Les fichiers SVG listés sous la source « genengine-diapason-generative » du
+manifeste (portraits de familier, fonds d'emplacement, illustrations de scénario,
+icônes de marque et de client) ont été produits directement dans ce dépôt, à la
+main, sans dépendance ni ressource externe. Aucun octet n'en provient d'un tiers.
+
+Dans la mesure permise par la loi, l'auteur (le projet GenEngine) renonce à tous
+ses droits d'auteur et droits voisins sur ces fichiers et les verse au domaine
+public sous la dédicace Creative Commons CC0 1.0 Universal.
+
+Texte intégral de la dédicace : https://creativecommons.org/publicdomain/zero/1.0/legalcode
+
+Ces fichiers sont fournis « en l'état », sans garantie d'aucune sorte.

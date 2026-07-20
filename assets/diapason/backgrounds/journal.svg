@@ -1,0 +1,19 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fond, journal">
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="0.2" y2="1">
+      <stop offset="0%" stop-color="#1a3644"/>
+      <stop offset="100%" stop-color="#122731"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#paper)"/>
+  <rect x="620" y="140" width="680" height="900" rx="8" fill="#16303c" stroke="#2f7fa0" stroke-width="2" opacity="0.85"/>
+  <line x1="700" y1="140" x2="700" y2="1040" stroke="#d7a746" stroke-width="3" opacity="0.5"/>
+  <g stroke="#5f7686" stroke-width="2" opacity="0.4">
+    <path d="M740 240 H1240 M740 300 H1240 M740 360 H1180 M740 420 H1240 M740 480 H1100 M740 600 H1240 M740 660 H1200 M740 720 H1240 M740 780 H1120"/>
+  </g>
+  <g fill="#7a9a55" opacity="0.55">
+    <circle cx="712" cy="240" r="7"/>
+    <circle cx="712" cy="420" r="7"/>
+    <circle cx="712" cy="600" r="7"/>
+  </g>
+</svg>

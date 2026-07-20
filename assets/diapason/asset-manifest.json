@@ -18,17 +18,17 @@
     {
       "kind": "ambience",
       "status": "absent",
-      "reason": "Le catalogue audio de Kenney ne contient que des sons courts et des jingles ; aucune boucle d'ambiance ni musique longue n'y existe. Aucune source non CC0 n'a été substituée."
-    },
-    {
-      "kind": "illustrations",
-      "status": "absent",
-      "reason": "Kenney ne publie pas d'illustrations 2D peintes compatibles avec la direction artistique Diapason. Aucune source non CC0 n'a été substituée."
+      "reason": "Aucune boucle d'ambiance audio n'est encore livrée. Une liste CC0 vérifiée (Freesound, OpenGameArt) est prête dans specs/domain/diapason/asset-sourcing-plan.md §4 et récupérable via scripts/fetch-diapason-audio.md ; le câblage media (AmbienceUrl) reste null tant que les fichiers ne sont pas posés."
     },
     {
       "kind": "music",
       "status": "partiel",
-      "reason": "Seules des signatures courtes (stingers) sont disponibles ; les pistes musicales de 48 s par acte restent à produire."
+      "reason": "Seuls des stingers Kenney courts existent ; la musique d'ambiance longue reste à intégrer. Sources CC0 candidates listées dans asset-sourcing-plan.md §4.2 et §6.1, à récupérer via scripts/fetch-diapason-audio.md. MusicUrl reste null en attendant."
+    },
+    {
+      "kind": "illustrations",
+      "status": "partiel",
+      "reason": "Les portraits de familier (5 formes), les fonds des 6 emplacements et 5 illustrations de scénario sont désormais livrés en SVG génératif CC0. Restent absentes les ambiances photographiques CC0 des scénarios disposant d'une source photo (1, 5, 7, 8), à télécharger via scripts/fetch-diapason-audio.md avant câblage."
     }
   ],
   "sources": [
@@ -79,6 +79,17 @@
       "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
       "licenseFile": "licenses/kenney_music-jingles.License.txt",
       "attribution": "Music Jingles par Kenney — www.kenney.nl — CC0 1.0"
+    },
+    {
+      "sourceId": "genengine-diapason-generative",
+      "name": "Assets génératifs Diapason",
+      "author": "GenEngine",
+      "pageUrl": "https://github.com/JordanLacroix/GenEngine",
+      "downloadUrl": "https://github.com/JordanLacroix/GenEngine/tree/main/assets/diapason",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseFile": "licenses/genengine-diapason-generative.License.txt",
+      "attribution": "Assets génératifs Diapason — GenEngine — CC0 1.0"
     }
   ],
   "assets": [
@@ -1265,6 +1276,330 @@
         "loopPoints": null
       },
       "review": "Attribution d'usage à confirmer lors d'une passe d'écoute."
+    },
+    {
+      "id": "familiar.portrait.tuning-fork",
+      "kind": "portrait",
+      "role": "familiar",
+      "path": "portraits/familiar-tuning-fork.svg",
+      "bytes": 989,
+      "sha256": "7e3cd1ea708a1dd68ab07fcd05865dd992f9d6d345c64b29e0e40b0a8e8f5bc5",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Portrait du familier, forme diapason. L'accent suit le ton choisi via currentColor.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 256,
+        "height": 256,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "familiar.portrait.spark",
+      "kind": "portrait",
+      "role": "familiar",
+      "path": "portraits/familiar-spark.svg",
+      "bytes": 933,
+      "sha256": "742bc00993f4650cab6496fac706c9f8ebb9771b78527d39c701759b2af1a1e1",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Portrait du familier, forme étincelle. Accent recolorable par le ton.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 256,
+        "height": 256,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "familiar.portrait.echo",
+      "kind": "portrait",
+      "role": "familiar",
+      "path": "portraits/familiar-echo.svg",
+      "bytes": 757,
+      "sha256": "73c3a544b6352b19ee086642a7445df10aaa4b1150b930a4fb459efbd087226f",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Portrait du familier, forme écho. Ondes recolorables par le ton.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 256,
+        "height": 256,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "familiar.portrait.owl",
+      "kind": "portrait",
+      "role": "familiar",
+      "path": "portraits/familiar-owl.svg",
+      "bytes": 1110,
+      "sha256": "c98769f8eeecb7ea88dd8ed9c54abb61d0bbe9e52d5f4ffe14241fa5a529584d",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Portrait du familier, forme chouette. Accent recolorable par le ton.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 256,
+        "height": 256,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "familiar.portrait.fox",
+      "kind": "portrait",
+      "role": "familiar",
+      "path": "portraits/familiar-fox.svg",
+      "bytes": 1006,
+      "sha256": "8d4b68eb6cecb786eeb72e78cb56a2908c11b6fb66d571e8235f8d83e92b13fa",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Portrait du familier, forme renard. Accent recolorable par le ton.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 256,
+        "height": 256,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "background.home",
+      "kind": "background",
+      "role": "location",
+      "path": "backgrounds/home.svg",
+      "bytes": 1243,
+      "sha256": "b12c4cec806a00c4f4758865c3e0a4d74231888d3a16b8c9bc3f358b6bb16413",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Fond d'ambiance de l'emplacement d'accueil.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 1920,
+        "height": 1080,
+        "scalable": true,
+        "transparency": false,
+        "recolorable": false
+      }
+    },
+    {
+      "id": "background.map",
+      "kind": "background",
+      "role": "location",
+      "path": "backgrounds/map.svg",
+      "bytes": 1007,
+      "sha256": "87de3bb5f5a782219eecf0f01aee9e8215142eca46099c62b870cb04f6882fba",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Fond d'ambiance de la carte.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 1920,
+        "height": 1080,
+        "scalable": true,
+        "transparency": false,
+        "recolorable": false
+      }
+    },
+    {
+      "id": "background.player",
+      "kind": "background",
+      "role": "location",
+      "path": "backgrounds/player.svg",
+      "bytes": 1097,
+      "sha256": "a87aa665461be10e8c8aff1b6d6092e317e91448a9e1d3fa898c1d5097d2b017",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Fond d'ambiance du lecteur de scénario.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 1920,
+        "height": 1080,
+        "scalable": true,
+        "transparency": false,
+        "recolorable": false
+      }
+    },
+    {
+      "id": "background.journal",
+      "kind": "background",
+      "role": "location",
+      "path": "backgrounds/journal.svg",
+      "bytes": 978,
+      "sha256": "6d16b94e54f8dce4dfdf00fcb4e94f2974db6a21f13effa8fca40d309b5106c4",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Fond d'ambiance du journal.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 1920,
+        "height": 1080,
+        "scalable": true,
+        "transparency": false,
+        "recolorable": false
+      }
+    },
+    {
+      "id": "background.familiar",
+      "kind": "background",
+      "role": "location",
+      "path": "backgrounds/familiar.svg",
+      "bytes": 862,
+      "sha256": "b6960a0337cd6a7c1ec49cf5233feda9960a68ce40eec6c4d563626a0532bfe3",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Fond d'ambiance de l'écran du familier.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 1920,
+        "height": 1080,
+        "scalable": true,
+        "transparency": false,
+        "recolorable": false
+      }
+    },
+    {
+      "id": "background.shop",
+      "kind": "background",
+      "role": "location",
+      "path": "backgrounds/shop.svg",
+      "bytes": 1132,
+      "sha256": "eb8b8e2eababfe2e057f896da7e1c1657ca618e025b7282be82cf7e2716a5ca9",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Fond d'ambiance du magasin.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 1920,
+        "height": 1080,
+        "scalable": true,
+        "transparency": false,
+        "recolorable": false
+      }
+    },
+    {
+      "id": "brand.icon",
+      "kind": "brand",
+      "role": "icon",
+      "path": "brand/brand-diapason.svg",
+      "bytes": 368,
+      "sha256": "eb66787ef4e68897c2d483ede9efc00d43b582850f76e303415a8f789b448d44",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Icône de marque Diapason (motif du diapason), recolorable via currentColor.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 64,
+        "height": 64,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "client.icon",
+      "kind": "brand",
+      "role": "icon",
+      "path": "brand/client-generic.svg",
+      "bytes": 382,
+      "sha256": "787ce845d924099743ae5e5fa90004780b776efc47b968f012fd708090dec206",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Icône de client de démonstration, manifestement fictive, recolorable via currentColor.",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 64,
+        "height": 64,
+        "scalable": true,
+        "transparency": true,
+        "recolorable": true
+      }
+    },
+    {
+      "id": "illustration.le-dossier-sans-auteur",
+      "kind": "illustration",
+      "role": "scenario",
+      "path": "illustrations/le-dossier-sans-auteur.svg",
+      "bytes": 1250,
+      "sha256": "7cf245f97812473783c6605c6ef64172ad3271f75753c244ff1ad6056ab7056d",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Illustration d'ambiance du scénario « Le dossier sans auteur ».",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 1600,
+        "height": 1000,
+        "scalable": true,
+        "transparency": false,
+        "recolorable": false
+      }
+    },
+    {
+      "id": "illustration.identite-non-reconnue",
+      "kind": "illustration",
+      "role": "scenario",
+      "path": "illustrations/identite-non-reconnue.svg",
+      "bytes": 1259,
+      "sha256": "28f1f6e30a4e008e48728526684b5509700b5e618ae92470e27925e4337b8098",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Illustration d'ambiance du scénario « Identité non reconnue ».",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 1600,
+        "height": 1000,
+        "scalable": true,
+        "transparency": false,
+        "recolorable": false
+      }
+    },
+    {
+      "id": "illustration.le-modele-interdit",
+      "kind": "illustration",
+      "role": "scenario",
+      "path": "illustrations/le-modele-interdit.svg",
+      "bytes": 1407,
+      "sha256": "9afeac2c2a122198ea3822c83bd3e4a830c8eea832568886ba55554c04ec87df",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Illustration d'ambiance du scénario « Le modèle interdit ».",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 1600,
+        "height": 1000,
+        "scalable": true,
+        "transparency": false,
+        "recolorable": false
+      }
+    },
+    {
+      "id": "illustration.la-specification-avant-le-code",
+      "kind": "illustration",
+      "role": "scenario",
+      "path": "illustrations/la-specification-avant-le-code.svg",
+      "bytes": 1752,
+      "sha256": "11066a83cd0bc7b267421df67b3f1f6a390d8e7d71650200b4880eb95747554f",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Illustration d'ambiance du scénario « La spécification avant le code ».",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 1600,
+        "height": 1000,
+        "scalable": true,
+        "transparency": false,
+        "recolorable": false
+      }
+    },
+    {
+      "id": "illustration.la-competence-qui-s-efface",
+      "kind": "illustration",
+      "role": "scenario",
+      "path": "illustrations/la-competence-qui-s-efface.svg",
+      "bytes": 1573,
+      "sha256": "f714fe74a7b63b220cddbb6e03f42b8e12025f5e6eccce7a247b679cf6a03f7f",
+      "sourceId": "genengine-diapason-generative",
+      "usage": "Illustration d'ambiance du scénario « La compétence qui s'efface ».",
+      "mediaType": "image/svg+xml",
+      "image": {
+        "width": 1600,
+        "height": 1000,
+        "scalable": true,
+        "transparency": false,
+        "recolorable": false
+      }
     }
   ]
 }

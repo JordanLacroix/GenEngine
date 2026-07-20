@@ -1,0 +1,22 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Illustration, le modele interdit">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#18313f"/>
+      <stop offset="100%" stop-color="#0e1d25"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <g stroke="#2f7fa0" stroke-width="2" opacity="0.45">
+    <path d="M520 300 L760 400 M520 300 L760 560 M520 500 L760 400 M520 500 L760 560 M520 700 L760 560 M520 700 L760 400"/>
+    <path d="M760 400 L1000 340 M760 400 L1000 500 M760 560 L1000 500 M760 560 L1000 660"/>
+  </g>
+  <g fill="#2f7fa0">
+    <circle cx="520" cy="300" r="20"/><circle cx="520" cy="500" r="20"/><circle cx="520" cy="700" r="20"/>
+    <circle cx="760" cy="400" r="22"/><circle cx="760" cy="560" r="22"/>
+    <circle cx="1000" cy="340" r="20"/><circle cx="1000" cy="500" r="20"/><circle cx="1000" cy="660" r="20"/>
+  </g>
+  <circle cx="1120" cy="500" r="150" fill="none" stroke="#a33b2a" stroke-width="14" opacity="0.9"/>
+  <path d="M1014 394 L1226 606" stroke="#a33b2a" stroke-width="14" stroke-linecap="round" opacity="0.9"/>
+  <rect x="1092" y="470" width="56" height="46" rx="6" fill="none" stroke="#d7a746" stroke-width="5"/>
+  <path d="M1102 470 v-14 a18 18 0 0 1 36 0 v14" fill="none" stroke="#d7a746" stroke-width="5"/>
+</svg>

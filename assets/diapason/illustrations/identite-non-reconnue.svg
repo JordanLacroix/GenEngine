@@ -1,0 +1,20 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Illustration, identite non reconnue">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#1b3340"/>
+      <stop offset="100%" stop-color="#0f1e26"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <rect x="600" y="220" width="400" height="500" rx="20" fill="#142c37" stroke="#a33b2a" stroke-width="4"/>
+  <circle cx="800" cy="400" r="90" fill="none" stroke="#5f7686" stroke-width="4"/>
+  <circle cx="800" cy="372" r="34" fill="#5f7686" opacity="0.7"/>
+  <path d="M742 470 Q800 420 858 470" fill="none" stroke="#5f7686" stroke-width="4"/>
+  <g stroke="#2f7fa0" stroke-width="3" opacity="0.4">
+    <path d="M660 300 H720 M660 300 V340 M940 300 H880 M940 300 V340"/>
+    <path d="M660 640 H720 M660 640 V600 M940 640 H880 M940 640 V600"/>
+  </g>
+  <circle cx="800" cy="560" r="60" fill="#a33b2a" opacity="0.9"/>
+  <path d="M772 532 l56 56 M828 532 l-56 56" stroke="#fffaf0" stroke-width="7" stroke-linecap="round"/>
+  <text x="800" y="810" fill="#a33b2a" font-family="Georgia, serif" font-size="40" text-anchor="middle">Identite non reconnue</text>
+</svg>

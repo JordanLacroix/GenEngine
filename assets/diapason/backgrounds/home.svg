@@ -1,0 +1,30 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fond, accueil">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0%" stop-color="#1d3a4c"/>
+      <stop offset="100%" stop-color="#122531"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <g fill="none" stroke="#2f7fa0" stroke-width="2" opacity="0.22">
+    <path d="M0 760 H1920"/>
+    <path d="M0 700 H1920"/>
+    <path d="M300 1080 V680"/>
+    <path d="M700 1080 V700"/>
+    <path d="M1180 1080 V700"/>
+    <path d="M1600 1080 V680"/>
+  </g>
+  <g opacity="0.4">
+    <rect x="240" y="480" width="200" height="280" rx="10" fill="#20404f"/>
+    <rect x="620" y="420" width="220" height="340" rx="10" fill="#244653"/>
+    <rect x="1080" y="500" width="180" height="260" rx="10" fill="#20404f"/>
+    <rect x="1500" y="440" width="220" height="320" rx="10" fill="#244653"/>
+  </g>
+  <circle cx="1560" cy="240" r="90" fill="#d7a746" opacity="0.16"/>
+  <g fill="#7a9a55" opacity="0.5">
+    <circle cx="330" cy="560" r="6"/>
+    <circle cx="720" cy="500" r="6"/>
+    <circle cx="1160" cy="580" r="6"/>
+    <circle cx="1600" cy="520" r="6"/>
+  </g>
+</svg>

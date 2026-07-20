@@ -1,0 +1,27 @@
+<svg width="1600" height="1000" viewBox="0 0 1600 1000" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Illustration, la specification avant le code">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#1a3644"/>
+      <stop offset="100%" stop-color="#101f28"/>
+    </linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#bg)"/>
+  <rect x="360" y="200" width="440" height="600" rx="14" fill="#16303c" stroke="#2f7fa0" stroke-width="3"/>
+  <text x="400" y="280" fill="#d7a746" font-family="Georgia, serif" font-size="30">Sommaire</text>
+  <g fill="#7f97a4" opacity="0.7">
+    <rect x="400" y="330" width="40" height="12" rx="6"/><rect x="460" y="330" width="300" height="12" rx="6"/>
+    <rect x="400" y="386" width="40" height="12" rx="6"/><rect x="460" y="386" width="260" height="12" rx="6"/>
+    <rect x="400" y="442" width="40" height="12" rx="6"/><rect x="460" y="442" width="300" height="12" rx="6"/>
+    <rect x="400" y="498" width="40" height="12" rx="6"/><rect x="460" y="498" width="240" height="12" rx="6"/>
+    <rect x="400" y="554" width="40" height="12" rx="6"/><rect x="460" y="554" width="280" height="12" rx="6"/>
+  </g>
+  <path d="M840 500 H1000" stroke="#d7a746" stroke-width="4" opacity="0.7"/>
+  <path d="M980 480 L1000 500 L980 520" fill="none" stroke="#d7a746" stroke-width="4"/>
+  <rect x="1040" y="260" width="200" height="480" rx="14" fill="#0f2129" stroke="#5f7686" stroke-width="2" opacity="0.7"/>
+  <g fill="#7a9a55" opacity="0.55" font-family="monospace" font-size="24">
+    <text x="1070" y="320">{ }</text>
+    <text x="1070" y="380">fn()</text>
+    <text x="1070" y="440">if …</text>
+    <text x="1070" y="500">ret</text>
+  </g>
+</svg>

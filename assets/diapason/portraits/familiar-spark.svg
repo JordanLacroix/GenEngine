@@ -1,0 +1,21 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Familier, forme etincelle">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="42%" r="72%">
+      <stop offset="0%" stop-color="#26404f"/>
+      <stop offset="100%" stop-color="#16242e"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <g fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round" color="#d7a746">
+    <path d="M128 40 L128 88"/>
+    <path d="M128 168 L128 216"/>
+    <path d="M40 128 L88 128"/>
+    <path d="M168 128 L216 128"/>
+    <path d="M74 74 L104 104"/>
+    <path d="M152 152 L182 182"/>
+    <path d="M182 74 L152 104"/>
+    <path d="M104 152 L74 182"/>
+  </g>
+  <circle cx="128" cy="128" r="26" fill="currentColor" color="#d7a746"/>
+  <circle cx="128" cy="128" r="44" fill="none" stroke="#6f8494" stroke-width="2" opacity="0.5"/>
+</svg>
