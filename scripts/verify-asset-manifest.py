@@ -6,8 +6,13 @@ Controles effectues :
   2. chaque chemin declare resout vers un fichier existant ;
   3. la taille et l'empreinte SHA-256 declarees correspondent au fichier ;
   4. chaque fichier s'ouvre reellement comme le type qu'il declare
-     (signature binaire PNG/Ogg, element racine SVG, en-tete Vorbis) ;
+     (signature binaire PNG/Ogg/MP4/ADTS/MP3, element racine SVG, en-tete Vorbis) ;
   5. les dimensions et durees declarees correspondent aux en-tetes decodes ;
+     ATTENTION : la duree n'est recalculee que pour l'Ogg Vorbis. Pour l'AAC
+     (audio/mp4, audio/aac) et le MP3, seuls le conteneur et la presence des
+     metadonnees declarees sont verifies : ces formats exigent un parcours de
+     boites MP4 ou de trames a debit variable qu'un script sans dependance ne
+     peut faire honnetement. La duree y est declarative, pas prouvee ;
   6. chaque `sourceId` reference existe et pointe vers un fichier de licence present ;
   7. aucun fichier livre n'est absent du manifeste.
 
@@ -101,6 +106,51 @@ def decode_ogg(path):
     return channels, sample_rate, granule / float(sample_rate)
 
 
+def decode_mp4(path):
+    """Verifie qu'un fichier .m4a est bien un conteneur MP4 audio.
+
+    Controle la boite `ftyp` en tete et la presence d'une boite `moov`. La
+    duree n'est pas recalculee : la lire imposerait de descendre la hierarchie
+    de boites jusqu'a `mvhd` et de gerer les variantes 32/64 bits, ce que ce
+    script sans dependance ne fait pas semblant de savoir faire.
+    """
+    with open(path, "rb") as handle:
+        data = handle.read()
+    if len(data) < 12 or data[4:8] != b"ftyp":
+        raise ValueError("boite ftyp absente")
+    brand = data[8:12]
+    if brand[:3] not in (b"M4A", b"M4B", b"mp4", b"iso"):
+        raise ValueError("marque de conteneur inattendue (%r)" % brand)
+    if b"moov" not in data:
+        raise ValueError("boite moov absente")
+
+
+def decode_adts(path):
+    """Verifie la synchronisation ADTS d'un flux AAC brut."""
+    with open(path, "rb") as handle:
+        head = handle.read(4)
+    if len(head) < 4 or head[0] != 0xFF or (head[1] & 0xF6) != 0xF0:
+        raise ValueError("synchronisation ADTS absente")
+
+
+def decode_mp3(path):
+    """Verifie l'en-tete ID3v2 ou la synchronisation d'une trame MPEG audio."""
+    with open(path, "rb") as handle:
+        head = handle.read(3)
+    if head[:3] == b"ID3":
+        return
+    if len(head) < 2 or head[0] != 0xFF or (head[1] & 0xE0) != 0xE0:
+        raise ValueError("ni en-tete ID3 ni synchronisation de trame MPEG")
+
+
+def check_declared_audio(asset_id, asset, media):
+    """Exige les metadonnees audio quand le format n'est pas re-decode."""
+    audio = asset.get("audio", {})
+    for field in ("codec", "channels", "sampleRate", "durationSeconds"):
+        check(audio.get(field) is not None,
+              "%s : champ audio.%s manquant, obligatoire pour %s (non recalculable ici)" % (asset_id, field, media))
+
+
 def main():
     manifest_path = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_MANIFEST
     if not os.path.isfile(manifest_path):
@@ -165,6 +215,15 @@ def main():
                 check(rate == audio.get("sampleRate"), "%s : frequence declaree %s, decodee %s" % (asset_id, audio.get("sampleRate"), rate))
                 check(abs(duration - float(audio.get("durationSeconds", -1))) < 0.05,
                       "%s : duree declaree %ss, decodee %.3fs" % (asset_id, audio.get("durationSeconds"), duration))
+            elif media == "audio/mp4":
+                decode_mp4(full)
+                check_declared_audio(asset_id, asset, media)
+            elif media == "audio/aac":
+                decode_adts(full)
+                check_declared_audio(asset_id, asset, media)
+            elif media == "audio/mpeg":
+                decode_mp3(full)
+                check_declared_audio(asset_id, asset, media)
             else:
                 fail("%s : mediaType non supporte (%s)" % (asset_id, media))
         except (ValueError, KeyError, IndexError, struct.error) as exc:

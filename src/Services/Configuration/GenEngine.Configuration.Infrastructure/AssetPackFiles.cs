@@ -148,6 +148,50 @@ public sealed class FileSystemAssetPackCatalog : IAssetPackCatalog
     }
 }
 
+/// <summary>
+/// The allow-list of media types a pack may serve, keyed by file extension.
+/// It is published here rather than inlined in the static file mount so the
+/// contract has a single definition that specs, tests and the mount all read.
+/// </summary>
+/// <remarks>
+/// Audio is deliberately not limited to OGG Vorbis: neither Safari nor
+/// <c>AVAudioPlayer</c> decodes it, so a pack shipping only OGG is silent on
+/// every Apple device. AAC (in an MP4 container or raw) and MP3 are the two
+/// families decoded everywhere, which is why they are servable even though the
+/// packs shipped today contain none.
+/// </remarks>
+public static class AssetPackMediaTypes
+{
+    public static readonly IReadOnlyDictionary<string, string> ByExtension =
+        new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [".svg"] = "image/svg+xml",
+            [".png"] = "image/png",
+            [".ogg"] = "audio/ogg",
+            [".m4a"] = "audio/mp4",
+            [".aac"] = "audio/aac",
+            [".mp3"] = "audio/mpeg",
+        };
+
+    /// <summary>
+    /// Provider restricted to <see cref="ByExtension"/>. Types are declared
+    /// rather than inferred: an unlisted extension must 404, and a listed one
+    /// must never fall back to <c>application/octet-stream</c>, which a browser
+    /// refuses to decode as audio.
+    /// </summary>
+    public static FileExtensionContentTypeProvider CreateContentTypeProvider()
+    {
+        FileExtensionContentTypeProvider provider = new();
+        provider.Mappings.Clear();
+        foreach ((string extension, string mediaType) in ByExtension)
+        {
+            provider.Mappings[extension] = mediaType;
+        }
+
+        return provider;
+    }
+}
+
 public static class AssetPackInfrastructureExtensions
 {
     /// <summary>
@@ -178,13 +222,9 @@ public static class AssetPackInfrastructureExtensions
     public static void MapAssetPackFiles(this WebApplication app)
     {
         FileSystemAssetPackCatalog catalog = app.Services.GetRequiredService<FileSystemAssetPackCatalog>();
-        FileExtensionContentTypeProvider contentTypes = new();
-        // Declared explicitly rather than relying on the framework defaults:
-        // the three types the pack ships must never fall back to
-        // application/octet-stream, which a browser refuses to decode as audio.
-        contentTypes.Mappings[".svg"] = "image/svg+xml";
-        contentTypes.Mappings[".png"] = "image/png";
-        contentTypes.Mappings[".ogg"] = "audio/ogg";
+        // Declared explicitly rather than relying on the framework defaults, and
+        // kept an allow-list: an extension outside it is a 404, never a guess.
+        FileExtensionContentTypeProvider contentTypes = AssetPackMediaTypes.CreateContentTypeProvider();
 
         foreach (AssetPackManifest manifest in catalog.Manifests)
         {

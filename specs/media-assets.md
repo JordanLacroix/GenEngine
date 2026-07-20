@@ -124,7 +124,7 @@ client ne doit pointer vers un serveur tiers.
 | `bytes`, `sha256` | toujours | Intégrité et détection de dérive. |
 | `sourceId` | toujours | Renvoie vers `sources` pour la licence et l'attribution. |
 | `usage` | toujours | Usage recommandé, en français, à destination des auteurs. |
-| `mediaType` | toujours | `image/svg+xml`, `image/png` ou `audio/ogg`. |
+| `mediaType` | toujours | Un des types servis : `image/svg+xml`, `image/png`, `audio/ogg`, `audio/mp4`, `audio/aac`, `audio/mpeg`. Voir « Formats audio servis ». |
 | `image` | visuels | `width`, `height`, `scalable`, `transparency`, `recolorable`, et `nineSliceInsets` quand l'asset est étirable. |
 | `audio` | sons | `codec`, `sampleRate`, `channels`, `durationSeconds`, `loop`, `loopPoints`. |
 | `review` | optionnel | Réserve explicite sur l'asset, à lever par une passe humaine. |
@@ -205,13 +205,35 @@ un asset placé derrière un jeton rendrait le parcours hors ligne dépendant d'
 session. Le contenu servi est du CC0 public ; il ne porte aucune donnée
 d'instance.
 
-**Contrat de service.** Les trois types livrés sont déclarés explicitement
-(`image/svg+xml`, `image/png`, `audio/ogg`) plutôt que déduits : un navigateur
-refuse de décoder un son servi en `application/octet-stream`. Les réponses portent
+**Contrat de service.** Les types servis sont déclarés explicitement plutôt que
+déduits : un navigateur refuse de décoder un son servi en
+`application/octet-stream`. Les réponses portent
 `Cache-Control: public, max-age=31536000, immutable` — les octets d'un `packVersion`
 donné ne changent jamais — et `X-Content-Type-Options: nosniff`. Un chemin
 remontant (`..`) ou absolu déclaré dans un manifeste fait **échouer le démarrage**
 au lieu d'être monté.
+
+### Formats audio servis
+
+| Extension | `mediaType` | Décodé par Safari / `AVAudioPlayer` |
+|---|---|:--:|
+| `.svg` | `image/svg+xml` | — |
+| `.png` | `image/png` | — |
+| `.ogg` | `audio/ogg` | **non** |
+| `.m4a` | `audio/mp4` | oui |
+| `.aac` | `audio/aac` | oui |
+| `.mp3` | `audio/mpeg` | oui |
+
+L'OGG Vorbis n'est décodé **ni par Safari, ni par `AVAudioPlayer` sur iOS**. Un
+pack qui ne livrerait que de l'OGG serait donc structurellement muet sur tout
+l'écosystème Apple : ce n'est pas une préférence de format, c'est un défaut
+produit. L'AAC — en conteneur MP4 (`.m4a`) ou en flux brut (`.aac`) — et le MP3
+sont décodés partout ; ils sont servables même si aucun pack livré aujourd'hui
+n'en contient. Un pack de surcharge ou une future ambiance doit préférer
+l'AAC : c'est le seul format à couvrir la totalité des clients visés.
+
+La liste reste une **liste blanche** : toute extension absente du tableau renvoie
+404 au lieu d'être servie avec un type deviné ou reniflé.
 
 **Lecture seule.** Les packs sont copiés dans l'image (`COPY assets/`), possédés
 par l'utilisateur non-root, et lus une seule fois au démarrage. Rien n'est écrit à
@@ -302,3 +324,13 @@ manifeste.
 La durée audio est recalculée à partir du `granule position` de la dernière page Ogg :
 elle n'est pas recopiée depuis l'outil qui a généré le manifeste, ce qui rend le
 contrôle indépendant de la génération.
+
+**Ce recalcul ne vaut que pour l'OGG Vorbis.** Pour l'AAC (`audio/mp4`,
+`audio/aac`) et le MP3, le script vérifie le conteneur — boîtes `ftyp` et `moov`,
+synchronisation ADTS, en-tête ID3 ou synchronisation de trame MPEG — et exige que
+`codec`, `channels`, `sampleRate` et `durationSeconds` soient déclarés, mais il ne
+recalcule ni durée ni fréquence : les obtenir imposerait de parcourir la
+hiérarchie de boîtes MP4 ou des trames à débit variable, ce qu'un script sans
+dépendance ne peut pas faire honnêtement. Pour ces formats la durée est donc
+**déclarative, pas prouvée** ; c'est écrit ici plutôt que masqué par un contrôle
+qui ferait semblant.
