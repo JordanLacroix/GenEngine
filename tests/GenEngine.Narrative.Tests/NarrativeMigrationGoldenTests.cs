@@ -27,6 +27,7 @@ public sealed class NarrativeMigrationGoldenTests
                 "scenario-v3-to-v4",
                 "scenario-v4-to-v5",
                 "scenario-v5-to-v6",
+                "scenario-v6-to-v7",
             ],
             scenarioMigration.AppliedMigrations);
         Assert.Equal(GameSaveVersions.Current, save.FormatVersion);
@@ -359,6 +360,79 @@ public sealed class NarrativeMigrationGoldenTests
         Assert.False(report.IsValid);
         Assert.Contains(report.Issues, static issue => issue.Code == "consulted_document_requires_schema_6");
         Assert.Contains(report.Issues, static issue => issue.Code == "consulted_document_missing");
+    }
+
+    /// <summary>
+    /// Canonical hash of <c>scenario-v6.json</c>, computed with the engine as it
+    /// was before player statistics existed: the fixture was written first and
+    /// hashed by the pre-change binary at commit <c>b7bc549</c>, before
+    /// <c>GrantPlayerStatEffect</c>, <c>LatestSchema = 7</c> and the v6→v7
+    /// migration were written. Freezing a value produced by the older engine is the
+    /// only assertion that proves the new effect stays out of the canonical bytes of
+    /// a document that does not declare it — an expectation regenerated after the
+    /// change would prove nothing.
+    /// </summary>
+    private const string PublishedSchemaSixHash =
+        "46332fdfdf7af32222968efc44f78394bbdd562c8e029006600430d1b4b71a8d";
+
+    [Fact]
+    public void PublishedSchemaSixSnapshotKeepsItsCanonicalHashAfterThePlayerStatBump()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v6.json"));
+        string canonicalJson = System.Text.Encoding.UTF8.GetString(CanonicalSnapshot.GetCanonicalBytes(scenario));
+
+        Assert.Equal(PublishedSchemaSixHash, CanonicalSnapshot.ComputeHash(scenario));
+        Assert.DoesNotContain("grantPlayerStat", canonicalJson, StringComparison.Ordinal);
+        Assert.True(ScenarioValidator.Validate(scenario).IsValid);
+    }
+
+    /// <summary>
+    /// The final state is the one the pre-change engine produced from
+    /// <c>save-v6.json</c>. A session published before this change must follow the
+    /// exact same sequence: same turn counter, same interaction history, same world,
+    /// byte for byte — and, in particular, an empty <c>externalEvents</c> list, since
+    /// the new effect is the first thing to write there outside an explicit emit.
+    /// </summary>
+    [Fact]
+    public void SchemaSixSaveStillReplaysIdenticallyAfterThePlayerStatBump()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v6.json"));
+        GameSave save = GameSaveSerializer.Deserialize(ReadGolden("save-v6.json"), 42UL, DateTimeOffset.UnixEpoch);
+
+        GameState replayed = NarrativeRuntime.SubmitChoice(
+            scenario,
+            NarrativeRuntime.Continue(scenario, NarrativeRuntime.ConsultDocument(scenario, save.State)),
+            "answer-the-hall");
+        GameState expected = NarrativeJson.Deserialize<GameState>(ReadGolden("scenario-v6-replay-final-state.json"));
+
+        Assert.Empty(save.AppliedMigrations);
+        Assert.Equal(6, save.ScenarioSchemaVersion);
+        Assert.Equal(NarrativeJson.Serialize(expected), NarrativeJson.Serialize(replayed));
+    }
+
+    /// <summary>
+    /// A player stat granted before schema 7 is refused, and the check is bound to its
+    /// own capability constant: the very same v6 document, which legitimately uses a
+    /// document interaction, must stay valid without the grant.
+    /// </summary>
+    [Fact]
+    public void PlayerStatGrantedBeforeSchemaSevenIsRejected()
+    {
+        ScenarioDocument scenario = NarrativeJson.Deserialize<ScenarioDocument>(ReadGolden("scenario-v6.json"));
+        ScenarioDocument withGrant = scenario with
+        {
+            Nodes =
+            [
+                scenario.Nodes[0] with { OnEnterEffects = [new GrantPlayerStatEffect("lucidite", 5)] },
+                .. scenario.Nodes.Skip(1),
+            ],
+        };
+
+        ValidationReport report = ScenarioValidator.Validate(withGrant);
+
+        Assert.False(report.IsValid);
+        Assert.Contains(report.Issues, static issue => issue.Code == "player_stat_requires_schema_7");
+        Assert.True(ScenarioValidator.Validate(scenario).IsValid);
     }
 
     private static string ReadGolden(string name) =>

@@ -26,6 +26,7 @@ L'import de memberships est une politique d'exploitation du service propriétair
 | Assistant | Familiers, assets/licences, axes de personnalisation catalogués, fréquence, capacités, niveaux d'aide, indices offline et préférences autorisées | `assistant.*` |
 | Fin de jeu | Scénario de fin global, conditions composables `All`/`Any`, seuils, catégories/parcours/fins visés et médias associés | `config.*` |
 | Aide intégrée | Descripteurs de champs du document de configuration : libellé, description, exemple et contrainte lisible par chemin de champ | `config.read` |
+| Statistiques joueur | Catalogue de statistiques cumulées par joueur : clé courte, libellé, description et plafond, plus l'activation globale du bloc | `config.*` |
 | IA | Providers, modèles, profils, routage, fallback, double avis, prompts, structured outputs, tools autorisés, cache, résilience, sûreté, pricing et quotas | `ai.*` |
 | Économie | Devises, wallets, reward types, inventaires, shops, offres, prix, stock, limites, promotions, entitlements et compensations | `shop.*`, `wallet.*`, `economy.*` |
 | Médias | Types/taille, stockage, rétention, scan, licences, consentement, validation document/photo et règles d'accès | `media.*` |
@@ -167,6 +168,16 @@ Un front peut déclarer un scénario de fin global : identité, textes de clôtu
 L'évaluation s'appuie exclusivement sur `ScenarioMastery`, déjà porteur de la maîtrise cross-session par (profil, version de scénario) : aucun second système de suivi n'est créé. Elle est déterministe et n'utilise que de l'arithmétique entière.
 
 Atteindre la fin est modélisé comme un **seuil franchi et mémorisé**, jamais comme un état terminal : rien n'est verrouillé, et le modèle ne permet volontairement pas de configurer l'inverse.
+
+## Statistiques joueur configurables
+
+Un front déclare dans `playerStats` les statistiques que ses joueurs accumulent : `enabled`, puis une liste bornée à 24 entrées portant chacune un `id` stable, une `key` en slug, un `label`, une `description` et un `maximum`. Le bloc est validé par `invalid_player_stat` et documenté champ par champ dans le catalogue d'aide intégrée.
+
+La `key` est le point de jointure entre l'auteur et le joueur : c'est le slug qu'un scénario écrit dans un effet `grantPlayerStat` (schéma v7) et sous lequel `PlayerExperience` mémorise la valeur. Sa grammaire est donc identique des deux côtés — une clé qu'un côté accepte et que l'autre refuse serait une statistique qu'aucun scénario ne pourrait alimenter.
+
+Trois propriétés sont garanties par le serveur et jamais par un client : une statistique **démarre à zéro**, elle est **bornée par son plafond**, et un gain qui dépasserait ce plafond **sature** au lieu d'échouer. La saturation plutôt que le refus est délibérée : l'auteur d'un scénario ne peut pas connaître la valeur courante du joueur, donc conditionner le gain à cette valeur ferait réussir ou échouer le même effet selon l'ordre dans lequel le joueur a joué les scénarios.
+
+`enabled` à `false` est le comportement désactivé : le catalogue reste publié, les valeurs acquises restent servies, aucun gain n'est plus appliqué. Couper les statistiques ne détruit jamais ce qu'un joueur a gagné.
 
 ## Règle d'entretien
 

@@ -5,7 +5,7 @@ namespace GenEngine.Narrative;
 public static class NarrativeVersions
 {
     public const int Schema = 1;
-    public const int LatestSchema = 6;
+    public const int LatestSchema = 7;
 
     /// <summary>Schema that introduced typed step interactions.</summary>
     public const int InteractionsSchema = 2;
@@ -21,6 +21,9 @@ public static class NarrativeVersions
 
     /// <summary>Schema that introduced the document interaction and its consultation condition.</summary>
     public const int DocumentSchema = 6;
+
+    /// <summary>Schema that introduced the player-stat grant effect.</summary>
+    public const int PlayerStatSchema = 7;
     public const string Runtime = "1.0.0";
     public const string HashFormat = "sha256-canonical-json-v1";
     public const string RngAlgorithm = "splitmix64-v1";
@@ -378,6 +381,7 @@ public sealed record ConsultedDocumentCondition(string InteractionId) : Conditio
 [JsonDerivedType(typeof(EmitExternalEventEffect), "emitExternalEvent")]
 [JsonDerivedType(typeof(SetCharacteristicEffect), "setCharacteristic")]
 [JsonDerivedType(typeof(ChangeCharacteristicEffect), "changeCharacteristic")]
+[JsonDerivedType(typeof(GrantPlayerStatEffect), "grantPlayerStat")]
 public abstract record LocalGameEffect;
 
 public sealed record AssignEffect(string Name, int Value) : LocalGameEffect;
@@ -412,6 +416,38 @@ public sealed record EmitExternalEventEffect(
 public sealed record SetCharacteristicEffect(string Name, int Value) : LocalGameEffect;
 
 public sealed record ChangeCharacteristicEffect(string Name, int Amount) : LocalGameEffect;
+
+/// <summary>
+/// Grants <paramref name="Amount"/> points of the configured player stat
+/// <paramref name="Stat"/>.
+/// </summary>
+/// <remarks>
+/// Every other effect of this hierarchy mutates the <em>session</em>. This one does
+/// not, and cannot: a player stat lives in <c>PlayerExperience</c>, persists across
+/// scenarios, and its ceiling is published by <c>Configuration</c> — three things the
+/// engine is forbidden to know, since it performs no I/O and must stay a pure
+/// function of the scenario, the world and the commands.
+/// <para>
+/// So the engine only <em>records the intent</em>: applying this effect appends a
+/// <see cref="ExternalEffectEvent"/> named <see cref="PlayerStatEventName"/> to
+/// <see cref="WorldState.ExternalEvents"/>, exactly the path <c>economy.reward</c>
+/// already takes. The session state stays complete and replayable on its own, the
+/// determinism invariant is untouched, and <c>Play</c> relays the recorded events to
+/// <c>PlayerExperience</c>, which is the only authority on the value and its cap.
+/// The engine never learns whether the stat exists, nor what it ended up worth.
+/// </para>
+/// </remarks>
+public sealed record GrantPlayerStatEffect(string Stat, int Amount) : LocalGameEffect
+{
+    /// <summary>Name of the external event this effect records. Read by <c>Play</c>.</summary>
+    public const string PlayerStatEventName = "player.stat";
+
+    /// <summary>Attribute carrying the configured stat key.</summary>
+    public const string StatAttribute = "stat";
+
+    /// <summary>Attribute carrying the granted amount, as an invariant decimal integer.</summary>
+    public const string AmountAttribute = "amount";
+}
 
 public sealed record ScheduledEffect(int DueTurn, LocalGameEffect Effect)
 {

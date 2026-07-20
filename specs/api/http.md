@@ -32,7 +32,7 @@ Trois surfaces distinctes, du plus restreint au plus complet. Ce tableau fait fo
 | `authentication.entraTenantId` / `entraClientId` | **non** | **non** | oui |
 | `demo.enabled` | oui (booléen seul) | oui (bloc complet) | oui |
 | `game.name`, `description`, `globalStory` | non | oui | oui |
-| `categories`, `journeys`, `familiars`, `economy`, `modules`, `playerShell`, `help`, `onboarding`, `assistantPolicy`, `journal`, `media` | non | oui | oui |
+| `categories`, `journeys`, `familiars`, `economy`, `modules`, `playerShell`, `help`, `onboarding`, `assistantPolicy`, `journal`, `media`, `playerStats` | non | oui | oui |
 | `aiProviders` : `id`, `name`, `type`, `enabled`, `deployment`, `capabilities` | non | oui | oui |
 | `aiProviders.endpoint` / `authentication` / `secretReference` | **non** | **non** | oui (`secretReference` = référence opaque) |
 | `organization` (nom, unités, hiérarchie) | **non** | **non** (`null`) | oui |
@@ -67,6 +67,26 @@ Une couleur est un hexadécimal strict `#RRGGBB` ou `#RRGGBBAA` — les couleurs
 La vue `GET /experience/{frontId}` contient le jeu global, son histoire, les catégories, le mode et les fournisseurs d'authentification activés, les providers IA sans endpoint ni credential, les familiers, l'économie, l'introduction, le shell joueur, la démo, l'aide, l'onboarding, la politique assistant, le journal, les médias, le branding et les modules avec leurs permissions nécessaires.
 
 Le bloc `media` porte le paramétrage sonore et visuel de l'instance : `enabled`, `defaultMuted`, une liste `locations` (`location`, `ambienceUrl`, `musicUrl`, `backgroundUrl`, `backgroundDescription`, `bpm`, `loop`) pour les emplacements applicatifs (`home`, `map`, `player`, `journal`, `familiar`, `shop`…) et un bloc `gameOver` (`musicUrl`, `visualUrl`, `visualDescription`, `labelKey`). Tous les assets sont facultatifs et doivent être soit des URL absolues en HTTPS, soit des références de pack `packId:assetId` résolues via le manifeste du pack livré (même grammaire que le moteur, pour qu'une instance sans serveur d'assets reste illustrée) ; un `bpm` déclaré reste entre 40 et 200. Un emplacement ne peut être nommé qu'une fois. Les violations renvoient `invalid_media`. Un opérateur pilote donc l'ambiance par instance via `PUT /admin/configuration/{frontId}` puis `POST /admin/configuration/{frontId}/publish`, sans mécanisme parallèle.
+
+### Bloc `playerStats`
+
+Le bloc `playerStats` publie le catalogue des **statistiques joueur** de l'instance. Il porte `enabled` et une liste `stats`, chacune décrite par :
+
+| Champ | Contenu |
+|---|---|
+| `id` | Clé stable, jamais réattribuée après publication |
+| `key` | Slug court écrit par les auteurs dans un effet `grantPlayerStat` et sous lequel la valeur est mémorisée par joueur. 1 à 40 caractères parmi `a-z`, `0-9` et `-` ; jamais traduit, jamais renommé |
+| `label` | Nom affiché sur le profil (1 à 80 caractères) |
+| `description` | Ce que la statistique mesure, écrit pour le joueur (1 à 500 caractères) |
+| `maximum` | Plafond atteignable, strictement positif et au plus 1 000 000 |
+
+Au plus 24 statistiques, `id` et `key` uniques. Toute violation renvoie `invalid_player_stat`.
+
+Le bloc est **matérialisé par la normalisation**, comme `media` : tout document publié le porte, et son défaut est `{ "enabled": true, "stats": [] }`. Il est volontairement **vide** et non opiniâtre — inventer des statistiques pour une instance qui n'en a jamais demandé changerait ce que ses joueurs voient sur leur profil. La configuration de référence Le Diapason en déclare six, une par posture.
+
+`enabled` à `false` est le comportement désactivé documenté : le catalogue reste publié et lisible, les valeurs déjà acquises restent servies, mais aucun gain narratif n'est plus appliqué. Couper les statistiques ne détruit jamais ce qu'un joueur a gagné.
+
+Une statistique **démarre toujours à zéro** et est **bornée par son plafond**. Un gain qui dépasserait le plafond **sature**, il n'échoue pas : l'auteur d'un scénario ne peut pas connaître la valeur courante du joueur, donc conditionner le gain à cette valeur ferait réussir ou échouer le même effet selon l'ordre dans lequel le joueur a joué les scénarios. Le moteur reste non autoritatif : il n'enregistre qu'une intention, `PlayerExperience` décide de la valeur. Voir [`../domain/scenario-schema.md`](../domain/scenario-schema.md#statistiques-joueur-schéma-v7).
 
 ### Aide intégrée par champ
 
@@ -175,7 +195,13 @@ Les clients vivant dans des dépôts distincts, ils sont alignés en parallèle 
 
 ## Player Experience — port 5205
 
-- `GET /me/experience?frontId={frontId}` — familier, portefeuille, possessions et journal récent, plus `defaultJourneyId` et `effectiveJourney` (le parcours complet avec sa progression)
+- `GET /me/experience?frontId={frontId}` — familier, portefeuille, possessions et journal récent, plus `defaultJourneyId`, `effectiveJourney` (le parcours complet avec sa progression) et `stats`.
+
+  `stats` est le champ additif que lit un profil : **tout le catalogue publié**, dans l'ordre du catalogue, chaque entrée portant `id`, `key`, `label`, `description`, `value` et `maximum`. Une statistique jamais gagnée est renvoyée à `0` plutôt qu'omise — démarrer à zéro est le comportement documenté, pas une absence. Libellé, description, valeur et plafond voyagent **ensemble** : un client ne doit jamais avoir à recouper ce contrat avec celui de la configuration pour dessiner une seule barre de progression.
+
+  Aucune route n'est ajoutée pour les statistiques : elles appartiennent à l'état joueur que cette route sert déjà, et `GET /me/experience/bootstrap` les porte donc aussi, puisqu'il embarque cette même vue. Une route dédiée aurait obligé un client de profil à faire deux appels pour peindre un seul écran.
+
+  `value` est **borné à la lecture** par `maximum`. Un opérateur peut abaisser un plafond après que des joueurs l'ont dépassé ; un client ne doit jamais recevoir une valeur supérieure au maximum qu'on lui demande de dessiner. Rien n'est réécrit en base : ce qui a été gagné reste acquis si le plafond est relevé.
 - `GET /me/experience/bootstrap?frontId={frontId}` — prochaine action autoritative, configuration du tutoriel et état joueur, `effectiveJourney` compris
 - `GET /me/experience/journeys?frontId={frontId}` — exige `journey.read`. Parcours visibles du front avec, par parcours, son état de déblocage (`isUnlocked`, `blockedByJourneyIds`, `blockedByJourneyNames`), sa progression (`scenarioCount`, `startedCount`, `completedCount`, `progressPercent`) et la même progression par catégorie, pour que la carte affiche un indicateur par porte. La réponse porte aussi `defaultJourneyId`, `effectiveJourneyId` et la `revision` du profil à réutiliser en écriture
 - `PUT /me/experience/journey?frontId={frontId}` — exige `journey.read`. Corps `{ expectedRevision, journeyId }` ; un `journeyId` nul efface le parcours par défaut. Le parcours est validé contre le document publié : inexistant ou invisible renvoie `journey_not_found`, prérequis non satisfaits renvoie `journey_locked`, et une révision périmée renvoie `revision_conflict` en 409
@@ -202,6 +228,7 @@ Les clients vivant dans des dépôts distincts, ils sont alignés en parallèle 
   aucun tour et n'entre dans aucun hash.
 - `POST /me/experience/shop/purchases?frontId={frontId}` — achat idempotent
 - `POST /internal/rewards` — applique une règle de récompense idempotente depuis un événement narratif
+- `POST /internal/player-stats` — applique un gain de statistique joueur idempotent depuis un effet narratif. Corps `{ frontId, userId, stat, amount, idempotencyKey }`. La valeur démarre à zéro, s'incrémente et **sature** au plafond publié. Un gain nommant une statistique que ce front ne publie pas — ou arrivant alors que le bloc est désactivé — est **ignoré**, pas refusé : un scénario est écrit indépendamment de l'instance qui l'exécute et se réutilise d'un front à l'autre, donc une clé déclarée ici et pas là est une situation ordinaire, pas une faute. Échouer coûterait au joueur le tour qu'il vient de jouer, pour une statistique qu'il n'allait de toute façon pas voir. `POST /internal/rewards` lève au contraire `reward_rule_not_found`, parce que les règles d'économie filtrent sur un joker `*` et qu'un déclencheur non apparié y est réellement exceptionnel
 - `POST /internal/progress-events` — journalise une interaction et consolide la maîtrise cross-session de façon idempotente
 
 ## Organization — port 5206

@@ -15,6 +15,22 @@ public sealed record OnboardingStep(Guid Id, string Title, string Body, string T
 public sealed record OnboardingTutorial(Guid Id, int Version, bool Enabled, bool AllowSkip, bool RequiredAfterUpgrade, IReadOnlyList<OnboardingStep> Steps);
 public sealed record AssistantPolicy(bool Enabled, bool RequireFirstRunConfiguration, bool Proactive, bool WarnOnKnownPath, int DefaultFrequency, IReadOnlyList<string> OfflineCapabilities);
 public sealed record CategoryCatalogEntry(Guid Id, string Name, string Description, string Accent, int Order, bool IsVisible, string? ImageUrl, IReadOnlyList<Guid> ScenarioIds);
+/// <summary>One configurable statistic as published by the front.</summary>
+public sealed record PlayerStatPlanEntry(Guid Id, string Key, string Label, string Description, int Maximum);
+
+/// <summary>
+/// The published statistics catalogue. <see cref="Enabled"/> false keeps the catalogue
+/// and every earned value readable while refusing new narrative grants.
+/// </summary>
+public sealed record PlayerStatPlan(bool Enabled, IReadOnlyList<PlayerStatPlanEntry> Stats);
+
+/// <summary>
+/// One statistic as a client renders it. Label, description, value and ceiling travel
+/// together on purpose: a profile screen must never have to join the player contract
+/// with the configuration contract to draw a single progress bar.
+/// </summary>
+public sealed record PlayerStatView(Guid Id, string Key, string Label, string Description, int Value, int Maximum);
+
 public sealed record JourneyCatalogEntry(Guid Id, string Name, string Description, string Accent, string? ImageUrl, int Order, bool IsVisible, IReadOnlyList<Guid> CategoryIds, IReadOnlyList<Guid> PrerequisiteJourneyIds, IReadOnlyList<string> Tags);
 
 /// <summary>
@@ -34,7 +50,8 @@ public sealed record PlayerExperienceCatalog(
     AssistantPolicy Assistant,
     IReadOnlyList<JourneyCatalogEntry>? Journeys = null,
     IReadOnlyList<CategoryCatalogEntry>? Categories = null,
-    FinalePlan? Finale = null);
+    FinalePlan? Finale = null,
+    PlayerStatPlan? PlayerStats = null);
 
 /// <summary>
 /// A familiar personalisation submitted by a player.
@@ -92,7 +109,7 @@ public sealed record JourneyProgressView(
 /// </summary>
 public sealed record PlayerJourneysView(Guid? DefaultJourneyId, Guid? EffectiveJourneyId, int Revision, IReadOnlyList<JourneyProgressView> Items);
 
-public sealed record PlayerExperienceView(Guid Id, string FrontId, int Revision, int Balance, string CurrencyCode, string CurrencyName, string CurrencyIcon, FamiliarSelection? Familiar, FamiliarOption? FamiliarDefinition, OnboardingStateView Onboarding, IReadOnlyList<ScenarioMasteryView> Masteries, IReadOnlyList<Guid> OwnedOfferIds, IReadOnlyList<WalletEntryView> RecentEntries, IReadOnlyList<JournalEntryView> RecentJournal, Guid? DefaultJourneyId = null, JourneyProgressView? EffectiveJourney = null, FinaleView? Finale = null);
+public sealed record PlayerExperienceView(Guid Id, string FrontId, int Revision, int Balance, string CurrencyCode, string CurrencyName, string CurrencyIcon, FamiliarSelection? Familiar, FamiliarOption? FamiliarDefinition, OnboardingStateView Onboarding, IReadOnlyList<ScenarioMasteryView> Masteries, IReadOnlyList<Guid> OwnedOfferIds, IReadOnlyList<WalletEntryView> RecentEntries, IReadOnlyList<JournalEntryView> RecentJournal, Guid? DefaultJourneyId = null, JourneyProgressView? EffectiveJourney = null, FinaleView? Finale = null, IReadOnlyList<PlayerStatView>? Stats = null);
 public sealed record PlayerBootstrapView(string NextAction, PlayerExperienceView Experience, OnboardingTutorial Tutorial, AssistantPolicy Assistant);
 public sealed record JournalView(IReadOnlyList<JournalEntryView> Items, int Page, int PageSize, int Total, IReadOnlyDictionary<string, int> TotalsByType);
 public sealed record JournalFilter(string? Type, Guid? JourneyId, Guid? CategoryId, Guid? ScenarioId);
@@ -115,6 +132,9 @@ public static class Pagination
     }
 }
 public sealed record RewardCommand(string FrontId, string UserId, string Trigger, string ReferenceId, string IdempotencyKey);
+
+/// <summary>A statistic grant relayed by Play from a narrative effect.</summary>
+public sealed record PlayerStatCommand(string FrontId, string UserId, string Stat, int Amount, string IdempotencyKey);
 public sealed record ProgressEventCommand(string FrontId, string UserId, string IdempotencyKey, string Type, string Title, string Summary, Guid? JourneyId, Guid? CategoryId, Guid? ScenarioId, Guid? ScenarioVersionId, Guid? SessionId, string? ReferenceId, string? ChoiceId, string? TargetNodeId, string? EndingId, bool Completed, int TotalObjectives, DateTimeOffset? OccurredAt = null);
 public sealed record ContextualHelpRequest(string Context, Guid? ScenarioVersionId, string? ChoiceId, bool AlreadyExplored, string? AuthorHint, string? NodeId = null, bool Proactive = false);
 
@@ -451,6 +471,37 @@ public sealed class PlayerExperienceService(
         return Map(profile, catalog);
     }
 
+    /// <summary>
+    /// Applies a statistic grant relayed by Play, saturating at the published ceiling.
+    /// </summary>
+    /// <remarks>
+    /// A grant naming a statistic the front does not publish — or arriving while the
+    /// block is disabled — is <em>ignored</em>, not refused. A scenario is authored
+    /// independently of the instance that runs it and is meant to be reusable across
+    /// fronts, so a key one front declares and another does not is an ordinary
+    /// situation, not a fault. Failing here would surface as a 500 in Play and cost the
+    /// player the turn they just took, over a stat they were never going to see.
+    /// The reward path throws instead because economy rules match on a <c>*</c>
+    /// wildcard, which makes an unmatched trigger genuinely exceptional.
+    /// </remarks>
+    public async Task<PlayerExperienceView> ApplyPlayerStatAsync(PlayerStatCommand command, CancellationToken cancellationToken)
+    {
+        PlayerExperienceCatalog catalog = await catalogs.GetAsync(command.FrontId, cancellationToken).ConfigureAwait(false);
+        PlayerProfile profile = await GetOrCreateAsync(command.UserId, command.FrontId, catalog, cancellationToken).ConfigureAwait(false);
+        PlayerStatPlan plan = catalog.PlayerStats ?? new PlayerStatPlan(false, []);
+        PlayerStatPlanEntry? stat = plan.Enabled
+            ? plan.Stats.FirstOrDefault(item => string.Equals(item.Key, command.Stat, StringComparison.Ordinal))
+            : null;
+        if (stat is null || stat.Maximum <= 0 || command.Amount <= 0)
+        {
+            return Map(profile, catalog);
+        }
+
+        _ = profile.GrantStat(stat.Key, command.Amount, stat.Maximum, command.IdempotencyKey, timeProvider.GetUtcNow());
+        await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return Map(profile, catalog);
+    }
+
     public async Task<PlayerExperienceView> PurchaseAsync(string userId, string frontId, Guid offerId, string idempotencyKey, CancellationToken cancellationToken)
     {
         PlayerExperienceCatalog catalog = await catalogs.GetAsync(frontId, cancellationToken).ConfigureAwait(false);
@@ -744,7 +795,38 @@ public sealed class PlayerExperienceService(
             profile.JournalEntries.OrderByDescending(static entry => entry.OccurredAt).Take(20).Select(MapJournal).ToArray(),
             profile.DefaultJourneyId,
             ResolveEffective(profile, journeys),
-            MapFinale(profile, catalog));
+            MapFinale(profile, catalog),
+            MapStats(profile, catalog));
+    }
+
+    /// <summary>
+    /// Every published statistic, in catalogue order, each with what a client needs to
+    /// render it on its own. A statistic the player has never been granted is reported
+    /// at zero rather than omitted: the profile shows the whole catalogue, and starting
+    /// at zero is the documented behaviour, not an absence.
+    /// </summary>
+    /// <remarks>
+    /// The stored value is clamped again on the way out. An operator may lower a ceiling
+    /// after players have already passed it, and a client must never receive a value
+    /// above the maximum it is told to draw. Nothing is written back: what was earned
+    /// stays earned if the ceiling is raised again.
+    /// </remarks>
+    private static PlayerStatView[] MapStats(PlayerProfile profile, PlayerExperienceCatalog catalog)
+    {
+        PlayerStatPlan plan = catalog.PlayerStats ?? new PlayerStatPlan(false, []);
+        Dictionary<string, int> values = profile.StatValues.ToDictionary(
+            static stat => stat.Key,
+            static stat => stat.Value,
+            StringComparer.Ordinal);
+        return plan.Stats
+            .Select(stat => new PlayerStatView(
+                stat.Id,
+                stat.Key,
+                stat.Label,
+                stat.Description,
+                Math.Clamp(values.TryGetValue(stat.Key, out int value) ? value : 0, 0, Math.Max(0, stat.Maximum)),
+                stat.Maximum))
+            .ToArray();
     }
 
     private static OnboardingStateView MapOnboarding(PlayerProfile profile, OnboardingTutorial tutorial)

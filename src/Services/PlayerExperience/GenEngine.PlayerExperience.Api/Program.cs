@@ -156,6 +156,16 @@ app.MapPost("/internal/rewards", async (
     return Results.Ok(await service.ApplyRewardAsync(command, cancellationToken).ConfigureAwait(false));
 });
 
+app.MapPost("/internal/player-stats", async (
+    PlayerStatCommand command,
+    HttpRequest request,
+    PlayerExperienceService service,
+    CancellationToken cancellationToken) =>
+{
+    if (!HasValidInternalKey(app, request)) return Results.Unauthorized();
+    return Results.Ok(await service.ApplyPlayerStatAsync(command, cancellationToken).ConfigureAwait(false));
+});
+
 app.MapPost("/internal/progress-events", async (
     ProgressEventCommand command,
     HttpRequest request,

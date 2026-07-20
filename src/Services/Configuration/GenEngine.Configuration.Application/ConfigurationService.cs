@@ -170,7 +170,8 @@ public sealed record ExperienceDocument(
     JournalPolicyDefinition? Journal = null,
     MediaDefinition? Media = null,
     BrandingDefinition? Branding = null,
-    FinaleDefinition? Finale = null);
+    FinaleDefinition? Finale = null,
+    PlayerStatsDefinition? PlayerStats = null);
 
 /// <summary>
 /// Stable identifiers of the Diapason reference configuration.
@@ -507,7 +508,8 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         new JournalPolicyDefinition(true, true, 0, true),
         CreateDefaultMedia(),
         CreateDiapasonBranding(),
-        FinaleCatalog.CreateDiapasonDefault());
+        FinaleCatalog.CreateDiapasonDefault(),
+        PlayerStatCatalog.CreateDiapasonDefault());
 
     /// <summary>
     /// Branding of the Diapason reference configuration. The colours come from
@@ -738,6 +740,86 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         ValidateMedia(document.Media ?? CreateDefaultMedia());
         ValidateFinale(document.Finale, categoryIds, journeyIds);
         ValidateBranding(document.Branding);
+        ValidatePlayerStats(document.PlayerStats ?? PlayerStatCatalog.CreateDefault());
+    }
+
+    /// <summary>
+    /// A statistic is displayed on the player profile and written to by scenarios, so a
+    /// declared one must be renderable and reachable: a key an author can actually write,
+    /// a label and a description a player can actually read, and a ceiling a grant can
+    /// actually reach.
+    /// </summary>
+    /// <remarks>
+    /// The ceiling is required to be strictly positive because zero would make every
+    /// grant saturate immediately: the stat would exist, accept effects, and never move —
+    /// the least diagnosable failure of the whole block.
+    /// </remarks>
+    private static void ValidatePlayerStats(PlayerStatsDefinition playerStats)
+    {
+        IReadOnlyList<PlayerStatDefinition> stats = playerStats.Stats;
+        if (stats.Count > PlayerStatCatalog.MaximumStats
+            || stats.Select(static stat => stat.Id).Distinct().Count() != stats.Count
+            || stats.Select(static stat => (stat.Key ?? string.Empty).Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Count() != stats.Count)
+        {
+            throw new ConfigurationException(
+                "invalid_player_stat",
+                $"Player statistics must have unique identifiers and keys, and number at most {PlayerStatCatalog.MaximumStats}.");
+        }
+
+        foreach (PlayerStatDefinition stat in stats)
+        {
+            if (!IsPlayerStatKey(stat.Key))
+            {
+                throw new ConfigurationException(
+                    "invalid_player_stat",
+                    $"A player statistic key must be 1 to {PlayerStatCatalog.MaximumKeyLength} characters of a-z, 0-9 and '-'.");
+            }
+
+            if (string.IsNullOrWhiteSpace(stat.Label)
+                || stat.Label.Length > PlayerStatCatalog.MaximumLabelLength
+                || string.IsNullOrWhiteSpace(stat.Description)
+                || stat.Description.Length > PlayerStatCatalog.MaximumDescriptionLength)
+            {
+                throw new ConfigurationException(
+                    "invalid_player_stat",
+                    "A player statistic requires a non-empty label and description within their size limits.");
+            }
+
+            if (stat.Maximum is <= 0 or > PlayerStatCatalog.MaximumCeiling)
+            {
+                throw new ConfigurationException(
+                    "invalid_player_stat",
+                    $"A player statistic ceiling must be between 1 and {PlayerStatCatalog.MaximumCeiling}.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Same slug grammar the narrative engine enforces on a <c>grantPlayerStat</c> key.
+    /// The two must agree: a key one side accepts and the other refuses would be a stat
+    /// no scenario could ever feed.
+    /// </summary>
+    private static bool IsPlayerStatKey(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length > PlayerStatCatalog.MaximumKeyLength)
+        {
+            return false;
+        }
+
+        foreach (char character in value)
+        {
+            bool allowed = (character >= 'a' && character <= 'z')
+                || (character >= '0' && character <= '9')
+                || character == '-';
+            if (!allowed)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -1065,6 +1147,10 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             AssistantPolicy = document.AssistantPolicy ?? CreateDefaultAssistantPolicy(),
             Journal = document.Journal ?? new JournalPolicyDefinition(true, true, 0, true),
             Media = document.Media ?? CreateDefaultMedia(),
+            // Materialised like the media block: every published document carries the
+            // catalogue, so a client reads one shape whether the instance uses stats or
+            // not. The default is empty — see PlayerStatsDefinition for why.
+            PlayerStats = document.PlayerStats ?? PlayerStatCatalog.CreateDefault(),
             // Left null when absent rather than defaulted: an instance that declares no
             // finale simply has none, and inventing one would change what its players see.
             Finale = document.Finale,

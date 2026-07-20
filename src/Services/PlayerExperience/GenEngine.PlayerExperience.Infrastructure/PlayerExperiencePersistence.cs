@@ -20,6 +20,7 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
     public DbSet<OnboardingState> OnboardingStates => Set<OnboardingState>();
     public DbSet<PlayerJournalEntry> JournalEntries => Set<PlayerJournalEntry>();
     public DbSet<ScenarioMastery> ScenarioMasteries => Set<ScenarioMastery>();
+    public DbSet<PlayerStatValue> StatValues => Set<PlayerStatValue>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -43,6 +44,14 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
             entity.HasMany(static profile => profile.OnboardingStates).WithOne().HasForeignKey(static state => state.ProfileId).OnDelete(DeleteBehavior.Cascade);
             entity.HasMany(static profile => profile.JournalEntries).WithOne().HasForeignKey(static entry => entry.ProfileId).OnDelete(DeleteBehavior.Cascade);
             entity.HasMany(static profile => profile.ScenarioMasteries).WithOne().HasForeignKey(static mastery => mastery.ProfileId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(static profile => profile.StatValues).WithOne().HasForeignKey(static stat => stat.ProfileId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<PlayerStatValue>(entity =>
+        {
+            entity.ToTable("player_stat_values");
+            entity.HasKey(static stat => new { stat.ProfileId, stat.Key });
+            entity.Property(static stat => stat.Key).HasMaxLength(40).IsRequired();
+            entity.Property(static stat => stat.ProcessedCommandIdsJson).HasColumnType("jsonb");
         });
         modelBuilder.Entity<WalletEntry>(entity =>
         {
@@ -109,6 +118,7 @@ internal sealed class PlayerExperienceRepository(PlayerExperienceDbContext dbCon
             .Include(static profile => profile.OnboardingStates)
             .Include(static profile => profile.JournalEntries)
             .Include(static profile => profile.ScenarioMasteries)
+            .Include(static profile => profile.StatValues)
             .SingleOrDefaultAsync(profile => profile.UserId == userId && profile.FrontId == frontId, cancellationToken);
     public async Task AddAsync(PlayerProfile profile, CancellationToken cancellationToken) =>
         await dbContext.Profiles.AddAsync(profile, cancellationToken).ConfigureAwait(false);
@@ -234,7 +244,32 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
             assistantPolicy,
             GetJourneys(document),
             GetCategories(document),
-            ReadFinale(document));
+            ReadFinale(document),
+            ReadPlayerStats(document));
+    }
+
+    /// <summary>
+    /// Reads the optional <c>playerStats</c> block. A front published before player
+    /// statistics existed simply has no such property and reports none, which is exactly
+    /// what a client should then display: nothing.
+    /// </summary>
+    private static PlayerStatPlan ReadPlayerStats(JsonElement document)
+    {
+        if (!document.TryGetProperty("playerStats", out JsonElement stats) || stats.ValueKind != JsonValueKind.Object)
+        {
+            return new PlayerStatPlan(false, []);
+        }
+
+        return new PlayerStatPlan(
+            !stats.TryGetProperty("enabled", out JsonElement enabled) || enabled.ValueKind != JsonValueKind.False,
+            stats.TryGetProperty("stats", out JsonElement items) && items.ValueKind == JsonValueKind.Array
+                ? items.EnumerateArray().Select(static item => new PlayerStatPlanEntry(
+                    item.GetProperty("id").GetGuid(),
+                    GetString(item, "key"),
+                    GetString(item, "label"),
+                    GetString(item, "description"),
+                    item.TryGetProperty("maximum", out JsonElement maximum) && maximum.ValueKind == JsonValueKind.Number ? maximum.GetInt32() : 0)).ToArray()
+                : []);
     }
 
     private static FamiliarAxis[]? ReadAxes(JsonElement familiar)

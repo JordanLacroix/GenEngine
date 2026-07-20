@@ -182,6 +182,31 @@ internal sealed class PlayerExperienceRewardDispatcher(
         }
     }
 
+    public async Task DispatchPlayerStatsAsync(
+        string userId,
+        string frontId,
+        IReadOnlyList<PlayerStatDispatch> stats,
+        CancellationToken cancellationToken)
+    {
+        foreach (PlayerStatDispatch stat in stats)
+        {
+            using HttpRequestMessage request = new(HttpMethod.Post, "/internal/player-stats")
+            {
+                Content = JsonContent.Create(new
+                {
+                    FrontId = frontId,
+                    UserId = userId,
+                    stat.Stat,
+                    stat.Amount,
+                    stat.IdempotencyKey,
+                }),
+            };
+            request.Headers.Add("X-Internal-Key", configuration["InternalApi:Key"] ?? string.Empty);
+            using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+        }
+    }
+
     public async Task DispatchProgressAsync(string userId, string frontId, ProgressDispatch progress, CancellationToken cancellationToken)
     {
         using HttpRequestMessage request = new(HttpMethod.Post, "/internal/progress-events")

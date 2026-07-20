@@ -54,6 +54,11 @@ public static class ScenarioMigrationPipeline
                 // declares neither, so raising the version rewrites nothing, keeps
                 // the exact same canonical bytes and the same published hash.
                 5 => document with { SchemaVersion = 6 },
+
+                // v7 only adds the "grantPlayerStat" effect. It is opt-in: a v6
+                // document declares none, so raising the version rewrites nothing,
+                // keeps the exact same canonical bytes and the same published hash.
+                6 => document with { SchemaVersion = 7 },
                 _ => throw new NarrativeException(
                     "scenario_migration_missing",
                     $"No migration is registered from scenario schema {document.SchemaVersion}."),

@@ -9,6 +9,7 @@ public sealed class PlayerProfile
     private readonly List<OnboardingState> onboardingStates = [];
     private readonly List<PlayerJournalEntry> journalEntries = [];
     private readonly List<ScenarioMastery> scenarioMasteries = [];
+    private readonly List<PlayerStatValue> statValues = [];
 
     private PlayerProfile() { }
 
@@ -75,6 +76,13 @@ public sealed class PlayerProfile
     public IReadOnlyList<OnboardingState> OnboardingStates => onboardingStates;
     public IReadOnlyList<PlayerJournalEntry> JournalEntries => journalEntries;
     public IReadOnlyList<ScenarioMastery> ScenarioMasteries => scenarioMasteries;
+
+    /// <summary>
+    /// Configurable statistics the player has accumulated, keyed by the configuration
+    /// slug. A stat the player has never been granted simply has no row: absence
+    /// <em>is</em> zero, which is why nothing has to be seeded when the catalogue grows.
+    /// </summary>
+    public IReadOnlyList<PlayerStatValue> StatValues => statValues;
 
     public static PlayerProfile Create(string userId, string frontId, int initialBalance, DateTimeOffset now) =>
         new(Guid.NewGuid(), userId, frontId, initialBalance, now);
@@ -231,6 +239,44 @@ public sealed class PlayerProfile
 
         if (!mastery.Record(sessionId, choiceId, targetNodeId, completed, endingId, totalObjectives, idempotencyKey, now)) return;
         Touch(now);
+    }
+
+    /// <summary>
+    /// Grants <paramref name="amount"/> points of the statistic <paramref name="key"/>,
+    /// saturating at <paramref name="maximum"/>.
+    /// </summary>
+    /// <remarks>
+    /// Two decisions are load-bearing. A stat the player has never earned starts at
+    /// <em>zero</em>: the row is created on the first grant, so a statistic added to the
+    /// catalogue later needs no backfill. And a grant that would exceed the ceiling
+    /// <em>saturates</em> instead of failing — the scenario author who wrote the effect
+    /// cannot know the player's current value, so making the grant conditional on it
+    /// would make the same effect succeed or fail depending on the order in which the
+    /// player happened to play the scenarios.
+    /// </remarks>
+    /// <returns><c>false</c> when the grant was already applied under this key.</returns>
+    public bool GrantStat(string key, int amount, int maximum, string idempotencyKey, DateTimeOffset now)
+    {
+        if (amount <= 0)
+        {
+            throw new PlayerExperienceDomainException("invalid_amount", "A statistic grant must be positive.");
+        }
+
+        if (maximum <= 0)
+        {
+            throw new PlayerExperienceDomainException("invalid_maximum", "A statistic ceiling must be positive.");
+        }
+
+        PlayerStatValue? stat = statValues.SingleOrDefault(item => string.Equals(item.Key, key, StringComparison.Ordinal));
+        if (stat is null)
+        {
+            stat = PlayerStatValue.Create(Id, key, now);
+            statValues.Add(stat);
+        }
+
+        if (!stat.Grant(amount, maximum, idempotencyKey, now)) return false;
+        Touch(now);
+        return true;
     }
 
     public bool Credit(string idempotencyKey, int amount, string reason, DateTimeOffset now)
@@ -407,6 +453,48 @@ public sealed class ScenarioMastery
         return true;
     }
     private static string[] DeserializeStrings(string json) => JsonSerializer.Deserialize<string[]>(json) ?? [];
+}
+
+/// <summary>
+/// The value of one configurable statistic for one player. It persists across sessions
+/// and scenarios, which is precisely what <c>WorldState.Variables</c> cannot do.
+/// </summary>
+public sealed class PlayerStatValue
+{
+    private PlayerStatValue() { }
+
+    private PlayerStatValue(Guid profileId, string key, DateTimeOffset now)
+    {
+        ProfileId = profileId;
+        Key = key;
+        Value = 0;
+        UpdatedAt = now;
+    }
+
+    public Guid ProfileId { get; private set; }
+    public string Key { get; private set; } = string.Empty;
+
+    /// <summary>Points accumulated. Always starts at zero and never decreases.</summary>
+    public int Value { get; private set; }
+
+    /// <summary>Grants already applied, so a retried command never counts twice.</summary>
+    public string ProcessedCommandIdsJson { get; private set; } = "[]";
+    public DateTimeOffset UpdatedAt { get; private set; }
+
+    internal static PlayerStatValue Create(Guid profileId, string key, DateTimeOffset now) => new(profileId, key, now);
+
+    internal bool Grant(int amount, int maximum, string idempotencyKey, DateTimeOffset now)
+    {
+        HashSet<string> commands = (JsonSerializer.Deserialize<string[]>(ProcessedCommandIdsJson) ?? []).ToHashSet(StringComparer.Ordinal);
+        if (!commands.Add(idempotencyKey)) return false;
+
+        // Saturation, not rejection: the ceiling is a display bound, not a precondition
+        // the scenario had any way of checking.
+        Value = Math.Min(maximum, checked(Value + amount));
+        ProcessedCommandIdsJson = JsonSerializer.Serialize(commands.Order(StringComparer.Ordinal));
+        UpdatedAt = now;
+        return true;
+    }
 }
 
 public sealed class WalletEntry
