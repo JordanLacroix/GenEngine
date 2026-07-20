@@ -26,10 +26,18 @@ public sealed class AuthoringDbContext(DbContextOptions<AuthoringDbContext> opti
             entity.Property(static scenario => scenario.Title).HasMaxLength(200).IsRequired();
             entity.Property(static scenario => scenario.DraftJson).HasColumnType("jsonb").IsRequired();
             entity.Property(static scenario => scenario.FrontId).HasMaxLength(80).IsRequired();
+            entity.Property(static scenario => scenario.Slug).HasMaxLength(120);
             entity.Property(static scenario => scenario.CreationBrief).HasMaxLength(4000).IsRequired();
             entity.Property(static scenario => scenario.Revision).IsConcurrencyToken();
             entity.HasIndex(static scenario => scenario.OwnerId);
             entity.HasIndex(static scenario => new { scenario.FrontId, scenario.CategoryId });
+
+            // Clé naturelle : un slug est unique par front, mais reste facultatif. L'index
+            // filtré n'impose l'unicité qu'aux scénarios qui en portent un ; les brouillons
+            // créés par GUID (slug NULL) coexistent sans contrainte.
+            entity.HasIndex(static scenario => new { scenario.FrontId, scenario.Slug })
+                .IsUnique()
+                .HasFilter("\"Slug\" IS NOT NULL");
 
             // Tri de la liste « mes scénarios » et filtrage du catalogue publié.
             entity.HasIndex(static scenario => new { scenario.OwnerId, scenario.UpdatedAt });
@@ -65,6 +73,13 @@ internal sealed class AuthoringRepository(AuthoringDbContext dbContext) : IAutho
             .Include(static scenario => scenario.Versions)
             .SingleOrDefaultAsync(
                 scenario => scenario.Id == id && scenario.OwnerId == ownerId,
+                cancellationToken);
+
+    public Task<Scenario?> GetBySlugAsync(string frontId, string slug, CancellationToken cancellationToken) =>
+        dbContext.Scenarios
+            .Include(static scenario => scenario.Versions)
+            .SingleOrDefaultAsync(
+                scenario => scenario.FrontId == frontId && scenario.Slug == slug,
                 cancellationToken);
 
     public async Task<(IReadOnlyList<PublishedScenarioRecord> Items, int Total)> ListPublishedAsync(

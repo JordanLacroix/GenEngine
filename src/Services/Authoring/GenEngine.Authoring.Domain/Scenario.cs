@@ -16,7 +16,8 @@ public sealed class Scenario
         DateTimeOffset now,
         string frontId,
         Guid? categoryId,
-        string creationBrief)
+        string creationBrief,
+        string? slug)
     {
         Id = id;
         OwnerId = ownerId;
@@ -25,6 +26,7 @@ public sealed class Scenario
         FrontId = frontId;
         CategoryId = categoryId;
         CreationBrief = creationBrief;
+        Slug = slug;
         Revision = 1;
         CreatedAt = now;
         UpdatedAt = now;
@@ -45,6 +47,14 @@ public sealed class Scenario
     public DateTimeOffset UpdatedAt { get; private set; }
     public string FrontId { get; private set; } = "default";
     public Guid? CategoryId { get; private set; }
+
+    /// <summary>
+    /// Clé naturelle facultative d'un scénario au sein de son front. Lorsqu'elle est
+    /// renseignée, un import réutilise le brouillon existant au lieu d'en créer un neuf :
+    /// c'est le chemin idempotent de l'amorçage. Reste <c>null</c> pour les scénarios
+    /// créés sans slug, qui conservent la création par GUID.
+    /// </summary>
+    public string? Slug { get; private set; }
     public string CreationBrief { get; private set; } = string.Empty;
     public bool IsArchived { get; private set; }
     public DateTimeOffset? ArchivedAt { get; private set; }
@@ -58,14 +68,35 @@ public sealed class Scenario
         DateTimeOffset now,
         string frontId = "default",
         Guid? categoryId = null,
-        string creationBrief = "") =>
-        new(Guid.NewGuid(), ownerId, title, draftJson, now, frontId, categoryId, creationBrief);
+        string creationBrief = "",
+        string? slug = null) =>
+        new(Guid.NewGuid(), ownerId, title, draftJson, now, frontId, categoryId, creationBrief, slug);
 
     public void UpdateDraft(string title, string draftJson, int expectedRevision, DateTimeOffset now)
     {
         EnsureRevision(expectedRevision);
         Title = title;
         DraftJson = draftJson;
+        Revision = checked(Revision + 1);
+        UpdatedAt = now;
+    }
+
+    /// <summary>
+    /// Réécrit le brouillon lors d'un import idempotent par slug. Contrairement à
+    /// <see cref="UpdateDraft"/>, l'appelant n'a pas à connaître la révision courante :
+    /// l'unicité du slug garantit qu'un seul scénario est visé. Un scénario archivé
+    /// est réactivé, ce qui rend l'amorçage rejouable après une remise à zéro logique.
+    /// </summary>
+    public void ReimportDraft(string title, string draftJson, DateTimeOffset now)
+    {
+        Title = title;
+        DraftJson = draftJson;
+        if (IsArchived)
+        {
+            IsArchived = false;
+            ArchivedAt = null;
+        }
+
         Revision = checked(Revision + 1);
         UpdatedAt = now;
     }

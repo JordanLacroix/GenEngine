@@ -33,13 +33,26 @@ export GENENGINE_ADMIN_USER_NAME=... GENENGINE_ADMIN_PASSWORD=...
 ./scripts/install-diapason.sh
 ```
 
-Le script lit `content/diapason/manifest.json`, puis pour chacun des dix scénarios : `POST /scenarios/import`, `POST /scenarios/{id}/validate` (échec si `isValid != true`), `POST /scenarios/{id}/analyze` (échec si une fin est inatteignable), `POST /scenarios/{id}/publish`. Il rattache ensuite les versions publiées à leur catégorie via `PUT /admin/configuration/{frontId}` et republie la configuration.
+Le script lit `content/diapason/manifest.json`, puis pour chacun des dix scénarios : `POST /scenarios/import?slug=<slug>`, `POST /scenarios/{id}/validate` (échec si `isValid != true`), `POST /scenarios/{id}/analyze` (échec si une fin est inatteignable), `POST /scenarios/{id}/publish`. Il rattache ensuite les versions publiées à leur catégorie via `PUT /admin/configuration/{frontId}` et republie la configuration.
 
 Il n'utilise que des API publiques, n'écrit dans aucune base et n'ajoute aucun endpoint.
 
+### Idempotence par clé naturelle
+
+Chaque scénario porte un `slug` dans le manifeste : c'est sa **clé naturelle** au sein de son front. Le script le transmet à l'import, et `POST /scenarios/import?slug=<slug>` **upserte par slug** — un slug déjà présent met à jour le brouillon existant au lieu d'en créer un neuf. Le domaine `Scenario` porte donc une propriété `Slug` facultative, protégée par un index unique filtré `(FrontId, Slug) WHERE Slug IS NOT NULL` (migration `AddScenarioSlug`).
+
+Conséquence : **le script est rejouable sans dégât.** Un second passage ne crée aucun doublon ; il met à jour les dix brouillons et republie une nouvelle version de chacun. Le catalogue reste à dix scénarios, quel que soit le nombre de passages (le catalogue expose toujours la dernière version publiée). Un scénario archivé portant le slug est réactivé par l'import, ce qui rend l'amorçage rejouable après une remise à zéro logique.
+
+Le slug est le **chemin idempotent**, pas une obligation : un import sans slug conserve le comportement historique (création d'un brouillon par GUID), et un scénario existant sans slug reste valide. Aucun appelant existant n'est cassé.
+
+### Remise à zéro
+
+`scripts/reset-diapason.sh --yes` remet une instance locale à un état propre : `docker compose down --volumes`, redémarrage sur des bases vides, réenregistrement et bootstrap de l'administrateur, puis `install-diapason.sh`.
+
+Le choix d'un **effacement total des volumes** plutôt qu'une purge par API est délibéré et honnête : l'API Authoring n'offre pas de suppression dure — `DELETE /scenarios/{id}` archive seulement, et les lignes archivées (avec leurs versions et snapshots) subsistent — et elle ne franchit aucune frontière de service, donc elle ne peut pas défaire une pollution côté Configuration ou Play. Le seul état garanti propre est un volume vide. Comme l'installation est désormais idempotente, une instance *peuplée mais saine* n'a besoin d'aucun reset : il suffit de relancer `install-diapason.sh`. Le reset ne sert qu'au cas d'une instance déjà polluée par l'ancien flux non idempotent, où les brouillons orphelins doivent réellement disparaître.
+
 ### Limites connues
 
-- **Le script n'est pas idempotent.** `POST /scenarios/import` crée toujours un nouveau brouillon (`AuthoringService.ImportAsync`). Le relancer duplique les dix brouillons et laisse les précédents orphelins. À exécuter une fois par instance.
 - **Le seeder de configuration ne rejoue pas.** Sur une instance qui possède déjà une configuration, `CreateDefault` n'est jamais rappelé : une instance antérieure à cette PR conserve son ancien document et doit être mise à jour par `PUT /admin/configuration/{frontId}`, ou repartir d'un volume vide.
 - **Le script suppose bash 3.2** (macOS) : pas de tableau associatif, les accumulations passent par `jq`.
 
@@ -62,5 +75,12 @@ Le point de personnalisation le plus fréquent est `OrganizationType` (`School`,
 ```bash
 dotnet test GenEngine.sln --no-build   # dont DiapasonContentTests : 10 scénarios validés
 ./scripts/install-diapason.sh          # import, validation, analyse et publication réels
+./scripts/install-diapason.sh          # second passage : toujours 10 scénarios, aucun doublon
 ./scripts/smoke-test.sh                # parcours complet inchangé
+```
+
+Le double passage se vérifie sur le catalogue :
+
+```bash
+curl -s "http://localhost:5201/catalog?pageSize=100" | jq '.total'   # 10, puis toujours 10
 ```
