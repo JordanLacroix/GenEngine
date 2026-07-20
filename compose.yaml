@@ -254,6 +254,11 @@ services:
   # Client Web. Le navigateur ne parle qu'à ce service : la résolution des URLs
   # de moteur est faite côté Node, donc les noms de services Compose suffisent.
   web:
+    # Profil dédié: le contexte de build est le dépôt voisin GenEngine.Web, que
+    # l'intégration continue de ce dépôt ne récupère pas. Sans profil, `docker
+    # compose build` y échoue immédiatement. Démarrage explicite:
+    #   docker compose --profile web up -d
+    profiles: ["web"]
     build:
       context: ../GenEngine.Web
       dockerfile: Dockerfile
