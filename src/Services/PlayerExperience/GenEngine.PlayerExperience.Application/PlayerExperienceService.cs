@@ -31,6 +31,61 @@ public sealed record PlayerStatPlan(bool Enabled, IReadOnlyList<PlayerStatPlanEn
 /// </summary>
 public sealed record PlayerStatView(Guid Id, string Key, string Label, string Description, int Value, int Maximum);
 
+/// <summary>
+/// The grant natures, as they are spelled in the published document. Held as strings on
+/// this side of the wire: a document published by a newer engine may name a nature this
+/// one does not know, and an unknown nature must be carried to the client untouched
+/// rather than fail the whole catalogue.
+/// </summary>
+public static class RewardGrantTypes
+{
+    public const string Achievement = nameof(Achievement);
+    public const string Title = nameof(Title);
+    public const string Currency = nameof(Currency);
+}
+
+/// <summary>One thing a reward grants, as published. <see cref="Amount"/> is read for <c>Currency</c> only.</summary>
+public sealed record RewardGrantPlan(string Type, string Label, string? Reference, int? Amount);
+
+/// <summary>One published conditional reward. Its conditions are the shared model the finale uses.</summary>
+public sealed record ConditionalRewardPlan(
+    Guid Id,
+    bool Enabled,
+    string Label,
+    string Description,
+    ProgressMode Mode,
+    IReadOnlyList<ProgressCondition> Conditions,
+    IReadOnlyList<RewardGrantPlan> Grants,
+    string? VisualUrl,
+    string? LabelKey);
+
+/// <summary>
+/// The published rewards catalogue. <see cref="Enabled"/> false keeps every reward
+/// already earned readable while refusing to stamp a new one.
+/// </summary>
+public sealed record RewardsPlan(bool Enabled, IReadOnlyList<ConditionalRewardPlan> Rewards);
+
+/// <summary>
+/// One reward as a client renders it: what it is, whether it was earned, and — when it
+/// was not — exactly how far the player is on each of its conditions.
+/// </summary>
+/// <remarks>
+/// The per-condition progress is deliberately served for earned and unearned rewards
+/// alike, the same service level <see cref="FinaleView"/> already provides. A locked
+/// badge with no indication of what is missing is the failure mode this exists to avoid.
+/// </remarks>
+public sealed record ConditionalRewardView(
+    Guid Id,
+    string Label,
+    string Description,
+    bool Earned,
+    DateTimeOffset? EarnedAt,
+    string Mode,
+    IReadOnlyList<ProgressConditionProgress> Conditions,
+    IReadOnlyList<RewardGrantPlan> Grants,
+    string? VisualUrl,
+    string? LabelKey);
+
 public sealed record JourneyCatalogEntry(Guid Id, string Name, string Description, string Accent, string? ImageUrl, int Order, bool IsVisible, IReadOnlyList<Guid> CategoryIds, IReadOnlyList<Guid> PrerequisiteJourneyIds, IReadOnlyList<string> Tags);
 
 /// <summary>
@@ -51,7 +106,8 @@ public sealed record PlayerExperienceCatalog(
     IReadOnlyList<JourneyCatalogEntry>? Journeys = null,
     IReadOnlyList<CategoryCatalogEntry>? Categories = null,
     FinalePlan? Finale = null,
-    PlayerStatPlan? PlayerStats = null);
+    PlayerStatPlan? PlayerStats = null,
+    RewardsPlan? Rewards = null);
 
 /// <summary>
 /// A familiar personalisation submitted by a player.
@@ -109,7 +165,7 @@ public sealed record JourneyProgressView(
 /// </summary>
 public sealed record PlayerJourneysView(Guid? DefaultJourneyId, Guid? EffectiveJourneyId, int Revision, IReadOnlyList<JourneyProgressView> Items);
 
-public sealed record PlayerExperienceView(Guid Id, string FrontId, int Revision, int Balance, string CurrencyCode, string CurrencyName, string CurrencyIcon, FamiliarSelection? Familiar, FamiliarOption? FamiliarDefinition, OnboardingStateView Onboarding, IReadOnlyList<ScenarioMasteryView> Masteries, IReadOnlyList<Guid> OwnedOfferIds, IReadOnlyList<WalletEntryView> RecentEntries, IReadOnlyList<JournalEntryView> RecentJournal, Guid? DefaultJourneyId = null, JourneyProgressView? EffectiveJourney = null, FinaleView? Finale = null, IReadOnlyList<PlayerStatView>? Stats = null);
+public sealed record PlayerExperienceView(Guid Id, string FrontId, int Revision, int Balance, string CurrencyCode, string CurrencyName, string CurrencyIcon, FamiliarSelection? Familiar, FamiliarOption? FamiliarDefinition, OnboardingStateView Onboarding, IReadOnlyList<ScenarioMasteryView> Masteries, IReadOnlyList<Guid> OwnedOfferIds, IReadOnlyList<WalletEntryView> RecentEntries, IReadOnlyList<JournalEntryView> RecentJournal, Guid? DefaultJourneyId = null, JourneyProgressView? EffectiveJourney = null, FinaleView? Finale = null, IReadOnlyList<PlayerStatView>? Stats = null, IReadOnlyList<ConditionalRewardView>? Rewards = null);
 public sealed record PlayerBootstrapView(string NextAction, PlayerExperienceView Experience, OnboardingTutorial Tutorial, AssistantPolicy Assistant);
 public sealed record JournalView(IReadOnlyList<JournalEntryView> Items, int Page, int PageSize, int Total, IReadOnlyDictionary<string, int> TotalsByType);
 public sealed record JournalFilter(string? Type, Guid? JourneyId, Guid? CategoryId, Guid? ScenarioId);
@@ -324,6 +380,7 @@ public sealed class PlayerExperienceService(
         }
 
         EvaluateFinale(profile, catalog, now);
+        EvaluateRewards(profile, catalog, now);
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return Map(profile, catalog);
     }
@@ -497,7 +554,13 @@ public sealed class PlayerExperienceService(
             return Map(profile, catalog);
         }
 
-        _ = profile.GrantStat(stat.Key, command.Amount, stat.Maximum, command.IdempotencyKey, timeProvider.GetUtcNow());
+        DateTimeOffset now = timeProvider.GetUtcNow();
+        _ = profile.GrantStat(stat.Key, command.Amount, stat.Maximum, command.IdempotencyKey, now);
+
+        // A statistic threshold can only be crossed here, so this is the second — and
+        // last — place rewards are evaluated. Without it, a reward gated on a statistic
+        // would sit unearned until the player happened to finish another scenario.
+        EvaluateRewards(profile, catalog, now);
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return Map(profile, catalog);
     }
@@ -592,7 +655,7 @@ public sealed class PlayerExperienceService(
     private static void EvaluateFinale(PlayerProfile profile, PlayerExperienceCatalog catalog, DateTimeOffset now)
     {
         if (catalog.Finale is not FinalePlan plan || !plan.Enabled || profile.FinaleReachedAt is not null) return;
-        IReadOnlyList<FinaleConditionProgress> conditions = FinaleEvaluator.Evaluate(plan, BuildProgress(profile), catalog.Categories ?? [], catalog.Journeys ?? []);
+        IReadOnlyList<ProgressConditionProgress> conditions = FinaleEvaluator.Evaluate(plan, BuildSnapshot(profile, catalog));
         if (!FinaleEvaluator.IsSatisfied(plan, conditions)) return;
         if (profile.MarkFinaleReached(plan.Id, now))
         {
@@ -600,10 +663,64 @@ public sealed class PlayerExperienceService(
         }
     }
 
+    /// <summary>
+    /// Evaluates every conditional reward and stamps the ones newly crossed.
+    /// </summary>
+    /// <remarks>
+    /// Called from the two paths that can actually move a condition — a relayed progress
+    /// event and a relayed statistic grant — and deliberately <em>not</em> from the read
+    /// path. Reading a profile must not be able to change it: a GET that stamps would make
+    /// the moment a reward was earned depend on when somebody happened to open a screen,
+    /// and would turn every profile read into a write. The read path recomputes progress
+    /// and displays it, which is all it needs to do.
+    /// <para>
+    /// A reward already earned is skipped before anything else is computed, so its stamp,
+    /// its journal entry and its currency grant can never be applied twice — and a reward
+    /// whose conditions stop being satisfied, because an operator edited the document,
+    /// stays earned.
+    /// </para>
+    /// </remarks>
+    private static void EvaluateRewards(PlayerProfile profile, PlayerExperienceCatalog catalog, DateTimeOffset now)
+    {
+        if (catalog.Rewards is not RewardsPlan plan || !plan.Enabled || plan.Rewards.Count == 0) return;
+        HashSet<Guid> earned = profile.EarnedRewards.Select(static item => item.RewardId).ToHashSet();
+        ProgressSnapshot snapshot = BuildSnapshot(profile, catalog);
+
+        foreach (ConditionalRewardPlan reward in plan.Rewards)
+        {
+            if (!reward.Enabled || earned.Contains(reward.Id)) continue;
+            IReadOnlyList<ProgressConditionProgress> conditions = ProgressConditionEvaluator.Evaluate(reward.Conditions, snapshot);
+            if (!ProgressConditionEvaluator.IsSatisfied(reward.Mode, conditions)) continue;
+            if (!profile.MarkRewardEarned(reward.Id, now)) continue;
+
+            _ = profile.RecordJournalEntry(
+                $"reward:{reward.Id}",
+                "RewardEarned",
+                reward.Label,
+                reward.Description,
+                null, null, null, null, null,
+                reward.Id.ToString(),
+                now,
+                now);
+
+            // Only the currency grant has a runtime effect. An achievement and a title are
+            // inert marks: the stamp above already records them, and the published grant
+            // carries what a client needs to render them. Crediting the wallet reuses the
+            // wallet's own idempotency key, so a replayed evaluation cannot double-credit
+            // even if the stamp were somehow lost.
+            foreach (RewardGrantPlan grant in reward.Grants)
+            {
+                if (!string.Equals(grant.Type, RewardGrantTypes.Currency, StringComparison.Ordinal)) continue;
+                if (grant.Amount is not int amount || amount <= 0) continue;
+                _ = profile.Credit($"reward:{reward.Id}:currency:{grant.Label}", amount, grant.Label, now);
+            }
+        }
+    }
+
     private static FinaleView? MapFinale(PlayerProfile profile, PlayerExperienceCatalog catalog)
     {
         if (catalog.Finale is not FinalePlan plan) return null;
-        IReadOnlyList<FinaleConditionProgress> conditions = FinaleEvaluator.Evaluate(plan, BuildProgress(profile), catalog.Categories ?? [], catalog.Journeys ?? []);
+        IReadOnlyList<ProgressConditionProgress> conditions = FinaleEvaluator.Evaluate(plan, BuildSnapshot(profile, catalog));
         return new FinaleView(
             plan.Id,
             plan.Title,
@@ -619,11 +736,24 @@ public sealed class PlayerExperienceService(
     }
 
     /// <summary>
-    /// Projects the recorded mastery into the shape the evaluator needs. A scenario is
-    /// completed as soon as one of its versions produced an ending: replaying it can
-    /// only ever add endings, never take one back.
+    /// Projects everything the shared evaluator is allowed to read: the recorded mastery
+    /// and the accumulated statistics. A scenario is completed as soon as one of its
+    /// versions produced an ending — replaying it can only ever add endings, never take
+    /// one back.
     /// </summary>
-    private static FinaleEvaluator.ScenarioProgress[] BuildProgress(PlayerProfile profile) =>
+    /// <remarks>
+    /// Both sources are read, never written and never recomputed here. This projection is
+    /// the whole reason no second progression store exists: the finale and the rewards ask
+    /// their questions of state that other paths already maintain.
+    /// </remarks>
+    private static ProgressSnapshot BuildSnapshot(PlayerProfile profile, PlayerExperienceCatalog catalog) =>
+        new(
+            BuildProgress(profile),
+            catalog.Categories ?? [],
+            catalog.Journeys ?? [],
+            profile.StatValues.ToDictionary(static stat => stat.Key, static stat => stat.Value, StringComparer.Ordinal));
+
+    private static ScenarioProgress[] BuildProgress(PlayerProfile profile) =>
         profile.ScenarioMasteries
             .GroupBy(static mastery => mastery.ScenarioId)
             .Select(static group =>
@@ -632,9 +762,45 @@ public sealed class PlayerExperienceService(
                     .SelectMany(static mastery => System.Text.Json.JsonSerializer.Deserialize<string[]>(mastery.EndingIdsJson) ?? [])
                     .Distinct(StringComparer.Ordinal)
                     .ToArray();
-                return new FinaleEvaluator.ScenarioProgress(group.Key, endings.Length > 0, endings, group.Max(static mastery => mastery.MasteryPercent));
+                return new ScenarioProgress(group.Key, endings.Length > 0, endings, group.Max(static mastery => mastery.MasteryPercent));
             })
             .ToArray();
+
+    /// <summary>
+    /// Every published reward, in catalogue order, with its per-condition progress — the
+    /// same level of service <see cref="MapFinale"/> provides for the finale.
+    /// </summary>
+    /// <remarks>
+    /// A reward the player has already earned keeps its conditions in the payload rather
+    /// than dropping them: a client showing "5 / 5 scenarios" next to an earned badge is
+    /// telling the player why they have it, which is the point of the whole block.
+    /// Disabled rewards are listed once earned and hidden otherwise — an operator turning
+    /// one off must not erase what a player already holds.
+    /// </remarks>
+    private static ConditionalRewardView[] MapRewards(PlayerProfile profile, PlayerExperienceCatalog catalog)
+    {
+        RewardsPlan plan = catalog.Rewards ?? new RewardsPlan(false, []);
+        if (plan.Rewards.Count == 0) return [];
+        Dictionary<Guid, DateTimeOffset> earned = profile.EarnedRewards.ToDictionary(
+            static item => item.RewardId,
+            static item => item.EarnedAt);
+        ProgressSnapshot snapshot = BuildSnapshot(profile, catalog);
+
+        return plan.Rewards
+            .Where(reward => reward.Enabled || earned.ContainsKey(reward.Id))
+            .Select(reward => new ConditionalRewardView(
+                reward.Id,
+                reward.Label,
+                reward.Description,
+                earned.ContainsKey(reward.Id),
+                earned.TryGetValue(reward.Id, out DateTimeOffset earnedAt) ? earnedAt : null,
+                reward.Mode.ToString(),
+                ProgressConditionEvaluator.Evaluate(reward.Conditions, snapshot),
+                reward.Grants,
+                reward.VisualUrl,
+                reward.LabelKey))
+            .ToArray();
+    }
 
     private async Task<PlayerProfile> GetOrCreateAsync(string userId, string frontId, PlayerExperienceCatalog catalog, CancellationToken cancellationToken)
     {
@@ -647,7 +813,7 @@ public sealed class PlayerExperienceService(
     }
 
     /// <summary>Progression of one scenario, folded over every published version played.</summary>
-    private readonly record struct ScenarioProgress(int MasteryPercent, bool Completed);
+    private readonly record struct ScenarioFold(int MasteryPercent, bool Completed);
 
     /// <summary>
     /// Progression per scenario. A scenario can be played across several published
@@ -658,15 +824,15 @@ public sealed class PlayerExperienceService(
     /// scenario the moment the player explores a newer version without finishing it —
     /// curiosity would lock the journeys downstream, which is the opposite of the intent.
     /// </summary>
-    private static Dictionary<Guid, ScenarioProgress> ProgressByScenario(PlayerProfile profile)
+    private static Dictionary<Guid, ScenarioFold> ProgressByScenario(PlayerProfile profile)
     {
-        Dictionary<Guid, ScenarioProgress> progress = [];
+        Dictionary<Guid, ScenarioFold> progress = [];
         foreach (ScenarioMastery mastery in profile.ScenarioMasteries)
         {
             bool completed = mastery.EndingIds.Count > 0;
-            progress[mastery.ScenarioId] = progress.TryGetValue(mastery.ScenarioId, out ScenarioProgress current)
-                ? new ScenarioProgress(Math.Max(current.MasteryPercent, mastery.MasteryPercent), current.Completed || completed)
-                : new ScenarioProgress(mastery.MasteryPercent, completed);
+            progress[mastery.ScenarioId] = progress.TryGetValue(mastery.ScenarioId, out ScenarioFold current)
+                ? new ScenarioFold(Math.Max(current.MasteryPercent, mastery.MasteryPercent), current.Completed || completed)
+                : new ScenarioFold(mastery.MasteryPercent, completed);
         }
 
         return progress;
@@ -684,7 +850,7 @@ public sealed class PlayerExperienceService(
     {
         IReadOnlyList<JourneyCatalogEntry> journeys = catalog.Journeys ?? [];
         Dictionary<Guid, CategoryCatalogEntry> categories = (catalog.Categories ?? []).ToDictionary(static category => category.Id);
-        Dictionary<Guid, ScenarioProgress> progress = ProgressByScenario(profile);
+        Dictionary<Guid, ScenarioFold> progress = ProgressByScenario(profile);
 
         Dictionary<Guid, CategoryProgressView> categoryProgress = categories.Values.ToDictionary(
             static category => category.Id,
@@ -751,7 +917,7 @@ public sealed class PlayerExperienceService(
             .Distinct()
             .ToArray();
 
-    private static (int Started, int Completed, int Percent) Aggregate(IReadOnlyList<Guid> scenarioIds, Dictionary<Guid, ScenarioProgress> progress)
+    private static (int Started, int Completed, int Percent) Aggregate(IReadOnlyList<Guid> scenarioIds, Dictionary<Guid, ScenarioFold> progress)
     {
         if (scenarioIds.Count == 0) return (0, 0, 0);
         int started = 0;
@@ -759,7 +925,7 @@ public sealed class PlayerExperienceService(
         int total = 0;
         foreach (Guid scenarioId in scenarioIds)
         {
-            if (!progress.TryGetValue(scenarioId, out ScenarioProgress scenario)) continue;
+            if (!progress.TryGetValue(scenarioId, out ScenarioFold scenario)) continue;
             started++;
             if (scenario.Completed) completed++;
             total += scenario.MasteryPercent;
@@ -796,7 +962,8 @@ public sealed class PlayerExperienceService(
             profile.DefaultJourneyId,
             ResolveEffective(profile, journeys),
             MapFinale(profile, catalog),
-            MapStats(profile, catalog));
+            MapStats(profile, catalog),
+            MapRewards(profile, catalog));
     }
 
     /// <summary>

@@ -35,10 +35,10 @@ public sealed class FinaleTests
     [Fact]
     public void ScenariosCompletedCountsOnlyFinishedScenarios()
     {
-        FinalePlan plan = Plan(FinaleMode.All, Condition(FinaleConditionKind.ScenariosCompleted, threshold: 2));
+        FinalePlan plan = Plan(ProgressMode.All, Condition(ProgressConditionKind.ScenariosCompleted, threshold: 2));
 
-        FinaleConditionProgress started = Assert.Single(FinaleEvaluator.Evaluate(plan, [Done(ScenarioOne), Started(ScenarioTwo)], Categories, Journeys));
-        FinaleConditionProgress finished = Assert.Single(FinaleEvaluator.Evaluate(plan, [Done(ScenarioOne), Done(ScenarioTwo)], Categories, Journeys));
+        ProgressConditionProgress started = Assert.Single(FinaleEvaluator.Evaluate(plan, Snapshot([Done(ScenarioOne), Started(ScenarioTwo)])));
+        ProgressConditionProgress finished = Assert.Single(FinaleEvaluator.Evaluate(plan, Snapshot([Done(ScenarioOne), Done(ScenarioTwo)])));
 
         Assert.False(started.Satisfied);
         Assert.Equal(1, started.Current);
@@ -49,10 +49,10 @@ public sealed class FinaleTests
     [Fact]
     public void CategoryCompletedRequiresEveryScenarioOfTheCategory()
     {
-        FinalePlan plan = Plan(FinaleMode.All, Condition(FinaleConditionKind.CategoryCompleted, categoryId: CategoryA));
+        FinalePlan plan = Plan(ProgressMode.All, Condition(ProgressConditionKind.CategoryCompleted, categoryId: CategoryA));
 
-        Assert.False(Assert.Single(FinaleEvaluator.Evaluate(plan, [Done(ScenarioOne)], Categories, Journeys)).Satisfied);
-        Assert.True(Assert.Single(FinaleEvaluator.Evaluate(plan, [Done(ScenarioOne), Done(ScenarioTwo)], Categories, Journeys)).Satisfied);
+        Assert.False(Assert.Single(FinaleEvaluator.Evaluate(plan, Snapshot([Done(ScenarioOne)]))).Satisfied);
+        Assert.True(Assert.Single(FinaleEvaluator.Evaluate(plan, Snapshot([Done(ScenarioOne), Done(ScenarioTwo)]))).Satisfied);
     }
 
     [Fact]
@@ -60,19 +60,19 @@ public sealed class FinaleTests
     {
         // A freshly seeded instance has categories with no scenario attached yet.
         // Treating "nothing to do" as "done" would fire the finale immediately.
-        FinalePlan plan = Plan(FinaleMode.All, Condition(FinaleConditionKind.CategoryCompleted, categoryId: CategoryA));
+        FinalePlan plan = Plan(ProgressMode.All, Condition(ProgressConditionKind.CategoryCompleted, categoryId: CategoryA));
         CategoryCatalogEntry[] empty = [Category(CategoryA, [])];
 
-        Assert.False(Assert.Single(FinaleEvaluator.Evaluate(plan, [Done(ScenarioOne)], empty, Journeys)).Satisfied);
+        Assert.False(Assert.Single(FinaleEvaluator.Evaluate(plan, Snapshot([Done(ScenarioOne)], empty))).Satisfied);
     }
 
     [Fact]
     public void JourneyCompletedAggregatesTheScenariosOfEveryCategory()
     {
-        FinalePlan plan = Plan(FinaleMode.All, Condition(FinaleConditionKind.JourneyCompleted, journeyId: JourneyId));
+        FinalePlan plan = Plan(ProgressMode.All, Condition(ProgressConditionKind.JourneyCompleted, journeyId: JourneyId));
 
-        FinaleConditionProgress partial = Assert.Single(FinaleEvaluator.Evaluate(plan, [Done(ScenarioOne), Done(ScenarioTwo)], Categories, Journeys));
-        FinaleConditionProgress complete = Assert.Single(FinaleEvaluator.Evaluate(plan, [Done(ScenarioOne), Done(ScenarioTwo), Done(ScenarioThree)], Categories, Journeys));
+        ProgressConditionProgress partial = Assert.Single(FinaleEvaluator.Evaluate(plan, Snapshot([Done(ScenarioOne), Done(ScenarioTwo)])));
+        ProgressConditionProgress complete = Assert.Single(FinaleEvaluator.Evaluate(plan, Snapshot([Done(ScenarioOne), Done(ScenarioTwo), Done(ScenarioThree)])));
 
         Assert.Equal(2, partial.Current);
         Assert.Equal(3, partial.Target);
@@ -83,11 +83,11 @@ public sealed class FinaleTests
     [Fact]
     public void EndingsReachedCountsTheDistinctEndingsListed()
     {
-        FinalePlan plan = Plan(FinaleMode.All, Condition(
-            FinaleConditionKind.EndingsReached, threshold: 2, endingIds: ["fin-silence", "fin-alerte", "fin-retrait"]));
+        FinalePlan plan = Plan(ProgressMode.All, Condition(
+            ProgressConditionKind.EndingsReached, threshold: 2, endingIds: ["fin-silence", "fin-alerte", "fin-retrait"]));
 
-        FinaleConditionProgress one = Assert.Single(FinaleEvaluator.Evaluate(plan, [Done(ScenarioOne, "fin-silence")], Categories, Journeys));
-        FinaleConditionProgress two = Assert.Single(FinaleEvaluator.Evaluate(plan, [Done(ScenarioOne, "fin-silence"), Done(ScenarioTwo, "fin-alerte")], Categories, Journeys));
+        ProgressConditionProgress one = Assert.Single(FinaleEvaluator.Evaluate(plan, Snapshot([Done(ScenarioOne, "fin-silence")])));
+        ProgressConditionProgress two = Assert.Single(FinaleEvaluator.Evaluate(plan, Snapshot([Done(ScenarioOne, "fin-silence"), Done(ScenarioTwo, "fin-alerte")])));
 
         Assert.False(one.Satisfied);
         Assert.True(two.Satisfied);
@@ -96,13 +96,13 @@ public sealed class FinaleTests
     [Fact]
     public void MasteryPercentReachedComparesTheAverageOverTheScopedScenarios()
     {
-        FinalePlan plan = Plan(FinaleMode.All, Condition(
-            FinaleConditionKind.MasteryPercentReached, threshold: 60, scenarioIds: [ScenarioOne, ScenarioTwo]));
+        FinalePlan plan = Plan(ProgressMode.All, Condition(
+            ProgressConditionKind.MasteryPercentReached, threshold: 60, scenarioIds: [ScenarioOne, ScenarioTwo]));
 
-        FinaleConditionProgress low = Assert.Single(FinaleEvaluator.Evaluate(
-            plan, [Progress(ScenarioOne, 80), Progress(ScenarioTwo, 20)], Categories, Journeys));
-        FinaleConditionProgress high = Assert.Single(FinaleEvaluator.Evaluate(
-            plan, [Progress(ScenarioOne, 80), Progress(ScenarioTwo, 60)], Categories, Journeys));
+        ProgressConditionProgress low = Assert.Single(FinaleEvaluator.Evaluate(
+            plan, Snapshot([Progress(ScenarioOne, 80), Progress(ScenarioTwo, 20)])));
+        ProgressConditionProgress high = Assert.Single(FinaleEvaluator.Evaluate(
+            plan, Snapshot([Progress(ScenarioOne, 80), Progress(ScenarioTwo, 60)])));
 
         Assert.Equal(50, low.Current);
         Assert.False(low.Satisfied);
@@ -112,24 +112,24 @@ public sealed class FinaleTests
     [Fact]
     public void ConditionsCombineWithAllAndAny()
     {
-        FinaleCondition scenarios = Condition(FinaleConditionKind.ScenariosCompleted, threshold: 3);
-        FinaleCondition category = Condition(FinaleConditionKind.CategoryCompleted, categoryId: CategoryA);
-        FinaleEvaluator.ScenarioProgress[] progress = [Done(ScenarioOne), Done(ScenarioTwo)];
+        ProgressCondition scenarios = Condition(ProgressConditionKind.ScenariosCompleted, threshold: 3);
+        ProgressCondition category = Condition(ProgressConditionKind.CategoryCompleted, categoryId: CategoryA);
+        ScenarioProgress[] progress = [Done(ScenarioOne), Done(ScenarioTwo)];
 
-        FinalePlan all = Plan(FinaleMode.All, scenarios, category);
-        FinalePlan any = Plan(FinaleMode.Any, scenarios, category);
+        FinalePlan all = Plan(ProgressMode.All, scenarios, category);
+        FinalePlan any = Plan(ProgressMode.Any, scenarios, category);
 
         // The category is complete, the scenario count is not.
-        Assert.False(FinaleEvaluator.IsSatisfied(all, FinaleEvaluator.Evaluate(all, progress, Categories, Journeys)));
-        Assert.True(FinaleEvaluator.IsSatisfied(any, FinaleEvaluator.Evaluate(any, progress, Categories, Journeys)));
+        Assert.False(FinaleEvaluator.IsSatisfied(all, FinaleEvaluator.Evaluate(all, Snapshot(progress))));
+        Assert.True(FinaleEvaluator.IsSatisfied(any, FinaleEvaluator.Evaluate(any, Snapshot(progress))));
     }
 
     [Fact]
     public void ADisabledFinaleIsNeverSatisfied()
     {
-        FinalePlan plan = Plan(FinaleMode.Any, Condition(FinaleConditionKind.ScenariosCompleted, threshold: 1)) with { Enabled = false };
+        FinalePlan plan = Plan(ProgressMode.Any, Condition(ProgressConditionKind.ScenariosCompleted, threshold: 1)) with { Enabled = false };
 
-        Assert.False(FinaleEvaluator.IsSatisfied(plan, FinaleEvaluator.Evaluate(plan, [Done(ScenarioOne)], Categories, Journeys)));
+        Assert.False(FinaleEvaluator.IsSatisfied(plan, FinaleEvaluator.Evaluate(plan, Snapshot([Done(ScenarioOne)]))));
     }
 
     [Fact]
@@ -167,7 +167,7 @@ public sealed class FinaleTests
 
         PlayerExperienceView view = await Complete(service, ScenarioOne, "fin-silence");
 
-        FinaleConditionProgress condition = Assert.Single(view.Finale!.Conditions);
+        ProgressConditionProgress condition = Assert.Single(view.Finale!.Conditions);
         Assert.Equal(1, condition.Current);
         Assert.Equal(2, condition.Target);
         Assert.False(condition.Satisfied);
@@ -213,7 +213,7 @@ public sealed class FinaleTests
             {
                 Finale = baseline.Finale! with
                 {
-                    Conditions = [new FinaleConditionDefinition(Guid.NewGuid(), FinaleConditionType.CategoryCompleted, "Catégorie inconnue.", CategoryId: Guid.NewGuid())],
+                    Conditions = [new ProgressConditionDefinition(Guid.NewGuid(), ProgressConditionType.CategoryCompleted, "Catégorie inconnue.", CategoryId: Guid.NewGuid())],
                 },
             }, CancellationToken.None));
 
@@ -222,7 +222,7 @@ public sealed class FinaleTests
             {
                 Finale = baseline.Finale! with
                 {
-                    Conditions = [new FinaleConditionDefinition(Guid.NewGuid(), FinaleConditionType.ScenariosCompleted, "Sans seuil.")],
+                    Conditions = [new ProgressConditionDefinition(Guid.NewGuid(), ProgressConditionType.ScenariosCompleted, "Sans seuil.")],
                 },
             }, CancellationToken.None));
 
@@ -235,11 +235,11 @@ public sealed class FinaleTests
             "default", "player-1", $"{scenarioId}:{endingId}", "ScenarioCompleted", "Fin atteinte", "Vous avez terminé un scénario.",
             null, null, scenarioId, scenarioId, Guid.NewGuid(), null, "choice", "node", endingId, true, 4), CancellationToken.None);
 
-    private static FinalePlan Plan(FinaleMode mode, params FinaleCondition[] conditions) =>
+    private static FinalePlan Plan(ProgressMode mode, params ProgressCondition[] conditions) =>
         new(Guid.NewGuid(), true, "Fin", "Résumé", "Corps", mode, conditions, null, null, null);
 
-    private static FinaleCondition Condition(
-        FinaleConditionKind kind,
+    private static ProgressCondition Condition(
+        ProgressConditionKind kind,
         int? threshold = null,
         Guid? categoryId = null,
         Guid? journeyId = null,
@@ -247,12 +247,22 @@ public sealed class FinaleTests
         IReadOnlyList<Guid>? scenarioIds = null) =>
         new(Guid.NewGuid(), kind, kind.ToString(), threshold, categoryId, journeyId, endingIds ?? [], scenarioIds ?? []);
 
-    private static FinaleEvaluator.ScenarioProgress Done(Guid scenarioId, string endingId = "fin") =>
+    /// <summary>
+    /// The catalogue side of what the shared evaluator reads. These finale tests declare
+    /// no player statistic, so the statistic map stays empty and the verdicts below are
+    /// unchanged from before the condition model was shared with the rewards.
+    /// </summary>
+    private static ProgressSnapshot Snapshot(
+        IReadOnlyList<ScenarioProgress> progress,
+        IReadOnlyList<CategoryCatalogEntry>? categories = null) =>
+        new(progress, categories ?? Categories, Journeys, new Dictionary<string, int>(StringComparer.Ordinal));
+
+    private static ScenarioProgress Done(Guid scenarioId, string endingId = "fin") =>
         new(scenarioId, true, [endingId], 100);
 
-    private static FinaleEvaluator.ScenarioProgress Started(Guid scenarioId) => new(scenarioId, false, [], 25);
+    private static ScenarioProgress Started(Guid scenarioId) => new(scenarioId, false, [], 25);
 
-    private static FinaleEvaluator.ScenarioProgress Progress(Guid scenarioId, int mastery) =>
+    private static ScenarioProgress Progress(Guid scenarioId, int mastery) =>
         new(scenarioId, true, ["fin"], mastery);
 
     private sealed class ConfigurationRepositoryStub : IConfigurationRepository
@@ -305,8 +315,8 @@ public sealed class FinaleTests
                 new FinalePlan(
                     Guid.Parse("5f2c8b41-7d10-4a63-9e58-3c17a4b6d201"), true,
                     "Ce qui reste après vous", "Vous avez traversé les postures.", "Rien ne se ferme.",
-                    FinaleMode.All,
-                    [new FinaleCondition(Guid.Parse("5f2c8b41-7d10-4a63-9e58-3c17a4b6d211"), FinaleConditionKind.ScenariosCompleted, "Terminer deux scénarios.", 2, null, null, [], [])],
+                    ProgressMode.All,
+                    [new ProgressCondition(Guid.Parse("5f2c8b41-7d10-4a63-9e58-3c17a4b6d211"), ProgressConditionKind.ScenariosCompleted, "Terminer deux scénarios.", 2, null, null, [], [])],
                     null, null, null)));
     }
 }

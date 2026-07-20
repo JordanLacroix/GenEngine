@@ -10,6 +10,7 @@ public sealed class PlayerProfile
     private readonly List<PlayerJournalEntry> journalEntries = [];
     private readonly List<ScenarioMastery> scenarioMasteries = [];
     private readonly List<PlayerStatValue> statValues = [];
+    private readonly List<EarnedReward> earnedRewards = [];
 
     private PlayerProfile() { }
 
@@ -84,6 +85,18 @@ public sealed class PlayerProfile
     /// </summary>
     public IReadOnlyList<PlayerStatValue> StatValues => statValues;
 
+    /// <summary>
+    /// Conditional rewards this player has crossed, with the moment each was crossed.
+    /// </summary>
+    /// <remarks>
+    /// This is a stamp, not a progression store: nothing here records <em>how far</em> the
+    /// player is on anything. Progress towards an unearned reward is recomputed on demand
+    /// from the mastery and the statistics the profile already carries, exactly as the
+    /// finale does — which is why a row exists only once a reward has actually been
+    /// earned, and why a reward added to the catalogue later needs no backfill.
+    /// </remarks>
+    public IReadOnlyList<EarnedReward> EarnedRewards => earnedRewards;
+
     public static PlayerProfile Create(string userId, string frontId, int initialBalance, DateTimeOffset now) =>
         new(Guid.NewGuid(), userId, frontId, initialBalance, now);
 
@@ -148,6 +161,25 @@ public sealed class PlayerProfile
         if (FinaleId == finaleId && FinaleReachedAt is not null) return false;
         FinaleId = finaleId;
         FinaleReachedAt = now;
+        Touch(now);
+        return true;
+    }
+
+    /// <summary>
+    /// Records that the player earned a conditional reward.
+    /// </summary>
+    /// <remarks>
+    /// Stamped once and never re-dated: a second call for the same reward returns
+    /// <c>false</c> and leaves the original moment untouched, whatever the conditions say
+    /// afterwards. That is what makes the date honest — it answers "when did you earn
+    /// this", not "when was it last checked". Nothing in this aggregate reads the stamp to
+    /// deny an action, so earning a reward locks nothing.
+    /// </remarks>
+    /// <returns><c>false</c> when the reward had already been earned.</returns>
+    public bool MarkRewardEarned(Guid rewardId, DateTimeOffset now)
+    {
+        if (earnedRewards.Any(item => item.RewardId == rewardId)) return false;
+        earnedRewards.Add(EarnedReward.Create(Id, rewardId, now));
         Touch(now);
         return true;
     }
@@ -495,6 +527,28 @@ public sealed class PlayerStatValue
         UpdatedAt = now;
         return true;
     }
+}
+
+/// <summary>
+/// The moment one conditional reward was crossed by one player. Write-once by
+/// construction: the type exposes no way to change <see cref="EarnedAt"/>.
+/// </summary>
+public sealed class EarnedReward
+{
+    private EarnedReward() { }
+
+    private EarnedReward(Guid profileId, Guid rewardId, DateTimeOffset earnedAt)
+    {
+        ProfileId = profileId;
+        RewardId = rewardId;
+        EarnedAt = earnedAt;
+    }
+
+    public Guid ProfileId { get; private set; }
+    public Guid RewardId { get; private set; }
+    public DateTimeOffset EarnedAt { get; private set; }
+
+    internal static EarnedReward Create(Guid profileId, Guid rewardId, DateTimeOffset now) => new(profileId, rewardId, now);
 }
 
 public sealed class WalletEntry

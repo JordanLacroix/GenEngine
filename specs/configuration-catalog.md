@@ -163,9 +163,11 @@ L'exhaustivité est une propriété testée, pas une intention : le type `Experi
 
 ## Fin de jeu configurable
 
-Un front peut déclarer un scénario de fin global : identité, textes de clôture, médias facultatifs et conditions composables en `All` ou `Any`. Les types de condition livrés sont `ScenariosCompleted`, `CategoryCompleted`, `JourneyCompleted`, `EndingsReached` et `MasteryPercentReached`.
+Un front peut déclarer un scénario de fin global : identité, textes de clôture, médias facultatifs et conditions composables en `All` ou `Any`.
 
-L'évaluation s'appuie exclusivement sur `ScenarioMastery`, déjà porteur de la maîtrise cross-session par (profil, version de scénario) : aucun second système de suivi n'est créé. Elle est déterministe et n'utilise que de l'arithmétique entière.
+Ses conditions relèvent du **modèle partagé** décrit ci-dessous, commun à la fin de jeu et aux récompenses conditionnelles.
+
+L'évaluation s'appuie exclusivement sur la progression déjà enregistrée — `ScenarioMastery` par (profil, version de scénario) et les valeurs de statistiques joueur : aucun second système de suivi n'est créé. Elle est déterministe et n'utilise que de l'arithmétique entière.
 
 Atteindre la fin est modélisé comme un **seuil franchi et mémorisé**, jamais comme un état terminal : rien n'est verrouillé, et le modèle ne permet volontairement pas de configurer l'inverse.
 
@@ -178,6 +180,24 @@ La `key` est le point de jointure entre l'auteur et le joueur : c'est le slug qu
 Trois propriétés sont garanties par le serveur et jamais par un client : une statistique **démarre à zéro**, elle est **bornée par son plafond**, et un gain qui dépasserait ce plafond **sature** au lieu d'échouer. La saturation plutôt que le refus est délibérée : l'auteur d'un scénario ne peut pas connaître la valeur courante du joueur, donc conditionner le gain à cette valeur ferait réussir ou échouer le même effet selon l'ordre dans lequel le joueur a joué les scénarios.
 
 `enabled` à `false` est le comportement désactivé : le catalogue reste publié, les valeurs acquises restent servies, aucun gain n'est plus appliqué. Couper les statistiques ne détruit jamais ce qu'un joueur a gagné.
+
+## Modèle de conditions partagé
+
+La fin de jeu et les récompenses conditionnelles posent la même question à la même progression. Elles partagent donc **un seul modèle de conditions** : un type, une description écrite pour le joueur, et seulement les opérandes que ce type utilise. Six types sont livrés : `ScenariosCompleted`, `CategoryCompleted`, `JourneyCompleted`, `EndingsReached`, `MasteryPercentReached` et `PlayerStatReached`.
+
+Le partage est une décision de conception, pas une commodité. Deux modèles parallèles auraient dérivé l'un de l'autre, auraient demandé deux validations à maintenir en accord, et auraient obligé chaque client à rendre deux formes de progression différentes pour la même idée. Le prix accepté en échange est que les deux blocs partagent aussi leurs bornes et leurs règles d'opérandes ; seul le code d'erreur reste propre à chacun, pour qu'un opérateur sache lequel il a cassé.
+
+`PlayerStatReached` est le type ajouté par ce lot. Il lit une valeur de statistique joueur et la compare à un seuil ; sa clé est validée contre le catalogue publié dans `playerStats`. La valeur est lue brute et n'est jamais rebornée au plafond publié : abaisser un plafond après coup ne doit pas retirer une récompense déjà obtenue.
+
+## Récompenses conditionnelles
+
+Un front déclare dans `rewards` ce que ses joueurs peuvent obtenir : `enabled`, puis une liste bornée à 48 entrées. Chaque récompense porte une identité stable, un libellé et une description lus par le joueur, un `mode` `All`/`Any`, ses conditions au modèle partagé, et de 1 à 6 `grants`. Le bloc est validé par `invalid_reward` et `invalid_reward_condition`, et documenté champ par champ dans le catalogue d'aide intégrée.
+
+Ce qu'une récompense **accorde** est modélisé par un enum fermé — `Achievement`, `Title`, `Currency` — et non par un sac de chaînes. Les trois natures ne se comportent pas pareil : les deux premières sont des marques déclaratives que le client rend, la troisième crédite réellement le portefeuille de `economy`. Un sac de chaînes aurait aussi rendu le champ `amount` signifiant pour une nature et muet pour les deux autres sans que rien ne le dise.
+
+Une récompense franchie est **estampillée une seule fois**, jamais redatée, et n'est jamais reprise — pas même lorsqu'un opérateur édite le document au point que ses conditions ne sont plus satisfaites. Rien n'est verrouillé. Seule l'estampille est stockée : ce qu'il reste à faire est recalculé à la demande depuis la progression que le profil porte déjà, donc ajouter une récompense au catalogue ne demande aucun backfill.
+
+`enabled` à `false` est le comportement désactivé : le catalogue reste publié, les récompenses déjà obtenues restent visibles, aucune nouvelle n'est estampillée.
 
 ## Règle d'entretien
 
