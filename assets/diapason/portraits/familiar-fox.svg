@@ -1,0 +1,16 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Familier, forme renard">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="72%">
+      <stop offset="0%" stop-color="#26404f"/>
+      <stop offset="100%" stop-color="#16242e"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <path d="M70 78 L104 120 L74 132 Z" fill="currentColor" color="#b0733a"/>
+  <path d="M186 78 L152 120 L182 132 Z" fill="currentColor" color="#b0733a"/>
+  <path d="M128 96 C96 96 84 120 90 152 L128 200 L166 152 C172 120 160 96 128 96 Z" fill="#28414f" stroke="currentColor" stroke-width="4" color="#b0733a"/>
+  <circle cx="110" cy="140" r="8" fill="currentColor" color="#d7a746"/>
+  <circle cx="146" cy="140" r="8" fill="currentColor" color="#d7a746"/>
+  <path d="M128 168 L120 178 L136 178 Z" fill="#e6edf1"/>
+  <path d="M128 178 L128 190" fill="none" stroke="#6f8494" stroke-width="3" stroke-linecap="round"/>
+</svg>

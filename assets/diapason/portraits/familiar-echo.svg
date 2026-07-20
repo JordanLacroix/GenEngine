@@ -1,0 +1,15 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Familier, forme echo">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="72%">
+      <stop offset="0%" stop-color="#26404f"/>
+      <stop offset="100%" stop-color="#16242e"/>
+    </radialGradient>
+  </defs>
+  <rect width="256" height="256" rx="48" fill="url(#bg)"/>
+  <g fill="none" stroke="currentColor" stroke-linecap="round" color="#2f7fa0">
+    <circle cx="128" cy="128" r="18" stroke-width="8" opacity="1"/>
+    <circle cx="128" cy="128" r="42" stroke-width="6" opacity="0.75"/>
+    <circle cx="128" cy="128" r="66" stroke-width="4" opacity="0.5"/>
+    <circle cx="128" cy="128" r="90" stroke-width="3" opacity="0.28"/>
+  </g>
+</svg>

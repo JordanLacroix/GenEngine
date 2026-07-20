@@ -8,18 +8,24 @@ n'a pas encore de licence (voir la section « Licence » du [README](../../READM
 
 | Élément | Valeur |
 |---|---|
-| Nombre d'assets livrés | 62 |
-| Sources distinctes | 4 packs Kenney |
+| Nombre d'assets livrés | 80 |
+| Sources distinctes | 4 packs Kenney + 1 source génératif interne |
 | Licence de tous les assets | **CC0 1.0 Universal** (domaine public) |
-| Auteur de tous les assets | **Kenney** (Kenney Vleugels), <https://kenney.nl> |
+| Auteurs | **Kenney** (Kenney Vleugels), <https://kenney.nl> ; **GenEngine** (assets génératifs) |
 | Assets sous une autre licence | aucun |
 | Assets dont la licence n'a pas été vérifiée | aucun |
 
-Tous les fichiers ont été téléchargés depuis les URL officielles `kenney.nl`, et le
+Les 62 assets Kenney ont été téléchargés depuis les URL officielles `kenney.nl`, et le
 fichier de licence fourni par Kenney à l'intérieur de chaque archive est conservé
 tel quel sous [`licenses/`](licenses/). Aucun fichier n'a été modifié : les octets
 livrés sont identiques à ceux de l'archive amont, ce que le manifeste permet de
 revérifier via l'empreinte SHA-256 de chaque fichier.
+
+Les 18 assets restants (portraits de familier, fonds d'emplacement, illustrations
+de scénario, icônes de marque et de client) sont des SVG **produits à la main dans
+ce dépôt**, sans dépendance ni ressource externe, versés au domaine public sous CC0
+par le projet. Ils sont couverts par la source `genengine-diapason-generative` et
+la dédicace [`licenses/genengine-diapason-generative.License.txt`](licenses/genengine-diapason-generative.License.txt).
 
 ## Attribution
 
@@ -89,6 +95,23 @@ documentation) :
 | Licence amont conservée | [`licenses/kenney_music-jingles.License.txt`](licenses/kenney_music-jingles.License.txt) |
 | Attribution demandée | « Credit (Kenney or `www.kenney.nl`) would be nice but is not mandatory. » |
 | Fichiers repris | 4 OGG (`stingers/`), issus de `Audio/Steel jingles` |
+
+### 5. Assets génératifs Diapason
+
+| Champ | Valeur |
+|---|---|
+| Identifiant manifeste | `genengine-diapason-generative` |
+| Auteur | GenEngine |
+| Licence | CC0 1.0 — <https://creativecommons.org/publicdomain/zero/1.0/> |
+| Dédicace conservée | [`licenses/genengine-diapason-generative.License.txt`](licenses/genengine-diapason-generative.License.txt) |
+| Origine | Produits à la main dans le dépôt, sans ressource externe |
+| Fichiers repris | 5 portraits (`portraits/`), 6 fonds (`backgrounds/`), 5 illustrations (`illustrations/`), 2 icônes (`brand/`) |
+
+Ces SVG suivent la direction artistique Diapason (abstrait, désaturé, univers
+technologique 2026) et la palette du manifeste. Ils comblent les catégories pour
+lesquelles le plan d'approvisionnement ne trouvait **aucune source CC0 exploitable**
+(portraits de familier, icônes de marque, illustrations d'états d'écran), et fournissent
+des fonds d'emplacement en attendant les photos CC0 du kit audio/photo.
 
 ## Ce qui n'a délibérément **pas** été inclus
 

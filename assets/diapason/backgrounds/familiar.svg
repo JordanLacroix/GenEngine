@@ -1,0 +1,22 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fond, familier">
+  <defs>
+    <radialGradient id="aura" cx="50%" cy="46%" r="60%">
+      <stop offset="0%" stop-color="#2f7fa0"/>
+      <stop offset="55%" stop-color="#1c3d4d"/>
+      <stop offset="100%" stop-color="#17344a"/>
+    </radialGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#aura)"/>
+  <g fill="none" stroke="#d7a746" stroke-width="2" opacity="0.3">
+    <circle cx="960" cy="500" r="180"/>
+    <circle cx="960" cy="500" r="300"/>
+    <circle cx="960" cy="500" r="420"/>
+  </g>
+  <g fill="#fffaf0" opacity="0.5">
+    <circle cx="620" cy="300" r="4"/>
+    <circle cx="1320" cy="360" r="4"/>
+    <circle cx="1420" cy="720" r="4"/>
+    <circle cx="540" cy="760" r="4"/>
+    <circle cx="960" cy="200" r="4"/>
+  </g>
+</svg>

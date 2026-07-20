@@ -1,0 +1,22 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Fond, lecteur">
+  <defs>
+    <linearGradient id="desk" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#1b3948"/>
+      <stop offset="100%" stop-color="#101f28"/>
+    </linearGradient>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#desk)"/>
+  <rect x="560" y="300" width="800" height="440" rx="14" fill="#0f2129" stroke="#2f7fa0" stroke-width="2" opacity="0.9"/>
+  <g fill="#2f7fa0" opacity="0.5">
+    <rect x="600" y="350" width="360" height="14" rx="7"/>
+    <rect x="600" y="392" width="520" height="10" rx="5"/>
+    <rect x="600" y="424" width="440" height="10" rx="5"/>
+    <rect x="600" y="456" width="500" height="10" rx="5"/>
+  </g>
+  <g fill="#d7a746" opacity="0.7">
+    <rect x="600" y="512" width="220" height="12" rx="6"/>
+    <rect x="600" y="548" width="300" height="10" rx="5"/>
+  </g>
+  <rect x="560" y="740" width="800" height="18" fill="#24485a" opacity="0.6"/>
+  <circle cx="1520" cy="220" r="70" fill="#7a9a55" opacity="0.14"/>
+</svg>
