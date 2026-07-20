@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "title": "La nuit du seuil",
+  "premise": "Vous êtes alternant dans une équipe qui met en production, ce soir à 23h00, un modèle de tri des candidatures. Vous êtes la seule personne à avoir regardé les données d'entrée. Il vous reste la soirée pour décider si vous rendez ce que vous avez vu opposable, ou si vous laissez le déploiement suivre son cours.",
+  "initialBeatId": "arrivee",
+  "clock": {
+    "startMinute": 1200,
+    "ritualMinute": 1380,
+    "ritualBeatId": "seuil"
+  },
+  "locations": [
+    { "id": "open-space", "description": "L'open-space presque vide en fin de journée. Deux écrans encore allumés, la fenêtre de déploiement affichée sur l'un d'eux : 23h00." },
+    { "id": "poste-donnees", "description": "Votre poste. Le jeu de données d'entraînement, les features du modèle, le seuil de rejet configuré." },
+    { "id": "bureau-nadia", "description": "Le bureau de Nadia, votre tutrice. Porte entrouverte, une pile de tickets en retard." },
+    { "id": "cafeteria", "description": "La cafétéria. Farid y répond à des messages, une démo client prévue demain matin." },
+    { "id": "salle-serveur", "description": "La salle de déploiement. La console de mise en production, le bouton de gel de la fenêtre." },
+    { "id": "sortie", "description": "L'ascenseur et la sortie. On peut partir. Personne ne retient personne." }
+  ],
+  "facts": [
+    { "id": "f-seuil-recopie", "text": "Le seuil de rejet 0,62 a été recopié d'une documentation fournisseur ; aucun membre de l'équipe ne l'a choisi ni justifié." },
+    { "id": "f-variable-proxy", "text": "Trois features licites — code postal, durée de trajet, type de contrat — reconstituent ensemble un critère interdit : l'origine géographique des candidats." },
+    { "id": "f-table-412", "text": "Sur les 412 candidatures, l'échantillon montré (6 lignes) suffit à voir que les rejets se concentrent sur les mêmes quartiers." },
+    { "id": "f-log-absent", "text": "Aucun journal de provenance ne dit qui a fixé le seuil ni quand : la décision n'a pas d'auteur." },
+    { "id": "f-mesure", "text": "Le taux de rejet mesuré est de 41 % sur un groupe et de 12 % sur l'autre : un écart chiffrable, donc opposable." },
+    { "id": "f-nadia-sait", "text": "Nadia connaît le problème du proxy depuis des mois ; elle n'a jamais eu le temps de le documenter." },
+    { "id": "f-farid-echeance", "text": "Farid a besoin du go-live à 23h00 pour une démonstration client demain matin ; il ignore le détail des features." }
+  ],
+  "npcs": [
+    { "id": "nadia", "name": "Nadia", "role": "votre tutrice, data scientist, fatiguée", "known": "Bienveillante, débordée. Vous fait confiance mais tranche vite pour tenir les délais.", "secret": "Elle a vu le proxy il y a onze mois. Elle a raison de vouloir bien faire et n'a jamais eu le temps.", "alive": true, "trust": 1 },
+    { "id": "farid", "name": "Farid", "role": "responsable de l'équipe, pressé", "known": "Pragmatique, de bonne foi. Tient à la fenêtre de 23h00 pour la démo client.", "secret": "Il ne sait pas ce qu'il y a dans les features ; il fait confiance à la chaîne au-dessus de lui.", "alive": true, "trust": 0 },
+    { "id": "leila", "name": "Leïla", "role": "collègue alternante", "known": "Curieuse, prudente. Peut vous aider à calculer l'écart si vous le lui demandez.", "secret": "Elle hésite à s'exposer autant que vous ; un chiffre solide la décidera.", "alive": true, "trust": 2 }
+  ],
+  "beats": [
+    {
+      "id": "arrivee",
+      "goal": "L'alternant arrive dans l'open-space en fin de journée et comprend qu'un déploiement est prévu à 23h00. Un premier collègue trop pressé lui parle de la fenêtre sans mentionner les données.",
+      "requires": { "$type": "always" },
+      "satisfied": { "$type": "all", "predicates": [ { "$type": "atLocation", "location": "poste-donnees" }, { "$type": "turnAtLeast", "turn": 2 } ] },
+      "next": ["enquete"],
+      "patience": 3,
+      "reveals": ["f-seuil-recopie"]
+    },
+    {
+      "id": "enquete",
+      "goal": "L'alternant rassemble des preuves que le tri repose sur des critères que personne n'a vraiment choisis. Il doit apprendre au moins trois faits vérifiables.",
+      "requires": { "$type": "always" },
+      "satisfied": { "$type": "knownFactCountAtLeast", "count": 3 },
+      "next": ["confrontation"],
+      "patience": 6,
+      "reveals": ["f-variable-proxy", "f-table-412", "f-log-absent", "f-mesure"]
+    },
+    {
+      "id": "confrontation",
+      "goal": "L'alternant expose ce qu'il a vu à sa tutrice ou à son responsable. On ne nie pas ; on explique, sans s'excuser, pourquoi c'est resté ainsi. Il comprend que le déploiement partira sans lui s'il se tait.",
+      "requires": { "$type": "knownFactCountAtLeast", "count": 3 },
+      "satisfied": { "$type": "any", "predicates": [ { "$type": "knowsFact", "fact": "f-nadia-sait" }, { "$type": "knowsFact", "fact": "f-farid-echeance" } ] },
+      "next": ["seuil"],
+      "patience": 5,
+      "reveals": ["f-nadia-sait", "f-farid-echeance"]
+    },
+    {
+      "id": "seuil",
+      "goal": "23h00. La fenêtre de déploiement est ouverte. L'équipe attend, de bonne foi. L'alternant doit choisir : geler la mise en production avec un fait opposable, la laisser partir, ou partir lui-même.",
+      "requires": { "$type": "clockAtLeast", "minute": 1320 },
+      "satisfied": { "$type": "beatTurnsAtLeast", "turns": 1 },
+      "next": ["fin-accord", "fin-partielle", "fin-rupture-silence"],
+      "patience": 4
+    },
+    {
+      "id": "fin-accord",
+      "goal": "L'alternant gèle la fenêtre en posant un fait chiffré et daté que personne ne peut écarter. Le déploiement attend une décision prise par quelqu'un, cette fois. Le coût est réel : la démo de demain sautera.",
+      "requires": { "$type": "all", "predicates": [ { "$type": "atLocation", "location": "salle-serveur" }, { "$type": "knowsFact", "fact": "f-variable-proxy" }, { "$type": "knowsFact", "fact": "f-mesure" } ] },
+      "satisfied": { "$type": "always" },
+      "next": [],
+      "patience": 1,
+      "ending": "accord"
+    },
+    {
+      "id": "fin-partielle",
+      "goal": "L'alternant a signalé le problème mais sans le rendre opposable. On le remercie, la mise en production est repoussée d'un jour pour vérification. Le raisonnement n'est pas consolidé ; le texte invite à rejouer.",
+      "requires": { "$type": "knownFactCountAtLeast", "count": 3 },
+      "satisfied": { "$type": "always" },
+      "next": [],
+      "patience": 1,
+      "ending": "partielle"
+    },
+    {
+      "id": "fin-rupture-silence",
+      "goal": "L'alternant se tait ou part. À 23h00, le modèle passe en production tel quel. Le texte nomme la conséquence — les 412 candidatures triées cette nuit — et renvoie au point de départ.",
+      "requires": { "$type": "always" },
+      "satisfied": { "$type": "always" },
+      "next": [],
+      "patience": 1,
+      "ending": "rupture-silence"
+    }
+  ]
+}

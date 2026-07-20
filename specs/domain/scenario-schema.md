@@ -1,5 +1,11 @@
 # Format de scénario
 
+Ce document décrit la famille **déterministe**. Une seconde famille, le **scénario
+dirigé par LLM**, vit dans un document séparé et est décrite dans
+[`directed-scenario-schema.md`](directed-scenario-schema.md) ([ADR 0007](../adr/0007-directed-scenarios.md)).
+Les deux familles coexistent ; le document déterministe ci-dessous n'est pas modifié
+par l'ajout de la famille dirigée, et son hash canonique ne bouge pas.
+
 Un `ScenarioDocument` contient `schemaVersion`, `title`, `initialNodeId` et une liste de nœuds. Le schéma v1 conserve les choix portés directement par le nœud. Le schéma v2 peut définir une séquence `interactions` typée. Le schéma v3 ajoute des médias optionnels sur les nœuds et les choix. Le schéma v4 ajoute le drapeau `isOptional` qui rend une interaction facultative. Le schéma v5 ajoute un objet `help` facultatif sur les nœuds et les choix. Le schéma v6 ajoute l'interaction `document` et la condition `consultedDocument`. Le schéma v7 ajoute l'effet `grantPlayerStat` ; les sept formats restent exécutables.
 
 Les interactions v2 disponibles sont `narration`, `quiz`, `choiceSet`, `characteristicGate` et `freeText`. Une narration progresse par une commande continue, un quiz applique des effets corrects ou incorrects sans révéler la réponse dans l'état courant, et un ensemble de choix termine un nœud non final en ciblant le nœud suivant. Un gate évalue automatiquement une condition, applique les effets de réussite ou d'échec, puis entre dans la branche correspondante sans consommer un tour joueur. Une saisie libre compare de façon déterministe et insensible à la casse/aux accents les termes attendus ; son résultat doit être confirmé avant d'appliquer les effets. Un nœud final peut dérouler ses interactions avant de passer à `Completed`.
