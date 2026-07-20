@@ -58,6 +58,7 @@ public sealed class ScenarioGenerationTests
         public Scenario? Added { get; private set; }
         public Task AddAsync(Scenario scenario, CancellationToken cancellationToken) { Added = scenario; return Task.CompletedTask; }
         public Task<Scenario?> GetAsync(Guid id, string ownerId, CancellationToken cancellationToken) => Task.FromResult<Scenario?>(null);
+        public Task<Scenario?> GetBySlugAsync(string frontId, string slug, CancellationToken cancellationToken) => Task.FromResult<Scenario?>(null);
         public Task<(IReadOnlyList<PublishedScenarioRecord> Items, int Total)> ListPublishedAsync(Guid? categoryId, string? query, int offset, int limit, CancellationToken cancellationToken) => Task.FromResult<(IReadOnlyList<PublishedScenarioRecord>, int)>(([], 0));
         public Task<(IReadOnlyList<ScenarioVersion> Items, int Total)> ListVersionsAsync(Guid scenarioId, string ownerId, int offset, int limit, CancellationToken cancellationToken) => Task.FromResult<(IReadOnlyList<ScenarioVersion>, int)>(([], 0));
         public Task<(IReadOnlyList<Scenario> Items, int Total)> ListOwnedAsync(string ownerId, string? query, Guid? categoryId, bool includeArchived, int offset, int limit, CancellationToken cancellationToken) => Task.FromResult<(IReadOnlyList<Scenario>, int)>(([], 0));

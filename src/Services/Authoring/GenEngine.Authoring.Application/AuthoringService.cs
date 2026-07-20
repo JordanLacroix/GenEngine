@@ -9,6 +9,8 @@ public interface IAuthoringRepository
 
     Task<Scenario?> GetAsync(Guid id, string ownerId, CancellationToken cancellationToken);
 
+    Task<Scenario?> GetBySlugAsync(string frontId, string slug, CancellationToken cancellationToken);
+
     Task<(IReadOnlyList<PublishedScenarioRecord> Items, int Total)> ListPublishedAsync(Guid? categoryId, string? query, int offset, int limit, CancellationToken cancellationToken);
 
     Task<(IReadOnlyList<Scenario> Items, int Total)> ListOwnedAsync(string ownerId, string? query, Guid? categoryId, bool includeArchived, int offset, int limit, CancellationToken cancellationToken);
@@ -33,7 +35,8 @@ public sealed record ScenarioView(
     Guid? CategoryId,
     string CreationBrief,
     bool IsArchived,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? Slug = null);
 /// <summary>Enveloppe paginée commune à toutes les listes de l'API Authoring.</summary>
 public sealed record PagedView<T>(IReadOnlyList<T> Items, int Page, int PageSize, int Total);
 
@@ -139,13 +142,44 @@ public sealed class AuthoringService(
     {
     }
 
+    /// <summary>
+    /// Importe un scénario. Sans <paramref name="slug"/>, un nouveau brouillon est créé par
+    /// GUID (comportement historique, préservé pour tout appelant existant). Avec un slug,
+    /// l'import est idempotent : un scénario portant déjà ce slug sur le même front voit son
+    /// brouillon mis à jour au lieu d'un doublon créé. Le slug est ainsi le chemin idempotent
+    /// de l'amorçage, pas une obligation.
+    /// </summary>
     public async Task<ScenarioView> ImportAsync(
         string ownerId,
         string draftJson,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? slug = null)
     {
         ScenarioDocument document = MigrateDraft(draftJson);
-        Scenario scenario = Scenario.Create(ownerId, document.Title, NarrativeJson.Serialize(document), GetUtcNow());
+        string serialized = NarrativeJson.Serialize(document);
+        string? normalizedSlug = string.IsNullOrWhiteSpace(slug) ? null : slug.Trim();
+        const string frontId = "default";
+
+        if (normalizedSlug is not null)
+        {
+            Scenario? existing = await repository
+                .GetBySlugAsync(frontId, normalizedSlug, cancellationToken)
+                .ConfigureAwait(false);
+            if (existing is not null)
+            {
+                existing.ReimportDraft(document.Title, serialized, GetUtcNow());
+                await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+                return Map(existing);
+            }
+        }
+
+        Scenario scenario = Scenario.Create(
+            ownerId,
+            document.Title,
+            serialized,
+            GetUtcNow(),
+            frontId,
+            slug: normalizedSlug);
         await repository.AddAsync(scenario, cancellationToken).ConfigureAwait(false);
         await repository.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return Map(scenario);
@@ -387,7 +421,8 @@ public sealed class AuthoringService(
             scenario.CategoryId,
             scenario.CreationBrief,
             scenario.IsArchived,
-            scenario.UpdatedAt);
+            scenario.UpdatedAt,
+            scenario.Slug);
 
     private static ScenarioVersionView Map(ScenarioVersion version) =>
         new(version.Id, version.ScenarioId, version.Number, version.SnapshotHash, version.PublishedAt);

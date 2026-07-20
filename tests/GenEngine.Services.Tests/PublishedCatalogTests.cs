@@ -28,6 +28,51 @@ public sealed class PublishedCatalogTests
     }
 
     [Fact]
+    public async Task ImportWithSlugUpsertsExistingDraftInsteadOfCreatingADuplicate()
+    {
+        var repository = new CatalogRepository();
+        var service = new AuthoringService(repository, TimeProvider.System);
+        ScenarioDocument first = CreateDocument("Première rédaction", "Opening");
+        ScenarioDocument second = CreateDocument("Rédaction corrigée", "Opening revu");
+
+        ScenarioView created = await service.ImportAsync(
+            "owner",
+            NarrativeJson.Serialize(first),
+            CancellationToken.None,
+            slug: "la-note-de-service");
+        ScenarioView updated = await service.ImportAsync(
+            "owner",
+            NarrativeJson.Serialize(second),
+            CancellationToken.None,
+            slug: "la-note-de-service");
+
+        // Un seul ajout : le second import a réutilisé le brouillon du premier.
+        Assert.Equal(1, repository.AddCount);
+        Assert.Equal(created.Id, updated.Id);
+        Assert.Equal("la-note-de-service", updated.Slug);
+        Assert.Equal("Rédaction corrigée", updated.Title);
+        Assert.Equal(created.Revision + 1, updated.Revision);
+    }
+
+    [Fact]
+    public async Task ImportWithoutSlugKeepsCreatingDistinctDraftsByGuid()
+    {
+        var repository = new CatalogRepository();
+        var service = new AuthoringService(repository, TimeProvider.System);
+        ScenarioDocument document = CreateDocument("Sans slug", "Opening");
+
+        ScenarioView first = await service.ImportAsync(
+            "owner", NarrativeJson.Serialize(document), CancellationToken.None);
+        ScenarioView second = await service.ImportAsync(
+            "owner", NarrativeJson.Serialize(document), CancellationToken.None);
+
+        Assert.Equal(2, repository.AddCount);
+        Assert.NotEqual(first.Id, second.Id);
+        Assert.Null(first.Slug);
+        Assert.Null(second.Slug);
+    }
+
+    [Fact]
     public async Task CatalogUsesLatestPublishedSnapshotInsteadOfCurrentDraft()
     {
         DateTimeOffset now = new(2026, 7, 17, 18, 0, 0, TimeSpan.Zero);
@@ -187,7 +232,11 @@ public sealed class PublishedCatalogTests
 
     private sealed class CatalogRepository(params Scenario[] scenarios) : IAuthoringRepository
     {
+        private readonly List<Scenario> store = [.. scenarios];
+
         public Scenario? AddedScenario { get; private set; }
+
+        public int AddCount { get; private set; }
 
         public int RequestedLimit { get; private set; }
 
@@ -196,11 +245,17 @@ public sealed class PublishedCatalogTests
         public Task AddAsync(Scenario scenario, CancellationToken cancellationToken)
         {
             AddedScenario = scenario;
+            AddCount++;
+            store.Add(scenario);
             return Task.CompletedTask;
         }
 
         public Task<Scenario?> GetAsync(Guid id, string ownerId, CancellationToken cancellationToken) =>
-            Task.FromResult(scenarios.SingleOrDefault(scenario => scenario.Id == id));
+            Task.FromResult(store.SingleOrDefault(scenario => scenario.Id == id));
+
+        public Task<Scenario?> GetBySlugAsync(string frontId, string slug, CancellationToken cancellationToken) =>
+            Task.FromResult(store.SingleOrDefault(
+                scenario => scenario.FrontId == frontId && scenario.Slug == slug));
 
         public Task<(IReadOnlyList<PublishedScenarioRecord> Items, int Total)> ListPublishedAsync(
             Guid? categoryId,
@@ -211,7 +266,7 @@ public sealed class PublishedCatalogTests
         {
             RequestedOffset = offset;
             RequestedLimit = limit;
-            Scenario[] published = [.. scenarios
+            Scenario[] published = [.. store
                 .Where(static scenario => !scenario.IsArchived && scenario.Versions.Count != 0)
                 .Where(scenario => categoryId is null || scenario.CategoryId == categoryId)
                 .Where(scenario => query is null || scenario.Title.Contains(query, StringComparison.OrdinalIgnoreCase))
@@ -225,7 +280,7 @@ public sealed class PublishedCatalogTests
         {
             RequestedOffset = offset;
             RequestedLimit = limit;
-            ScenarioVersion[] versions = [.. scenarios
+            ScenarioVersion[] versions = [.. store
                 .Where(scenario => scenario.Id == scenarioId)
                 .SelectMany(static scenario => scenario.Versions)
                 .OrderBy(static version => version.Number)];
@@ -234,7 +289,7 @@ public sealed class PublishedCatalogTests
         }
 
         public Task<(IReadOnlyList<Scenario> Items, int Total)> ListOwnedAsync(string ownerId, string? query, Guid? categoryId, bool includeArchived, int offset, int limit, CancellationToken cancellationToken) =>
-            Task.FromResult<(IReadOnlyList<Scenario>, int)>(([.. scenarios.Skip(offset).Take(limit)], scenarios.Length));
+            Task.FromResult<(IReadOnlyList<Scenario>, int)>(([.. store.Skip(offset).Take(limit)], store.Count));
 
         private static PublishedScenarioRecord ToRecord(Scenario scenario)
         {

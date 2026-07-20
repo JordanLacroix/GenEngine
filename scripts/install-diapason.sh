@@ -9,12 +9,13 @@
 # import, validate, analyze, publish, then attach each published scenario to
 # its category.
 #
-# NOT idempotent: POST /scenarios/import always creates a new draft
-# (AuthoringService.ImportAsync). Run it once per instance, on a fresh one.
-# Re-running duplicates the ten drafts and republishes them; the categories
-# are then rewired to the newest ids, leaving the previous drafts orphaned.
+# Idempotent: each scenario carries a `slug` (its natural key) in the manifest,
+# and the script passes it to POST /scenarios/import?slug=<slug>. The Authoring
+# service upserts by slug — a slug already present updates the existing draft
+# instead of creating a new one — so re-running the script never duplicates the
+# ten drafts. The second pass updates and republishes; the catalog stays at ten.
 #
-# See specs/domain/diapason/seeding.md.
+# See specs/domain/diapason/seeding.md and scripts/reset-diapason.sh.
 set -euo pipefail
 
 AUTHORING_URL="${AUTHORING_URL:-http://localhost:5201}"
@@ -65,11 +66,13 @@ while IFS=$'\t' read -r slug title category_key; do
   [[ -f "$file" ]] || { echo "Missing scenario file: $file" >&2; exit 1; }
   printf '  (%d/%d) %s\n' "$index" "$total" "$slug"
 
+  # The slug is the natural key: import upserts by it, so this stays idempotent.
+  slug_encoded=$(jq -rn --arg s "$slug" '$s | @uri')
   imported=$(curl --fail-with-body --silent --show-error \
     -H "Authorization: Bearer $token" \
     -H 'Content-Type: application/json' \
     --data-binary "@$file" \
-    "$AUTHORING_URL/scenarios/import")
+    "$AUTHORING_URL/scenarios/import?slug=$slug_encoded")
   scenario_id=$(jq -er '.id' <<<"$imported")
   revision=$(jq -er '.revision' <<<"$imported")
 

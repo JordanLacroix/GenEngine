@@ -114,6 +114,7 @@ scenarios.MapPost("/generate", async (
 
 scenarios.MapPost("/import", async (
     JsonElement document,
+    string? slug,
     ClaimsPrincipal user,
     AuthoringService service,
     IAuditLog auditLog,
@@ -123,7 +124,8 @@ scenarios.MapPost("/import", async (
     ScenarioView result = await service.ImportAsync(
         actorId,
         document.GetRawText(),
-        cancellationToken).ConfigureAwait(false);
+        cancellationToken,
+        slug).ConfigureAwait(false);
     auditLog.Record(new AuditEvent
     {
         Action = "scenario_imported",
@@ -131,6 +133,9 @@ scenarios.MapPost("/import", async (
         ActorId = actorId,
         ResourceType = "scenario",
         ResourceId = result.Id.ToString(),
+        Properties = result.Slug is null
+            ? null
+            : new Dictionary<string, string>(StringComparer.Ordinal) { ["slug"] = result.Slug },
     });
     return Results.Created($"/scenarios/{result.Id}", result);
 });
