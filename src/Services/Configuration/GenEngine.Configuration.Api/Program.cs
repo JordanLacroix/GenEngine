@@ -57,6 +57,36 @@ app.MapGet("/experience/{frontId}", async (string frontId, ConfigurationService 
 app.MapGet("/client-bootstrap/{frontId}", async (string frontId, ConfigurationService service, CancellationToken cancellationToken) =>
     Results.Ok(await service.GetClientBootstrapAsync(frontId, cancellationToken).ConfigureAwait(false)));
 
+// AI provider connection details for a trusted backend service, guarded by the shared
+// internal key exactly as Authoring guards its published-snapshot route. It carries the
+// endpoint, deployment and the opaque secret reference the anonymous /experience route
+// withholds — never a resolved secret. PlayerExperience reads it to reach a configured
+// provider and resolve the referenced credential against its own local resolver.
+app.MapGet("/internal/ai-providers/{frontId}", async (
+    string frontId,
+    HttpRequest request,
+    ConfigurationService service,
+    IAuditLog auditLog,
+    CancellationToken cancellationToken) =>
+{
+    string configuredKey = app.Configuration["InternalApi:Key"] ?? string.Empty;
+    if (configuredKey.Length < 16
+        || !request.Headers.TryGetValue("X-Internal-Key", out Microsoft.Extensions.Primitives.StringValues suppliedKey)
+        || !string.Equals(configuredKey, suppliedKey.ToString(), StringComparison.Ordinal))
+    {
+        auditLog.Record(new AuditEvent
+        {
+            Action = "internal_ai_providers_access_denied",
+            Outcome = AuditOutcome.Denied,
+            ResourceType = "ai_providers",
+            ResourceId = frontId,
+        });
+        return Results.Unauthorized();
+    }
+
+    return Results.Ok(await service.GetPublishedAiProvidersAsync(frontId, cancellationToken).ConfigureAwait(false));
+});
+
 // Asset packs are read-only content shipped with the instance. They are exposed
 // next to the published experience, and for the same reason: a client must be
 // able to discover what an instance publishes before it holds any credential.

@@ -102,6 +102,31 @@ public sealed record AssistantAiContext(
     string FamiliarWritingStyle);
 
 /// <summary>
+/// A configured AI provider as PlayerExperience needs to reach it. The
+/// <see cref="SecretReference"/> is the opaque reference (for example
+/// <c>env:GENENGINE_AI_AZURE_FOUNDRY_KEY</c>), never a resolved secret: the
+/// infrastructure resolves it locally. <see cref="Type"/> mirrors Configuration's
+/// provider-type names so the client can pick the Azure AI Foundry entry.
+/// </summary>
+public sealed record AssistantAiProvider(
+    string Name,
+    string Type,
+    bool Enabled,
+    string Endpoint,
+    string Deployment,
+    string? SecretReference);
+
+/// <summary>
+/// Port to Configuration's internal AI-provider route. The implementation lives in
+/// Infrastructure and is expected to degrade to an empty list — never to throw — when
+/// Configuration is unavailable, so the assistant can always fall back offline.
+/// </summary>
+public interface IAssistantProviderCatalog
+{
+    Task<IReadOnlyList<AssistantAiProvider>> GetAsync(string frontId, CancellationToken cancellationToken);
+}
+
+/// <summary>
 /// Port to an AI provider. The implementation lives in Infrastructure and resolves
 /// its own credentials locally; no secret ever reaches this layer, and the
 /// published configuration document PlayerExperience reads has its

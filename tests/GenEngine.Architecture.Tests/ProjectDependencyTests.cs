@@ -38,7 +38,8 @@ public sealed class ProjectDependencyTests
                 "GenEngine.Observability"),
             ["GenEngine.PlayerExperience.Domain"] = None(),
             ["GenEngine.PlayerExperience.Application"] = Only("GenEngine.PlayerExperience.Domain"),
-            ["GenEngine.PlayerExperience.Infrastructure"] = Only("GenEngine.PlayerExperience.Application"),
+            ["GenEngine.PlayerExperience.Infrastructure"] = Only(
+                "GenEngine.PlayerExperience.Application", "GenEngine.Secrets"),
             ["GenEngine.PlayerExperience.Api"] = Only(
                 "GenEngine.PlayerExperience.Application", "GenEngine.PlayerExperience.Infrastructure",
                 "GenEngine.Observability"),

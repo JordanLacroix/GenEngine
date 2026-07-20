@@ -203,6 +203,52 @@ Le secret résolu est porté par un `SecretValue` dont tous les rendus implicite
 Seul un appel délibéré à `Reveal()` rend la valeur claire ; c'est le point unique à auditer,
 et il n'a lieu qu'au moment de tendre l'identifiant au fournisseur externe.
 
+### Câblage du fournisseur d'assistant, de bout en bout
+
+L'aide contextuelle de `PlayerExperience` sélectionne réellement un fournisseur à partir
+d'une entrée `aiProviders[]` **publiée**, et pas seulement d'un profil décoratif :
+
+1. `Configuration` sert les fournisseurs d'un front sur une route interne, protégée par la
+   clé partagée `X-Internal-Key` exactement comme la route de snapshot d'`Authoring` :
+   `GET /internal/ai-providers/{frontId}`. Cette route porte l'`endpoint`, le `deployment`
+   et la **référence de secret opaque** — jamais la valeur du secret. La projection anonyme
+   `GET /experience/{frontId}` continue, elle, de vider `endpoint`, `authentication` et
+   `secretReference` : la donnée sensible ne franchit une frontière de service que par le
+   canal interne authentifié.
+2. `PlayerExperience` choisit l'entrée `Enabled` de type `AzureAiFoundry`, résout sa
+   `secretReference` **localement** via `SecretStore` (schéma `env`), et appelle la surface
+   compatible OpenAI du déploiement (`{endpoint}/chat/completions`). L'authentification pose
+   l'en-tête `api-key` et le même jeton en `Bearer`, pour satisfaire aussi bien une ressource
+   Azure AI Foundry qu'un point de terminaison OpenAI classique. Le paramètre de requête
+   `api-version` n'est ajouté que s'il est configuré (`GENENGINE_AI_AZURE_FOUNDRY_API_VERSION`).
+3. Le repli reste garanti : fournisseur absent, désactivé, secret introuvable, erreur HTTP ou
+   dépassement de délai renvoient `null`, et l'aide dégrade vers les règles hors ligne — jamais
+   une exception vers le joueur. Le fournisseur réel n'est même enregistré dans l'injection de
+   dépendances que si le déploiement peut résoudre la clé (`GENENGINE_AI_AZURE_FOUNDRY_KEY`
+   présent) ; sinon le fournisseur `Offline` reste en place, Docker et CI compris.
+
+**Activation.** Publier, sur le front visé, une entrée `aiProviders[]` `Enabled` de type
+`AzureAiFoundry` pointant l'`endpoint` `…/openai/v1`, le `deployment` (le **nom de
+déploiement Azure**, non le nom public du modèle) et `secretReference: env:GENENGINE_AI_AZURE_FOUNDRY_KEY` ;
+puis fournir cette variable d'environnement au processus `PlayerExperience`. Sans l'un ou
+l'autre, l'aide reste hors ligne.
+
+### Deux clients Azure, une seule résolution de secret
+
+Il existe deux clients Azure AI Foundry, et c'est assumé plutôt que caché :
+
+- **Assistant** (`PlayerExperience`) : surface **compatible OpenAI** (`/openai/v1`),
+  authentification par **`api-key`** résolue via `SecretStore`. C'est l'implémentation de
+  référence de ce câblage.
+- **Génération de scénario** (`Authoring.AzureFoundryScenarioDraftGenerator`) : conserve
+  `DefaultAzureCredential` (Entra) et lit `AzureFoundry:Endpoint`/`Deployment` depuis la
+  configuration locale du processus. Ce choix est délibéré : le SDK `AzureOpenAIClient`
+  construit des URL de style Azure (`/openai/deployments/…`) incompatibles avec la surface
+  `/openai/v1`, et l'authentification Entra sans secret y est légitime. Aligner ce générateur
+  sur l'`api-key` demanderait de basculer sur le client OpenAI simple et de le brancher sur la
+  route interne des fournisseurs — une évolution à mener quand la génération sera vérifiée de
+  bout en bout, pas au détour de ce lot. La divergence est donc documentée, pas subie.
+
 ## Definition of Done d'une fonctionnalité
 
 Une fonctionnalité n'est terminée que si la PR répond explicitement à ces questions :
