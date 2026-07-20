@@ -21,6 +21,7 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
     public DbSet<PlayerJournalEntry> JournalEntries => Set<PlayerJournalEntry>();
     public DbSet<ScenarioMastery> ScenarioMasteries => Set<ScenarioMastery>();
     public DbSet<PlayerStatValue> StatValues => Set<PlayerStatValue>();
+    public DbSet<EarnedReward> EarnedRewards => Set<EarnedReward>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -45,6 +46,16 @@ public sealed class PlayerExperienceDbContext(DbContextOptions<PlayerExperienceD
             entity.HasMany(static profile => profile.JournalEntries).WithOne().HasForeignKey(static entry => entry.ProfileId).OnDelete(DeleteBehavior.Cascade);
             entity.HasMany(static profile => profile.ScenarioMasteries).WithOne().HasForeignKey(static mastery => mastery.ProfileId).OnDelete(DeleteBehavior.Cascade);
             entity.HasMany(static profile => profile.StatValues).WithOne().HasForeignKey(static stat => stat.ProfileId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasMany(static profile => profile.EarnedRewards).WithOne().HasForeignKey(static reward => reward.ProfileId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<EarnedReward>(entity =>
+        {
+            entity.ToTable("player_earned_rewards");
+
+            // The composite key is the uniqueness guarantee itself: the database refuses a
+            // second stamp for the same (profile, reward) even if two evaluations were to
+            // race, so "earned once" does not depend on the in-memory check alone.
+            entity.HasKey(static reward => new { reward.ProfileId, reward.RewardId });
         });
         modelBuilder.Entity<PlayerStatValue>(entity =>
         {
@@ -119,6 +130,7 @@ internal sealed class PlayerExperienceRepository(PlayerExperienceDbContext dbCon
             .Include(static profile => profile.JournalEntries)
             .Include(static profile => profile.ScenarioMasteries)
             .Include(static profile => profile.StatValues)
+            .Include(static profile => profile.EarnedRewards)
             .SingleOrDefaultAsync(profile => profile.UserId == userId && profile.FrontId == frontId, cancellationToken);
     public async Task AddAsync(PlayerProfile profile, CancellationToken cancellationToken) =>
         await dbContext.Profiles.AddAsync(profile, cancellationToken).ConfigureAwait(false);
@@ -245,8 +257,62 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
             GetJourneys(document),
             GetCategories(document),
             ReadFinale(document),
-            ReadPlayerStats(document));
+            ReadPlayerStats(document),
+            ReadRewards(document));
     }
+
+    /// <summary>
+    /// Reads the optional <c>rewards</c> block. A front published before conditional
+    /// rewards existed has no such property and reports none, so nothing is shown and
+    /// nothing is ever stamped.
+    /// </summary>
+    private static RewardsPlan ReadRewards(JsonElement document)
+    {
+        if (!document.TryGetProperty("rewards", out JsonElement rewards) || rewards.ValueKind != JsonValueKind.Object)
+        {
+            return new RewardsPlan(false, []);
+        }
+
+        return new RewardsPlan(
+            !rewards.TryGetProperty("enabled", out JsonElement enabled) || enabled.ValueKind != JsonValueKind.False,
+            rewards.TryGetProperty("rewards", out JsonElement items) && items.ValueKind == JsonValueKind.Array
+                ? items.EnumerateArray().Select(static item => new ConditionalRewardPlan(
+                    item.GetProperty("id").GetGuid(),
+                    !item.TryGetProperty("enabled", out JsonElement rewardEnabled) || rewardEnabled.ValueKind != JsonValueKind.False,
+                    GetString(item, "label"),
+                    GetString(item, "description"),
+                    Enum.TryParse(GetString(item, "mode"), ignoreCase: true, out ProgressMode mode) ? mode : ProgressMode.All,
+                    ReadConditions(item),
+                    item.TryGetProperty("grants", out JsonElement grants) && grants.ValueKind == JsonValueKind.Array
+                        ? grants.EnumerateArray().Select(static grant => new RewardGrantPlan(
+                            GetString(grant, "type"),
+                            GetString(grant, "label"),
+                            GetNullableString(grant, "reference"),
+                            GetNullableInt(grant, "amount"))).ToArray()
+                        : [],
+                    GetNullableString(item, "visualUrl"),
+                    GetNullableString(item, "labelKey"))).ToArray()
+                : []);
+    }
+
+    /// <summary>
+    /// Reads the shared condition list of a block. An unknown condition type is mapped to
+    /// <see cref="ProgressConditionKind.Unknown"/> rather than dropped, so a document
+    /// published by a newer engine can never make a block <em>easier</em> to satisfy here.
+    /// </summary>
+    private static ProgressCondition[] ReadConditions(JsonElement owner) =>
+        owner.TryGetProperty("conditions", out JsonElement conditions) && conditions.ValueKind == JsonValueKind.Array
+            ? conditions.EnumerateArray().Select(static condition => new ProgressCondition(
+                condition.GetProperty("id").GetGuid(),
+                Enum.TryParse(GetString(condition, "type"), ignoreCase: true, out ProgressConditionKind kind) ? kind : ProgressConditionKind.Unknown,
+                GetString(condition, "description"),
+                GetNullableInt(condition, "threshold"),
+                GetNullableGuid(condition, "categoryId"),
+                GetNullableGuid(condition, "journeyId"),
+                GetStrings(condition, "endingIds"),
+                GetGuids(condition, "scenarioIds"),
+                GetNullableString(condition, "statKey"))).ToArray()
+            : [];
 
     /// <summary>
     /// Reads the optional <c>playerStats</c> block. A front published before player
@@ -292,9 +358,8 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
     }
 
     /// <summary>
-    /// Reads the optional finale block. An unknown condition type is mapped to
-    /// <see cref="FinaleConditionKind.Unknown"/> rather than dropped, so a document
-    /// published by a newer engine can never make the finale easier to reach here.
+    /// Reads the optional finale block. Its conditions go through the same
+    /// <see cref="ReadConditions"/> the rewards use — one published shape, one reader.
     /// </summary>
     private static FinalePlan? ReadFinale(JsonElement document)
     {
@@ -305,18 +370,8 @@ internal sealed class ConfigurationCatalogProvider(HttpClient httpClient) : IPla
             GetString(finale, "title"),
             GetString(finale, "summary"),
             GetString(finale, "body"),
-            Enum.TryParse(GetString(finale, "mode"), ignoreCase: true, out FinaleMode mode) ? mode : FinaleMode.All,
-            finale.TryGetProperty("conditions", out JsonElement conditions) && conditions.ValueKind == JsonValueKind.Array
-                ? conditions.EnumerateArray().Select(static condition => new FinaleCondition(
-                    condition.GetProperty("id").GetGuid(),
-                    Enum.TryParse(GetString(condition, "type"), ignoreCase: true, out FinaleConditionKind kind) ? kind : FinaleConditionKind.Unknown,
-                    GetString(condition, "description"),
-                    GetNullableInt(condition, "threshold"),
-                    GetNullableGuid(condition, "categoryId"),
-                    GetNullableGuid(condition, "journeyId"),
-                    GetStrings(condition, "endingIds"),
-                    GetGuids(condition, "scenarioIds"))).ToArray()
-                : [],
+            Enum.TryParse(GetString(finale, "mode"), ignoreCase: true, out ProgressMode mode) ? mode : ProgressMode.All,
+            ReadConditions(finale),
             GetNullableString(finale, "visualUrl"),
             GetNullableString(finale, "musicUrl"),
             GetNullableString(finale, "labelKey"));

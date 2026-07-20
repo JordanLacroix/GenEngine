@@ -32,7 +32,7 @@ Trois surfaces distinctes, du plus restreint au plus complet. Ce tableau fait fo
 | `authentication.entraTenantId` / `entraClientId` | **non** | **non** | oui |
 | `demo.enabled` | oui (booléen seul) | oui (bloc complet) | oui |
 | `game.name`, `description`, `globalStory` | non | oui | oui |
-| `categories`, `journeys`, `familiars`, `economy`, `modules`, `playerShell`, `help`, `onboarding`, `assistantPolicy`, `journal`, `media`, `playerStats` | non | oui | oui |
+| `categories`, `journeys`, `familiars`, `economy`, `modules`, `playerShell`, `help`, `onboarding`, `assistantPolicy`, `journal`, `media`, `playerStats`, `rewards` | non | oui | oui |
 | `aiProviders` : `id`, `name`, `type`, `enabled`, `deployment`, `capabilities` | non | oui | oui |
 | `aiProviders.endpoint` / `authentication` / `secretReference` | **non** | **non** | oui (`secretReference` = référence opaque) |
 | `organization` (nom, unités, hiérarchie) | **non** | **non** (`null`) | oui |
@@ -94,9 +94,17 @@ Chaque descripteur porte `path`, `label`, `description`, `example` et un `constr
 
 Le catalogue est maintenu exhaustif par construction : `ConfigurationFieldCatalog.EnumerateDocumentPaths()` parcourt le type `ExperienceDocument` par réflexion, et `ConfigurationFieldCatalogTests` compare ce parcours au catalogue dans les deux sens. **Ajouter un champ sans l'accompagner d'un descripteur fait échouer les tests**, et un descripteur devenu orphelin est signalé de la même façon. Les deux clients consomment cette route au lieu de réécrire les textes.
 
-### Bloc `finale`
+### Modèle de conditions partagé
 
-Le bloc `finale` est facultatif et décrit un **scénario de fin global**, absent de toute version antérieure. Il porte `id`, `enabled`, `title`, `summary`, `body`, `mode` (`All` ou `Any`), `visualUrl`, `musicUrl`, `labelKey` et une liste `conditions`. Chaque condition porte `id`, `type`, `description` et seulement les opérandes que son type utilise :
+Deux blocs posent la même question — « ce joueur a-t-il franchi tel jalon ? » — à la même
+progression enregistrée : la **fin de jeu** (`finale`) et les **récompenses
+conditionnelles** (`rewards`). Ils partagent donc un seul modèle de conditions, publié sous
+la même forme et validé par le même code. Un second modèle parallèle aurait dérivé, aurait
+demandé deux validations et aurait obligé un client à dessiner deux barres de progression
+différentes pour la même idée.
+
+Une condition porte `id`, `type`, `description` et seulement les opérandes que son type
+utilise :
 
 | `type` | Opérandes lus | Satisfaite quand |
 |---|---|---|
@@ -105,10 +113,88 @@ Le bloc `finale` est facultatif et décrit un **scénario de fin global**, absen
 | `JourneyCompleted` | `journeyId` | tous les scénarios des catégories du parcours sont terminés |
 | `EndingsReached` | `endingIds`, `threshold` facultatif | `threshold` des fins listées ont été atteintes |
 | `MasteryPercentReached` | `threshold`, `scenarioIds` facultatif | la maîtrise moyenne atteint `threshold` pour cent |
+| `PlayerStatReached` | `statKey`, `threshold` | la statistique joueur `statKey` a atteint `threshold` points |
 
-Les violations renvoient `invalid_finale` ou `invalid_finale_condition`. Une catégorie ou un parcours sans scénario rattaché n'est **jamais** considéré comme terminé : traiter « rien à faire » comme « fait » déclencherait la fin sur une instance fraîchement amorcée.
+Chaque type est répondable depuis une progression que le joueur porte **déjà** : la
+maîtrise cross-session par (profil, version de scénario), et les valeurs de
+`player_stat_values`. **Aucun second système de suivi n'est introduit** pour évaluer une
+condition, quel que soit le bloc qui la déclare.
+
+`PlayerStatReached` est validé contre le catalogue publié dans `playerStats` : un seuil sur
+une clé que le front ne déclare pas serait une condition qu'aucun scénario ne pourrait
+jamais faire bouger. La valeur est lue **brute**, jamais rebornée au plafond publié —
+abaisser un plafond après coup ne doit pas retirer une récompense déjà obtenue.
+
+Un `type` inconnu — un document publié par un moteur plus récent — est traité comme
+**jamais satisfait** plutôt qu'ignoré : une condition silencieusement écartée rendrait le
+bloc plus facile à déclencher. Une catégorie ou un parcours sans scénario rattaché n'est
+**jamais** considéré comme terminé : traiter « rien à faire » comme « fait » déclencherait
+la fin sur une instance fraîchement amorcée.
+
+Chaque bloc conserve son propre code d'erreur, pour qu'un opérateur apprenne **lequel** il
+a cassé : `invalid_finale_condition` et `invalid_reward_condition`.
+
+### Bloc `finale`
+
+Le bloc `finale` est facultatif et décrit un **scénario de fin global**, absent de toute version antérieure. Il porte `id`, `enabled`, `title`, `summary`, `body`, `mode` (`All` ou `Any`), `visualUrl`, `musicUrl`, `labelKey` et une liste `conditions` au modèle partagé ci-dessus.
+
+Les violations renvoient `invalid_finale` ou `invalid_finale_condition`.
 
 L'évaluation est déterministe et se fait dans `PlayerExperience` à partir de `ScenarioMastery`, la maîtrise cross-session déjà enregistrée par (profil, version de scénario). **Aucun second système de suivi n'est introduit.** Atteindre la fin est un **seuil franchi et mémorisé**, jamais un état terminal : le profil reçoit `finaleId` et `finaleReachedAt`, une entrée de journal `FinaleReached` est écrite une seule fois, et **rien n'est verrouillé** — le joueur continue de jouer, de progresser et d'être récompensé exactement comme avant. Il n'existe volontairement aucun drapeau permettant de rendre la fin bloquante.
+
+### Bloc `rewards`
+
+Le bloc `rewards` publie les **récompenses conditionnelles** de l'instance : `enabled`,
+puis une liste `rewards` bornée à 48 entrées. Chaque récompense porte `id`, `enabled`,
+`label`, `description`, `mode` (`All` ou `Any`), `visualUrl`, `labelKey`, une liste
+`conditions` au modèle partagé, et une liste `grants` de 1 à 6 entrées décrivant ce qu'elle
+**accorde réellement** :
+
+| `type` | Opérandes lus | Effet |
+|---|---|---|
+| `Achievement` | `reference`, `label` | un haut fait, marque inerte rendue par le client |
+| `Title` | `reference`, `label` | un titre que le joueur peut porter |
+| `Currency` | `amount`, `label` | crédite le portefeuille de `amount` points de la monnaie de `economy` |
+
+Les trois natures sont un **enum fermé et non un sac de chaînes** : elles ne se comportent
+pas pareil — les deux premières sont déclaratives, la troisième déplace un solde — et un
+client doit pouvoir les distinguer sans interpréter une convention de nommage. La
+validation le reflète : `reference` est requise et `amount` interdit pour `Achievement` et
+`Title` ; `amount` est requis, strictement positif et borné à 1 000 000 pour `Currency`,
+qui n'accepte aucune `reference`. `reference` suit la même grammaire fermée qu'une clé de
+statistique (`a-z`, `0-9`, `-`, 60 caractères au plus) : elle est mémorisée et appariée par
+les clients, donc elle ne dépend jamais de la casse ni des accents.
+
+Les violations renvoient `invalid_reward` ou `invalid_reward_condition`.
+
+Le bloc est **matérialisé par la normalisation**, comme `media` et `playerStats` : tout
+document publié le porte, et son défaut est `{ "enabled": true, "rewards": [] }` —
+volontairement vide, pour ne jamais inventer des hauts faits qu'une instance n'a pas
+demandés. La configuration de référence Le Diapason en déclare une : cinq scénarios
+terminés accordent un haut fait, un titre et 100 Accords.
+
+`enabled` est le comportement désactivé documenté : à `false`, le catalogue reste publié et
+toute récompense **déjà obtenue reste visible**, mais aucune nouvelle n'est estampillée.
+Couper les récompenses ne retire jamais ce qu'un joueur a gagné.
+
+**Quand l'évaluation a lieu.** Sur les deux seuls chemins qui peuvent faire bouger une
+condition, tous deux préexistants : `POST /internal/progress-events` et
+`POST /internal/player-stats`. Aucune route n'est ajoutée. L'évaluation n'a
+délibérément **pas** lieu à la lecture du profil : un `GET` qui estampille ferait dépendre
+la date d'obtention du moment où quelqu'un a ouvert un écran, et transformerait chaque
+lecture en écriture. La lecture recalcule la progression et l'affiche, ce qui suffit.
+
+**Estampillage unique.** Une récompense franchie est inscrite une seule fois dans
+`player_earned_rewards` (clé `(ProfileId, RewardId)`, migration EF `AddEarnedRewards`), une
+entrée de journal `RewardEarned` est écrite une seule fois, et l'éventuel crédit est appliqué
+sous la clé d'idempotence du portefeuille. La date n'est **jamais redatée** : elle répond à
+« quand l'avez-vous obtenue », pas à « quand a-t-elle été revérifiée ». Une récompense dont
+les conditions cessent d'être satisfaites — parce qu'un opérateur a édité le document —
+reste acquise. Rien n'est verrouillé : comme la fin, une récompense est un seuil franchi.
+
+La table ne stocke **que l'estampille**, jamais une progression : ce qu'il reste à faire est
+recalculé à la demande depuis la maîtrise et les statistiques que le profil porte déjà.
+C'est pourquoi une récompense ajoutée au catalogue plus tard ne demande aucun backfill.
 
 Toutes les API exposent `GET /health/live` et `GET /health/ready`. Les erreurs utilisent Problem Details. Les routes métier exigent un JWT Bearer sauf inscription, connexion, catalogue public et contrat interne explicitement protégé.
 
@@ -201,6 +287,8 @@ Les clients vivant dans des dépôts distincts, ils sont alignés en parallèle 
 
   Aucune route n'est ajoutée pour les statistiques : elles appartiennent à l'état joueur que cette route sert déjà, et `GET /me/experience/bootstrap` les porte donc aussi, puisqu'il embarque cette même vue. Une route dédiée aurait obligé un client de profil à faire deux appels pour peindre un seul écran.
 
+  `rewards` est le second champ additif, servi selon la même règle et pour la même raison : **tout le catalogue publié**, chaque entrée portant `id`, `label`, `description`, `earned`, `earnedAt`, `mode`, `grants` et surtout `conditions` — la progression **par condition** (`current`, `target`, `satisfied`), exactement le niveau de service que `finale` rend déjà. Un badge verrouillé sans indication de ce qui manque est précisément le défaut que ce champ existe pour éviter. Les `conditions` restent servies même une fois la récompense obtenue, pour qu'un client puisse dire au joueur *pourquoi* il l'a. Une récompense désactivée n'est listée que si elle a déjà été obtenue. Là encore **aucune route n'est ajoutée** : les récompenses appartiennent à l'état joueur que cette route sert déjà, et `GET /me/experience/bootstrap` les porte donc aussi.
+
   `value` est **borné à la lecture** par `maximum`. Un opérateur peut abaisser un plafond après que des joueurs l'ont dépassé ; un client ne doit jamais recevoir une valeur supérieure au maximum qu'on lui demande de dessiner. Rien n'est réécrit en base : ce qui a été gagné reste acquis si le plafond est relevé.
 - `GET /me/experience/bootstrap?frontId={frontId}` — prochaine action autoritative, configuration du tutoriel et état joueur, `effectiveJourney` compris
 - `GET /me/experience/journeys?frontId={frontId}` — exige `journey.read`. Parcours visibles du front avec, par parcours, son état de déblocage (`isUnlocked`, `blockedByJourneyIds`, `blockedByJourneyNames`), sa progression (`scenarioCount`, `startedCount`, `completedCount`, `progressPercent`) et la même progression par catégorie, pour que la carte affiche un indicateur par porte. La réponse porte aussi `defaultJourneyId`, `effectiveJourneyId` et la `revision` du profil à réutiliser en écriture
@@ -230,6 +318,8 @@ Les clients vivant dans des dépôts distincts, ils sont alignés en parallèle 
 - `POST /internal/rewards` — applique une règle de récompense idempotente depuis un événement narratif
 - `POST /internal/player-stats` — applique un gain de statistique joueur idempotent depuis un effet narratif. Corps `{ frontId, userId, stat, amount, idempotencyKey }`. La valeur démarre à zéro, s'incrémente et **sature** au plafond publié. Un gain nommant une statistique que ce front ne publie pas — ou arrivant alors que le bloc est désactivé — est **ignoré**, pas refusé : un scénario est écrit indépendamment de l'instance qui l'exécute et se réutilise d'un front à l'autre, donc une clé déclarée ici et pas là est une situation ordinaire, pas une faute. Échouer coûterait au joueur le tour qu'il vient de jouer, pour une statistique qu'il n'allait de toute façon pas voir. `POST /internal/rewards` lève au contraire `reward_rule_not_found`, parce que les règles d'économie filtrent sur un joker `*` et qu'un déclencheur non apparié y est réellement exceptionnel
 - `POST /internal/progress-events` — journalise une interaction et consolide la maîtrise cross-session de façon idempotente
+
+Ces deux routes internes sont aussi les **seuls** points d'évaluation des récompenses conditionnelles et de la fin de jeu : ce sont les seuls chemins où une condition peut changer de valeur. Voir le bloc `rewards` ci-dessus.
 
 ## Organization — port 5206
 

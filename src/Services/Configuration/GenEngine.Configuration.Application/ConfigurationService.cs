@@ -171,7 +171,8 @@ public sealed record ExperienceDocument(
     MediaDefinition? Media = null,
     BrandingDefinition? Branding = null,
     FinaleDefinition? Finale = null,
-    PlayerStatsDefinition? PlayerStats = null);
+    PlayerStatsDefinition? PlayerStats = null,
+    RewardsDefinition? Rewards = null);
 
 /// <summary>
 /// Stable identifiers of the Diapason reference configuration.
@@ -509,7 +510,8 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         CreateDefaultMedia(),
         CreateDiapasonBranding(),
         FinaleCatalog.CreateDiapasonDefault(),
-        PlayerStatCatalog.CreateDiapasonDefault());
+        PlayerStatCatalog.CreateDiapasonDefault(),
+        RewardCatalog.CreateDiapasonDefault());
 
     /// <summary>
     /// Branding of the Diapason reference configuration. The colours come from
@@ -738,9 +740,137 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         }
 
         ValidateMedia(document.Media ?? CreateDefaultMedia());
-        ValidateFinale(document.Finale, categoryIds, journeyIds);
         ValidateBranding(document.Branding);
-        ValidatePlayerStats(document.PlayerStats ?? PlayerStatCatalog.CreateDefault());
+
+        // The statistics are validated first because the conditions below reference their
+        // keys: a condition may only name a statistic this document actually publishes.
+        PlayerStatsDefinition playerStats = document.PlayerStats ?? PlayerStatCatalog.CreateDefault();
+        ValidatePlayerStats(playerStats);
+        HashSet<string> statKeys = playerStats.Stats
+            .Select(static stat => (stat.Key ?? string.Empty).Trim())
+            .ToHashSet(StringComparer.Ordinal);
+
+        ValidateFinale(document.Finale, categoryIds, journeyIds, statKeys);
+        ValidateRewards(document.Rewards ?? RewardCatalog.CreateDefault(), categoryIds, journeyIds, statKeys);
+    }
+
+    /// <summary>
+    /// A reward is optional, but a declared one must be earnable and displayable: a label
+    /// and a description the player reads, conditions that can actually be satisfied, and
+    /// at least one grant — a reward that grants nothing is a promise with no payload.
+    /// </summary>
+    /// <remarks>
+    /// The conditions go through <see cref="ProgressConditionCatalog.Validate"/>, the very
+    /// same check the finale runs. That is the point of the extraction: an operand rule
+    /// fixed once is fixed for both blocks, and the two can never drift into accepting
+    /// different documents for the same condition.
+    /// </remarks>
+    private static void ValidateRewards(
+        RewardsDefinition rewards,
+        HashSet<Guid> categoryIds,
+        HashSet<Guid> journeyIds,
+        HashSet<string> statKeys)
+    {
+        IReadOnlyList<ConditionalRewardDefinition> items = rewards.Rewards;
+        if (items.Count > RewardCatalog.MaximumRewards
+            || items.Select(static reward => reward.Id).Distinct().Count() != items.Count)
+        {
+            throw new ConfigurationException(
+                "invalid_reward",
+                $"Rewards must have unique identifiers and number at most {RewardCatalog.MaximumRewards}.");
+        }
+
+        foreach (ConditionalRewardDefinition reward in items)
+        {
+            if (string.IsNullOrWhiteSpace(reward.Label)
+                || reward.Label.Length > RewardCatalog.MaximumLabelLength
+                || string.IsNullOrWhiteSpace(reward.Description)
+                || reward.Description.Length > RewardCatalog.MaximumDescriptionLength
+                || !IsValidAssetUrl(reward.VisualUrl))
+            {
+                throw new ConfigurationException(
+                    "invalid_reward",
+                    "A reward requires a label and a description within their size limits and a valid visual reference.");
+            }
+
+            if (reward.Conditions.Count is 0 or > ProgressConditionCatalog.MaximumConditions
+                || reward.Conditions.Select(static condition => condition.Id).Distinct().Count() != reward.Conditions.Count)
+            {
+                throw new ConfigurationException(
+                    "invalid_reward",
+                    $"A reward requires 1 to {ProgressConditionCatalog.MaximumConditions} uniquely identified conditions.");
+            }
+
+            if (reward.Grants.Count is 0 or > RewardCatalog.MaximumGrantsPerReward)
+            {
+                throw new ConfigurationException(
+                    "invalid_reward",
+                    $"A reward must grant between 1 and {RewardCatalog.MaximumGrantsPerReward} things.");
+            }
+
+            foreach (RewardGrantDefinition grant in reward.Grants)
+            {
+                ValidateRewardGrant(grant);
+            }
+
+            ProgressConditionCatalog.Validate(reward.Conditions, categoryIds, journeyIds, statKeys, "invalid_reward_condition");
+        }
+    }
+
+    /// <summary>
+    /// Each grant nature carries its own operand and only its own: an achievement and a
+    /// title need the stable reference a client renders them by, a currency grant needs a
+    /// strictly positive amount. Zero is refused rather than tolerated — a grant that
+    /// credits nothing is indistinguishable at runtime from one that failed.
+    /// </summary>
+    private static void ValidateRewardGrant(RewardGrantDefinition grant)
+    {
+        if (string.IsNullOrWhiteSpace(grant.Label) || grant.Label.Length > RewardCatalog.MaximumLabelLength)
+        {
+            throw new ConfigurationException("invalid_reward", "A reward grant requires a label within its size limit.");
+        }
+
+        bool valid = grant.Type switch
+        {
+            RewardGrantType.Achievement or RewardGrantType.Title =>
+                IsRewardReference(grant.Reference) && grant.Amount is null,
+            RewardGrantType.Currency =>
+                grant.Amount is > 0 and <= RewardCatalog.MaximumGrantAmount && grant.Reference is null,
+            _ => false,
+        };
+
+        if (!valid)
+        {
+            throw new ConfigurationException(
+                "invalid_reward",
+                $"An achievement or title grant requires a slug reference and no amount; a currency grant requires an amount between 1 and {RewardCatalog.MaximumGrantAmount} and no reference.");
+        }
+    }
+
+    /// <summary>
+    /// Same closed slug grammar as a player statistic key, for the same reason: the
+    /// reference is stored on the profile and matched by clients, so it must never
+    /// depend on casing, accents or whitespace.
+    /// </summary>
+    private static bool IsRewardReference(string? value)
+    {
+        if (string.IsNullOrEmpty(value) || value.Length > RewardCatalog.MaximumReferenceLength)
+        {
+            return false;
+        }
+
+        foreach (char character in value)
+        {
+            bool allowed = (character >= 'a' && character <= 'z')
+                || (character >= '0' && character <= '9')
+                || character == '-';
+            if (!allowed)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -828,7 +958,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
     /// actually exists, otherwise the trigger could never fire and the player would
     /// wait for an ending that does not come.
     /// </summary>
-    private static void ValidateFinale(FinaleDefinition? finale, HashSet<Guid> categoryIds, HashSet<Guid> journeyIds)
+    private static void ValidateFinale(FinaleDefinition? finale, HashSet<Guid> categoryIds, HashSet<Guid> journeyIds, HashSet<string> statKeys)
     {
         if (finale is null) return;
 
@@ -841,26 +971,9 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             throw new ConfigurationException("invalid_finale", "A finale requires a title, unique conditions within their limit and HTTPS assets.");
         }
 
-        foreach (FinaleConditionDefinition condition in finale.Conditions)
-        {
-            bool valid = condition.Type switch
-            {
-                FinaleConditionType.ScenariosCompleted => condition.Threshold is > 0,
-                FinaleConditionType.CategoryCompleted => condition.CategoryId is Guid categoryId && categoryIds.Contains(categoryId),
-                FinaleConditionType.JourneyCompleted => condition.JourneyId is Guid journeyId && journeyIds.Contains(journeyId),
-                FinaleConditionType.EndingsReached => condition.EndingIds is { Count: > 0 }
-                    && condition.EndingIds.All(static endingId => !string.IsNullOrWhiteSpace(endingId))
-                    && condition.Threshold is null or > 0
-                    && (condition.Threshold ?? condition.EndingIds.Count) <= condition.EndingIds.Count,
-                FinaleConditionType.MasteryPercentReached => condition.Threshold is > 0 and <= 100,
-                _ => false,
-            };
-
-            if (!valid)
-            {
-                throw new ConfigurationException("invalid_finale_condition", "A finale condition must carry the operands its type requires and reference existing content.");
-            }
-        }
+        // The operand rules live in ProgressConditionCatalog, shared with the rewards. The
+        // finale keeps its own error code so an operator still learns which block failed.
+        ProgressConditionCatalog.Validate(finale.Conditions, categoryIds, journeyIds, statKeys, "invalid_finale_condition");
     }
 
     /// <summary>
@@ -1151,6 +1264,9 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             // catalogue, so a client reads one shape whether the instance uses stats or
             // not. The default is empty — see PlayerStatsDefinition for why.
             PlayerStats = document.PlayerStats ?? PlayerStatCatalog.CreateDefault(),
+            // Same treatment, same reason: one published shape for every instance, and an
+            // empty default so nobody is granted rewards they never configured.
+            Rewards = document.Rewards ?? RewardCatalog.CreateDefault(),
             // Left null when absent rather than defaulted: an instance that declares no
             // finale simply has none, and inventing one would change what its players see.
             Finale = document.Finale,
@@ -1309,6 +1425,10 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         ["finale.reached"] = "Vous avez atteint la fin. Rien ne se ferme : les branches non ouvertes vous attendent.",
         ["finale.progress"] = "Progression vers la fin",
         ["finale.continue"] = "Continuer à jouer",
+        ["rewards.title"] = "Récompenses",
+        ["rewards.earned"] = "Obtenue",
+        ["rewards.progress"] = "Progression vers cette récompense",
+        ["rewards.cinqScenarios"] = "Cinq fois plutôt qu'une",
         ["experience.wallet.title"] = "Portefeuille",
         ["experience.wallet.empty"] = "Vos choix écriront ici les premières lignes de votre progression.",
         ["experience.shop.title"] = "Magasin",
