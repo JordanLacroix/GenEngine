@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 6,
   "title": "Identité non reconnue",
   "initialNodeId": "guichet",
   "nodes": [
@@ -24,6 +24,42 @@
           "text": "À 9 h 15, une candidate se présente au bureau. Elle s'appelle Nour. Le service la refuse depuis quatre jours, avec un code unique : « IDENT_NO_MATCH ». Son prénom d'usage n'est pas son prénom d'état civil. Son acte de naissance a été établi dans un pays dont le registre n'est plus interrogeable depuis 2024. Sa photo est légèrement floue parce que sa pièce a été refaite d'urgence. Chacun de ces trois éléments est, pris seul, une variation banale. Le service les additionne en un refus sans motif détaillé. Les inscriptions ferment à 17 h.",
           "continueEffects": [
             { "$type": "discoverEvidence", "evidence": "trois-variations-banales" }
+          ]
+        },
+        {
+          "$type": "document",
+          "id": "le-journal",
+          "isOptional": true,
+          "prompt": "Ouvrir le détail de la décision rendue sur son dossier",
+          "document": {
+            "title": "Vérification d'identité — dossier 2026-0417",
+            "nature": "Log",
+            "headers": [
+              { "name": "Fournisseur", "value": "Service de vérification tiers" },
+              { "name": "Code retour", "value": "IDENT_NO_MATCH" },
+              { "name": "Décision", "value": "Refus automatique" }
+            ],
+            "excerpt": { "shownUnits": 9, "totalUnits": 1348, "unit": "Entries" },
+            "blocks": [
+              {
+                "$type": "lines",
+                "lines": [
+                  { "text": "comparaison.photo                score 0,88   seuil 0,80   conforme", "marker": "Context", "label": "09:11:02" },
+                  { "text": "comparaison.date_naissance       score 1,00   seuil 0,95   conforme", "marker": "Context", "label": "09:11:02" },
+                  { "text": "comparaison.prenom               score 0,42   seuil 0,85   NON CONFORME", "marker": "Error", "label": "09:11:03" },
+                  { "text": "registre_national.interrogation  indisponible — pays non raccordé depuis 2024", "marker": "Warning", "label": "09:11:04" },
+                  { "text": "score_agrege                     0,71        seuil 0,85   REFUS", "marker": "Error", "label": "09:11:04" },
+                  { "text": "decision                         IDENT_NO_MATCH — aucune revue humaine requise", "marker": "Error", "label": "09:11:04" }
+                ]
+              },
+              {
+                "$type": "paragraph",
+                "text": "Configuration active : seuil_agrege = 0.85. Origine du paramètre : valeur d'exemple du guide d'intégration du fournisseur, reprise à la mise en service de janvier. Aucun ticket, aucune validation métier, aucun auteur enregistré."
+              }
+            ]
+          },
+          "consultEffects": [
+            { "$type": "discoverEvidence", "evidence": "seuil-sans-decideur" }
           ]
         },
         {
@@ -52,7 +88,30 @@
               "id": "renvoyer",
               "text": "Lui expliquer que le système est ce qu'il est et lui donner le formulaire de recours",
               "targetNodeId": "fin-rupture-procedure",
-              "effects": []
+              "effects": [],
+              "help": {
+                "consequence": "Le recours existe et prend onze semaines ; les inscriptions ferment dans trois."
+              }
+            },
+            {
+              "id": "opposer-le-seuil",
+              "text": "Relever que le seuil de 0,85 est une valeur d'exemple du guide d'intégration, et chercher qui l'a décidée",
+              "targetNodeId": "journaux",
+              "condition": { "$type": "consultedDocument", "interactionId": "le-journal" },
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "discernement", "amount": 1 },
+                { "$type": "discoverEvidence", "evidence": "seuil-recopie-de-la-doc" },
+                {
+                  "$type": "recordNotableEvent",
+                  "label": "Vous avez lu la décision au lieu de la subir.",
+                  "scope": "discernement"
+                }
+              ],
+              "help": {
+                "objective": "Traiter le refus comme un arbitrage, pas comme un constat.",
+                "hint": "Un refus automatique n'est pas un fait : c'est une valeur numérique comparée à une autre que quelqu'un a écrite.",
+                "blocker": "Il faut avoir ouvert le détail de la décision pour connaître le seuil et son origine."
+              }
             }
           ]
         }
@@ -298,6 +357,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -315,6 +377,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -332,6 +397,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -349,6 +417,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -366,6 +437,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",

@@ -153,7 +153,12 @@
                   "label": "Vous avez lu le document avant d'en parler.",
                   "scope": "lucidite"
                 }
-              ]
+              ],
+              "help": {
+                "objective": "Séparer ce que la note affirme de ce qui l'établit.",
+                "hint": "« Validée collégialement » est une affirmation : cherchez qui elle engage.",
+                "blocker": "Il faut avoir lu la note en entier pour relever ce qu'elle ne dit pas."
+              }
             }
           ]
         }
@@ -307,6 +312,11 @@
       "text": "Ce que vous pouvez encore savoir.",
       "onEnterEffects": [],
       "choices": [],
+      "help": {
+        "objective": "Transformer une intuition juste en énoncé opposable.",
+        "hint": "Une heure, un compte, un écart entre deux versions : trois faits valent mieux qu'une conviction.",
+        "consequence": "Une phrase qui commence par « je trouve que » n'obtient rien d'une responsable pressée."
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -350,6 +360,43 @@
             }
           ],
           "incorrectEffects": [
+            {
+              "$type": "increment",
+              "name": "erreurs",
+              "amount": 1
+            }
+          ]
+        },
+        {
+          "$type": "freeText",
+          "id": "formulation",
+          "prompt": "Vous aurez peut-être trente secondes devant elle. Écrivez la phrase que vous direz : pas votre conclusion, ce qui l'établit.",
+          "requiredTerms": [
+            "47",
+            "applicatif",
+            "brouillon",
+            "hypothese",
+            "validee",
+            "source"
+          ],
+          "minimumMatches": 2,
+          "acceptedEffects": [
+            {
+              "$type": "changeCharacteristic",
+              "name": "lucidite",
+              "amount": 1
+            },
+            {
+              "$type": "discoverEvidence",
+              "evidence": "phrase-opposable"
+            },
+            {
+              "$type": "recordNotableEvent",
+              "label": "Vous avez formulé un fait vérifiable, pas un jugement.",
+              "scope": "lucidite"
+            }
+          ],
+          "rejectedEffects": [
             {
               "$type": "increment",
               "name": "erreurs",
@@ -513,6 +560,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -534,6 +584,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -555,6 +608,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -576,6 +632,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -597,6 +656,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -618,6 +680,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 6,
   "title": "Le signalement",
   "initialNodeId": "decouverte",
   "nodes": [
@@ -27,6 +27,50 @@
           ]
         },
         {
+          "$type": "document",
+          "id": "la-table",
+          "isOptional": true,
+          "prompt": "Afficher la structure de la table et son volume",
+          "document": {
+            "title": "learner_signals — structure et volumétrie",
+            "nature": "Code",
+            "headers": [
+              { "name": "Base", "value": "plateforme — schéma applicatif" },
+              { "name": "Créée le", "value": "12 août 2025" },
+              { "name": "Documentation contractuelle", "value": "aucune occurrence" }
+            ],
+            "excerpt": { "shownUnits": 11, "totalUnits": 34, "unit": "Lines" },
+            "blocks": [
+              {
+                "$type": "lines",
+                "lines": [
+                  { "text": "learner_id            uuid        non nul", "marker": "Context", "label": "1" },
+                  { "text": "session_id            uuid        non nul", "marker": "Context", "label": "2" },
+                  { "text": "keystroke_intervals   entier[]    intervalles entre frappes, en millisecondes", "marker": "Error", "label": "3" },
+                  { "text": "backspace_count       entier      corrections par exercice", "marker": "Error", "label": "4" },
+                  { "text": "pause_durations       entier[]    durées d'inactivité, en secondes", "marker": "Error", "label": "5" },
+                  { "text": "focus_lost_count      entier      sorties de la fenêtre d'exercice", "marker": "Warning", "label": "6" },
+                  { "text": "computed_score        décimal     alimente « élèves à accompagner »", "marker": "Error", "label": "7" },
+                  { "text": "retention             —           aucune politique de purge définie", "marker": "Warning", "label": "8" }
+                ]
+              },
+              {
+                "$type": "table",
+                "columns": ["Mesure", "Valeur"],
+                "rows": [
+                  { "cells": ["Élèves distincts", "301 480"] },
+                  { "cells": ["Établissements concernés", "40"] },
+                  { "cells": ["Plus ancienne ligne", "12 août 2025"] },
+                  { "cells": ["Lignes conservées", "toutes"] }
+                ]
+              }
+            ]
+          },
+          "consultEffects": [
+            { "$type": "discoverEvidence", "evidence": "structure-et-volumetrie-relevees" }
+          ]
+        },
+        {
           "$type": "choiceSet",
           "id": "premier-geste",
           "prompt": "Il est 20 h 40. Vous êtes seul dans l'open space.",
@@ -49,7 +93,30 @@
               "id": "fermer",
               "text": "Fermer l'onglet. Vous n'étiez pas censé regarder cette table.",
               "targetNodeId": "fin-rupture-oubli",
-              "effects": []
+              "effects": [],
+              "help": {
+                "consequence": "La table continue d'enregistrer, et vous êtes la seule personne à l'avoir vue."
+              }
+            },
+            {
+              "id": "relever-l-ecart",
+              "text": "Relever l'écart vérifiable : sept colonnes comportementales, aucune purge, zéro mention contractuelle",
+              "targetNodeId": "documentation",
+              "condition": { "$type": "consultedDocument", "interactionId": "la-table" },
+              "effects": [
+                { "$type": "changeCharacteristic", "name": "courage", "amount": 1 },
+                { "$type": "collect", "item": "ecart-documente" },
+                {
+                  "$type": "recordNotableEvent",
+                  "label": "Vous avez relevé un écart, sans rien copier hors de la base.",
+                  "scope": "courage"
+                }
+              ],
+              "help": {
+                "objective": "Constituer un écart opposable sans exfiltrer une seule donnée d'élève.",
+                "hint": "Un écart se démontre avec des noms de colonnes et des dates, jamais avec des lignes de données.",
+                "blocker": "Il faut avoir affiché la structure de la table pour pouvoir en décrire les colonnes."
+              }
             }
           ]
         }
@@ -366,6 +433,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -383,6 +453,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -400,6 +473,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -417,6 +493,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -434,6 +513,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -451,6 +533,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",

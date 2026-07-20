@@ -178,7 +178,12 @@
                   "label": "Vous avez lu le code avant de contester la machine.",
                   "scope": "discernement"
                 }
-              ]
+              ],
+              "help": {
+                "objective": "Contester un verdict exact sur des prémisses fausses.",
+                "hint": "La règle est bien écrite ; elle suppose un accès partagé que ce code n'a pas.",
+                "blocker": "Il faut avoir lu le correctif pour montrer où la règle ne s'applique pas."
+              }
             }
           ]
         }
@@ -511,6 +516,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:stinger.reward.primary"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -532,6 +540,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -553,6 +564,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -574,6 +588,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",
@@ -595,6 +612,9 @@
       "onEnterEffects": [],
       "choices": [],
       "isEnding": true,
+      "media": {
+        "soundUrl": "diapason-core:sfx.error.soft"
+      },
       "interactions": [
         {
           "$type": "narration",

@@ -99,8 +99,11 @@ côté clients la coque immersive, le Studio et la démonstration Diapason.
 Restent ouverts, sans priorité arbitrée : la rotation quotidienne des scénarios
 est documentée mais non implémentée ; le moteur ne distingue pas une partie
 perdue d'une partie gagnée, donc les « game over » sont narratifs seulement ;
-aucune ambiance, musique ni illustration de personnage n'existe dans le pack ;
-et aucun contenu Diapason n'utilise encore `isOptional`.
+et aucune ambiance, musique ni illustration de personnage n'existe dans le
+pack, ce qui laisse `visualUrl` inutilisé dans tout le contenu.
+
+Les dix scénarios Diapason sont en schéma 6 et exploitent `document`,
+`isOptional`, `consultedDocument`, `help` et le son du pack.
 
 Consulte [`specs/handoff.md`](specs/handoff.md) avant de choisir : il fait foi
 sur ce qui est réellement vérifié. Ne marque une tâche `done` qu'après code,
