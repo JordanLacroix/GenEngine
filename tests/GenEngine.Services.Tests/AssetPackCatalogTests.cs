@@ -13,7 +13,8 @@ namespace GenEngine.Services.Tests;
 /// </summary>
 public sealed class AssetPackCatalogTests
 {
-    private static readonly string[] ServableMediaTypes = ["image/svg+xml", "image/png", "audio/ogg"];
+    private static readonly HashSet<string> ServableMediaTypes =
+        AssetPackMediaTypes.ByExtension.Values.ToHashSet(StringComparer.Ordinal);
 
     [Fact]
     public void ShippedPackIsPublishedWithServableAndIntactPaths()
