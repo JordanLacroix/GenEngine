@@ -185,7 +185,10 @@ public sealed class ConfigurationServiceTests
 
         BrandingDefinition branding = Assert.IsType<BrandingDefinition>(created.Document.Branding);
         Assert.Equal("Le Diapason", branding.ApplicationName);
-        Assert.Null(branding.BrandIconUrl);
+        // The brand and client icons are pack references shipped in diapason-core;
+        // the logo and favicon stay null because the pack ships no such asset.
+        Assert.Equal("diapason-core:brand.icon", branding.BrandIconUrl);
+        Assert.Equal("diapason-core:client.icon", branding.ClientIconUrl);
         Assert.Null(branding.LogoUrl);
         Assert.Null(branding.FaviconUrl);
         Assert.Equal(BrandingColorScheme.Light, branding.Theme!.ColorScheme);

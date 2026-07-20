@@ -447,7 +447,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
             // The axis catalogue is left implicit: Normalize expands it from the forms
             // and tones below plus the built-in axes, which is exactly the path an
             // instance configured before the axes existed takes.
-            new FamiliarDefinition(Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "Tierce", "Une voix qui ne répond jamais à votre place : elle demande sur quoi vous vous appuyez.", "tuning-fork", "Socratic", "Warm", "amber", 2, ["hint", "recap", "rephrase"], ["tuning-fork", "spark", "echo", "owl", "fox"], ["Warm", "Playful", "Direct", "Mysterious", "Neutral"], null, null, null, null, null),
+            new FamiliarDefinition(Guid.Parse("04b758d1-862d-4f01-b2c9-d7f5ccf33a0f"), "Tierce", "Une voix qui ne répond jamais à votre place : elle demande sur quoi vous vous appuyez.", "tuning-fork", "Socratic", "Warm", "amber", 2, ["hint", "recap", "rephrase"], ["tuning-fork", "spark", "echo", "owl", "fox"], ["Warm", "Playful", "Direct", "Mysterious", "Neutral"], "diapason-core:familiar.portrait.tuning-fork", null, null, null, null),
         ],
         new EconomyDefinition("ACCORD", "Accords", "♪", 0,
             [
@@ -518,16 +518,20 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
     /// the art direction recorded in <c>specs/domain/diapason/README.md</c> and
     /// from the <c>palette</c> block of <c>assets/diapason/asset-manifest.json</c>.
     /// <para>
-    /// Every icon stays null: the <c>diapason-core</c> pack ships interface
-    /// elements, gameplay icons and short signatures, but no brand icon, logo or
-    /// favicon — its <c>gaps</c> field records the absence. A reference that does
-    /// not resolve would be worse than none.
+    /// The brand and client icons are pack references resolved by the client
+    /// through the shipped manifest: <c>brand.icon</c> is the tuning-fork motif of
+    /// the product, <c>client.icon</c> a deliberately fictional demonstration
+    /// glyph. Both assets ship in <c>diapason-core</c>, so the references resolve.
+    /// The logo and favicon stay null: the pack ships no such asset, and a
+    /// reference that does not resolve would be worse than none.
     /// </para>
     /// </summary>
     private static BrandingDefinition CreateDiapasonBranding() => new(
         "Le Diapason",
         "Diapason",
         "Une réponse fluide n'est pas une réponse vérifiée.",
+        BrandIconUrl: "diapason-core:brand.icon",
+        ClientIconUrl: "diapason-core:client.icon",
         Theme: new BrandingThemeDefinition(
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -1199,19 +1203,22 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
     }
 
     /// <summary>
-    /// Default ambience map. Assets are deliberately absent: an operator opts in
-    /// per instance, and the experience is complete without a single file.
+    /// Default ambience map. Each location carries its generative pack background
+    /// (shipped in <c>diapason-core</c>, so the reference resolves offline). The
+    /// audio stays null on purpose: no ambience or music file exists in the pack
+    /// yet, and pointing at a reference that does not resolve would be worse than
+    /// silence. The game-over visual is likewise left null until an asset exists.
     /// </summary>
     private static MediaDefinition CreateDefaultMedia() => new(
         true,
         true,
         [
-            new AppLocationMediaDefinition("home"),
-            new AppLocationMediaDefinition("map"),
-            new AppLocationMediaDefinition("player"),
-            new AppLocationMediaDefinition("journal"),
-            new AppLocationMediaDefinition("familiar"),
-            new AppLocationMediaDefinition("shop"),
+            new AppLocationMediaDefinition("home", BackgroundUrl: "diapason-core:background.home"),
+            new AppLocationMediaDefinition("map", BackgroundUrl: "diapason-core:background.map"),
+            new AppLocationMediaDefinition("player", BackgroundUrl: "diapason-core:background.player"),
+            new AppLocationMediaDefinition("journal", BackgroundUrl: "diapason-core:background.journal"),
+            new AppLocationMediaDefinition("familiar", BackgroundUrl: "diapason-core:background.familiar"),
+            new AppLocationMediaDefinition("shop", BackgroundUrl: "diapason-core:background.shop"),
         ],
         new GameOverMediaDefinition(LabelKey: "gameOver.title"));
 
