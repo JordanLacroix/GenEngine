@@ -251,6 +251,44 @@ Les récompenses conditionnelles demandées — « a fait 5 scénarios, gagne un
 
 **Non livré, assumé** : aucun client ne rend les récompenses ; le câblage Web et iOS reste à faire. Les seuils de statistiques débloquant des lignes de dialogue restent hors périmètre.
 
+### Tranche `feat/ai-provider-wiring` — vérifiée le 21 juillet 2026
+
+Le fournisseur IA est enfin **réellement branchable**, et l'appel réel est prouvé. Ce que les
+tranches `feat/secret-resolution` et `feat/assistant-contextual-help` déclaraient honnêtement
+comme « câblage à faire / aucun fournisseur réel » est fait.
+
+- **Ce qui était mort et ne l'est plus.** `ISecretStore`/`SecretStore` et l'unique
+  `IAssistantAiClient` (`OfflineAssistantAiClient`, `IsConfigured` en dur à `false`) n'avaient
+  aucun consommateur reliant une entrée `aiProviders[]` publiée à une implémentation. C'est la
+  pièce ajoutée ici.
+- **Route interne de fournisseurs.** `Configuration` publie `GET /internal/ai-providers/{frontId}`,
+  protégée par `X-Internal-Key` comme la route de snapshot d'`Authoring`. Elle porte `endpoint`,
+  `deployment` et la **référence de secret opaque** ; jamais la valeur du secret. La projection
+  anonyme `GET /experience` continue de vider ces trois champs.
+- **Client d'assistant réel.** `PlayerExperience` référence `GenEngine.Secrets`, sélectionne
+  l'entrée `Enabled` de type `AzureAiFoundry`, résout la référence localement via `SecretStore`
+  (schéma `env`) et appelle la surface compatible OpenAI (`{endpoint}/chat/completions`,
+  en-tête `api-key` + `Bearer`, `api-version` optionnel). Le client réel n'est enregistré dans
+  la DI que si la clé est résoluble (`GENENGINE_AI_AZURE_FOUNDRY_KEY` présent) ; sinon `Offline`
+  reste en place — Docker et CI inchangés.
+- **Repli garanti, prouvé en vrai.** Fournisseur absent, désactivé, secret introuvable, erreur
+  HTTP ou timeout renvoient `null` et l'aide dégrade hors ligne, jamais une exception. Vérifié
+  sur la pile vivante : fournisseur activé →
+  `POST /me/experience/assistant/contextual-help` renvoie `source: "Ai"`, `isFallback: false` ;
+  fournisseur désactivé → `source: "OfflineRule"`, `isFallback: true`, HTTP 200.
+- **Deux clients Azure, une divergence documentée.** `AzureFoundryScenarioDraftGenerator`
+  (`Authoring`) garde `DefaultAzureCredential` et les URL de style Azure, incompatibles avec la
+  surface `/openai/v1` de l'assistant : le pourquoi est écrit dans le code et dans
+  `specs/platform-configuration.md`, pas laissé implicite.
+- **Activation.** Publier sur le front une entrée `aiProviders[]` `Enabled` de type
+  `AzureAiFoundry` (endpoint `…/openai/v1`, deployment = **nom de déploiement Azure**,
+  `secretReference: env:GENENGINE_AI_AZURE_FOUNDRY_KEY`) et fournir la variable au processus.
+  `scripts/verify-ai-assistant.sh` fait ce parcours de bout en bout, désactivé par défaut et
+  activé par la présence de `GENENGINE_AI_AZURE_FOUNDRY_KEY`.
+- **Vérification.** `dotnet build -warnaserror` propre, `dotnet test` au vert (208 tests dans
+  `GenEngine.Services.Tests`, 200 → 204 : +4 pour le nouveau client — absent, secret manquant,
+  erreur, succès avec en-têtes et URL vérifiés), `dotnet format` sans écart sur les fichiers touchés.
+
 Contexte livré au jalon 3 :
 
 - `HRD-004` audit : `IAuditLog` dans `GenEngine.Observability`, émis à la frontière Api ; `specs/process/audit.md`.
