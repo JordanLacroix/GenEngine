@@ -1,6 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
-  <ItemGroup><ProjectReference Include="..\GenEngine.PlayerExperience.Application\GenEngine.PlayerExperience.Application.csproj" /></ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\GenEngine.PlayerExperience.Application\GenEngine.PlayerExperience.Application.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\GenEngine.Secrets\GenEngine.Secrets.csproj" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design"><PrivateAssets>all</PrivateAssets></PackageReference>
@@ -8,4 +11,7 @@
     <PackageReference Include="Microsoft.Extensions.Http.Resilience" />
   </ItemGroup>
   <ItemGroup><FrameworkReference Include="Microsoft.AspNetCore.App" /></ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="GenEngine.Services.Tests" />
+  </ItemGroup>
 </Project>

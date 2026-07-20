@@ -209,6 +209,15 @@ internal static class ScenarioGenerationExtensions
             client => client.BaseAddress = new Uri(configurationBaseUrl));
         services.AddSingleton<IScenarioDraftGenerator, OfflineScenarioDraftGenerator>();
 
+        // This generator keeps DefaultAzureCredential (Entra) on purpose, and it is a
+        // documented divergence from the assistant provider in PlayerExperience, which
+        // authenticates with an api-key resolved through SecretStore against the
+        // OpenAI-compatible surface. The AzureOpenAIClient below builds Azure-style URLs
+        // (/openai/deployments/…) that do not fit the /openai/v1 surface, and Entra without
+        // a secret is legitimate here. Aligning both onto the same api-key resolution means
+        // switching to the plain OpenAI client and reading the internal ai-providers route —
+        // an evolution to make when scenario generation is verified end to end, not here.
+        // See specs/platform-configuration.md § "Deux clients Azure, une seule résolution".
         string? endpoint = configuration["AzureFoundry:Endpoint"];
         string? deployment = configuration["AzureFoundry:Deployment"];
         if (!string.IsNullOrWhiteSpace(endpoint) && !string.IsNullOrWhiteSpace(deployment))

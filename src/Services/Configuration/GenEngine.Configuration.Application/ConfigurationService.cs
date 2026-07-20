@@ -277,6 +277,40 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
     }
 
     /// <summary>
+    /// AI provider connection details of a published front, for a trusted backend service.
+    /// <para>
+    /// This is the counterpart the anonymous projection deliberately withholds: it keeps the
+    /// endpoint, the deployment and the opaque secret reference so a consuming service can
+    /// reach the provider and resolve its own credential locally. It is served only over the
+    /// internal, key-guarded route, never to an unauthenticated client.
+    /// </para>
+    /// </summary>
+    public async Task<IReadOnlyList<AiProviderConnectionView>> GetPublishedAiProvidersAsync(
+        string frontId,
+        CancellationToken cancellationToken)
+    {
+        ExperienceConfiguration configuration = await GetRequiredAsync(frontId, cancellationToken).ConfigureAwait(false);
+        if (configuration.PublishedJson is null || configuration.PublishedAt is null)
+        {
+            throw new ConfigurationException("configuration_not_published", "The front configuration is not published.");
+        }
+
+        ExperienceDocument document = Deserialize(configuration.PublishedJson);
+        return document.AiProviders
+            .Select(static provider => new AiProviderConnectionView(
+                provider.Id,
+                provider.Name,
+                provider.Type,
+                provider.Enabled,
+                provider.Endpoint,
+                provider.Deployment,
+                provider.Authentication,
+                provider.SecretReference,
+                provider.Capabilities))
+            .ToArray();
+    }
+
+    /// <summary>
     /// Anonymous projection of a published document, served by <c>GET /experience/{frontId}</c>.
     /// <para>
     /// The route is reachable without a token, so it must not carry anything an
@@ -433,7 +467,7 @@ public sealed class ConfigurationService(IConfigurationRepository repository, Ti
         new AuthenticationDefinition(AuthenticationMode.LocalOnly, true, false, null, null),
         [
             new AiProviderDefinition(Guid.Parse("3e6f6554-9b55-49ca-bd24-19e2f57e672a"), "Hors ligne", AiProviderType.Offline, true, string.Empty, "deterministic", "None", null, ["chat", "scenario-generation"]),
-            new AiProviderDefinition(Guid.Parse("43b164f2-5a7d-48c0-b5c6-0dd7a3d44ea4"), "Azure AI Foundry", AiProviderType.AzureAiFoundry, false, "https://resource.openai.azure.com/openai/v1/", "gpt-4.1-mini", "EntraId", "env:GENENGINE_AI_AZURE_FOUNDRY_KEY", ["chat", "scenario-generation", "input-analysis"]),
+            new AiProviderDefinition(Guid.Parse("43b164f2-5a7d-48c0-b5c6-0dd7a3d44ea4"), "Azure AI Foundry", AiProviderType.AzureAiFoundry, false, "https://newfoundrymistral-resource.openai.azure.com/openai/v1", "gpt-4o", "ApiKey", "env:GENENGINE_AI_AZURE_FOUNDRY_KEY", ["chat", "scenario-generation", "input-analysis"]),
         ],
         [
             new CategoryDefinition(DiapasonIds.Lucidite, "Lucidité", "Voir ce qui est réellement là avant d'interpréter.", "encre", 1, true),

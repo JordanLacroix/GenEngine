@@ -1,8 +1,10 @@
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 
 using GenEngine.PlayerExperience.Application;
+using GenEngine.Secrets;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Http.Resilience;
@@ -206,6 +208,288 @@ internal sealed class OfflineAssistantAiClient : IAssistantAiClient
 
     public Task<string?> GenerateAsync(AssistantAiContext context, CancellationToken cancellationToken) =>
         Task.FromResult<string?>(null);
+}
+
+/// <summary>
+/// Reads the AI provider connection details of a front from Configuration's internal,
+/// key-guarded route. Like <see cref="ScenarioHelpProvider"/>, it never throws: an
+/// unavailable or malformed Configuration degrades to an empty list, and the assistant
+/// falls back to the offline rules.
+/// </summary>
+internal sealed class ConfigurationAssistantProviderCatalog(
+    HttpClient httpClient,
+    IConfiguration configuration,
+    ILogger<ConfigurationAssistantProviderCatalog> logger) : IAssistantProviderCatalog
+{
+    private static readonly Action<ILogger, string, Exception?> CatalogUnavailable =
+        LoggerMessage.Define<string>(
+            LogLevel.Information,
+            new EventId(1, nameof(CatalogUnavailable)),
+            "Assistant falls back offline: the AI provider catalog is unavailable for front {FrontId}.");
+
+    /// <summary>Mirror of Configuration's <c>AiProviderConnectionView</c>; the enum arrives as its name.</summary>
+    private sealed record ProviderContract(
+        Guid Id,
+        string Name,
+        string Type,
+        bool Enabled,
+        string Endpoint,
+        string Deployment,
+        string Authentication,
+        string? SecretReference,
+        IReadOnlyList<string>? Capabilities);
+
+    public async Task<IReadOnlyList<AssistantAiProvider>> GetAsync(string frontId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using HttpRequestMessage request = new(
+                HttpMethod.Get,
+                $"/internal/ai-providers/{Uri.EscapeDataString(frontId)}");
+            request.Headers.Add("X-Internal-Key", configuration["InternalApi:Key"] ?? string.Empty);
+            using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                CatalogUnavailable(logger, frontId, null);
+                return [];
+            }
+
+            List<ProviderContract>? contracts = await response.Content
+                .ReadFromJsonAsync<List<ProviderContract>>(cancellationToken)
+                .ConfigureAwait(false);
+            return contracts is null
+                ? []
+                : contracts
+                    .Select(static contract => new AssistantAiProvider(
+                        contract.Name,
+                        contract.Type,
+                        contract.Enabled,
+                        contract.Endpoint,
+                        contract.Deployment,
+                        contract.SecretReference))
+                    .ToArray();
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            CatalogUnavailable(logger, frontId, null);
+            return [];
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            CatalogUnavailable(logger, frontId, exception);
+            return [];
+        }
+    }
+}
+
+/// <summary>
+/// The real assistant provider: an Azure AI Foundry deployment exposed over the
+/// OpenAI-compatible surface (<c>/openai/v1</c>). The standard chat-completions wire
+/// format is used directly, so no SDK dependency is introduced.
+/// <para>
+/// Selection is per front and comes from the published <c>aiProviders[]</c> entry:
+/// the enabled Azure AI Foundry provider gives the endpoint, the deployment (the Azure
+/// deployment name, sent as <c>model</c>) and the opaque secret reference. The reference
+/// is resolved locally through <see cref="ISecretStore"/>; no secret ever travels over
+/// the configuration catalog.
+/// </para>
+/// <para>
+/// It authenticates with the <c>api-key</c> header and also sends the same value as a
+/// bearer token, so both an Azure Foundry resource and a plain OpenAI-compatible endpoint
+/// are satisfied. The <c>api-version</c> query parameter is only added when configured.
+/// </para>
+/// <para>
+/// The invariant is graceful degradation: a missing provider, a disabled one, an
+/// unresolved secret, an HTTP error or a timeout all return <c>null</c>, and contextual
+/// help falls back to the offline rules — never an exception surfacing to the player.
+/// </para>
+/// </summary>
+internal sealed class AzureFoundryAssistantAiClient(
+    IAssistantProviderCatalog catalog,
+    ISecretStore secretStore,
+    HttpClient httpClient,
+    IConfiguration configuration,
+    ILogger<AzureFoundryAssistantAiClient> logger) : IAssistantAiClient
+{
+    private const string AzureAiFoundryType = "AzureAiFoundry";
+
+    private static readonly Action<ILogger, string, Exception?> NoUsableProvider =
+        LoggerMessage.Define<string>(
+            LogLevel.Debug,
+            new EventId(1, nameof(NoUsableProvider)),
+            "Assistant resolves offline: no usable AI provider is published for front {FrontId}.");
+
+    private static readonly Action<ILogger, string, Exception?> SecretUnavailable =
+        LoggerMessage.Define<string>(
+            LogLevel.Information,
+            new EventId(2, nameof(SecretUnavailable)),
+            "Assistant resolves offline: the AI provider secret could not be resolved for front {FrontId}.");
+
+    private static readonly Action<ILogger, int, string, Exception?> ProviderRefused =
+        LoggerMessage.Define<int, string>(
+            LogLevel.Information,
+            new EventId(3, nameof(ProviderRefused)),
+            "Assistant resolves offline: the AI provider answered {StatusCode} for front {FrontId}.");
+
+    private static readonly Action<ILogger, string, Exception?> ProviderUnavailable =
+        LoggerMessage.Define<string>(
+            LogLevel.Information,
+            new EventId(4, nameof(ProviderUnavailable)),
+            "Assistant resolves offline: the AI provider is unavailable for front {FrontId}.");
+
+    /// <summary>
+    /// True because a real provider is wired in this deployment. Whether a given front
+    /// actually has a usable provider is decided per request in <see cref="GenerateAsync"/>,
+    /// which returns <c>null</c> to degrade offline when it does not.
+    /// </summary>
+    public bool IsConfigured => true;
+
+    public async Task<string?> GenerateAsync(AssistantAiContext context, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        try
+        {
+            IReadOnlyList<AssistantAiProvider> providers = await catalog
+                .GetAsync(context.FrontId, cancellationToken)
+                .ConfigureAwait(false);
+            AssistantAiProvider? provider = providers.FirstOrDefault(static candidate =>
+                candidate.Enabled
+                && string.Equals(candidate.Type, AzureAiFoundryType, StringComparison.Ordinal)
+                && !string.IsNullOrWhiteSpace(candidate.Endpoint)
+                && !string.IsNullOrWhiteSpace(candidate.Deployment)
+                && !string.IsNullOrWhiteSpace(candidate.SecretReference));
+            if (provider is null)
+            {
+                NoUsableProvider(logger, context.FrontId, null);
+                return null;
+            }
+
+            SecretResolution resolution = await secretStore
+                .ResolveAsync(provider.SecretReference!, cancellationToken)
+                .ConfigureAwait(false);
+            if (!resolution.Succeeded || !resolution.Value.HasValue)
+            {
+                SecretUnavailable(logger, context.FrontId, null);
+                return null;
+            }
+
+            string key = resolution.Value.Reveal();
+            string endpoint = provider.Endpoint.TrimEnd('/');
+            string? apiVersion = configuration["GENENGINE_AI_AZURE_FOUNDRY_API_VERSION"];
+            string url = string.IsNullOrWhiteSpace(apiVersion)
+                ? $"{endpoint}/chat/completions"
+                : $"{endpoint}/chat/completions?api-version={Uri.EscapeDataString(apiVersion)}";
+
+            ChatCompletionRequest payload = new(
+                provider.Deployment,
+                [
+                    new ChatMessagePayload("system", BuildSystemPrompt(context)),
+                    new ChatMessagePayload("user", BuildUserPrompt(context)),
+                ],
+                0.4,
+                400);
+
+            using HttpRequestMessage request = new(HttpMethod.Post, url)
+            {
+                Content = JsonContent.Create(payload),
+            };
+            request.Headers.Add("api-key", key);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
+
+            using HttpResponseMessage response = await httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                ProviderRefused(logger, (int)response.StatusCode, context.FrontId, null);
+                return null;
+            }
+
+            ChatCompletionResponse? completion = await response.Content
+                .ReadFromJsonAsync<ChatCompletionResponse>(cancellationToken)
+                .ConfigureAwait(false);
+            string? content = completion?.Choices is { Count: > 0 } choices
+                ? choices[0].Message?.Content
+                : null;
+            return string.IsNullOrWhiteSpace(content) ? null : content.Trim();
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            ProviderUnavailable(logger, context.FrontId, null);
+            return null;
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            ProviderUnavailable(logger, context.FrontId, exception);
+            return null;
+        }
+    }
+
+    private static string BuildSystemPrompt(AssistantAiContext context)
+    {
+        string guidance = context.Modality switch
+        {
+            HelpModality.Objective => "Reformule l'objectif courant sans dévoiler d'option.",
+            HelpModality.Hint => "Donne un indice discret qui ne nomme jamais la « bonne » réponse.",
+            HelpModality.Consequence => "Rappelle une conséquence que le joueur connaît déjà.",
+            HelpModality.Blocker => "Explique pourquoi une option visible reste indisponible.",
+            _ => "Donne un indice discret et bienveillant.",
+        };
+
+        return $"Tu es {context.FamiliarName}, un compagnon d'aide dans un jeu narratif. "
+            + $"Réponds en français, en une à trois phrases, sur un ton {context.FamiliarTone} "
+            + $"et dans un style {context.FamiliarWritingStyle}. {guidance} "
+            + "Ne révèle jamais un contenu que le joueur n'a pas encore vu.";
+    }
+
+    private static string BuildUserPrompt(AssistantAiContext context)
+    {
+        System.Text.StringBuilder prompt = new();
+        prompt.Append("Scénario : ").AppendLine(context.ScenarioTitle);
+        if (!string.IsNullOrWhiteSpace(context.NodeText))
+        {
+            prompt.Append("Étape : ").AppendLine(context.NodeText);
+        }
+
+        if (context.VisibleChoiceTexts.Count > 0)
+        {
+            prompt.AppendLine("Options visibles :");
+            foreach (string choice in context.VisibleChoiceTexts)
+            {
+                prompt.Append("- ").AppendLine(choice);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(context.AuthorHelpText))
+        {
+            prompt.Append("Aide prévue par l'auteur : ").AppendLine(context.AuthorHelpText);
+        }
+
+        if (context.AlreadyExplored)
+        {
+            prompt.AppendLine("Le joueur a déjà emprunté ce chemin.");
+        }
+
+        prompt.Append("Le joueur demande de l'aide dans ce contexte : ").Append(context.Context);
+        return prompt.ToString();
+    }
+
+    private sealed record ChatCompletionRequest(
+        [property: System.Text.Json.Serialization.JsonPropertyName("model")] string Model,
+        [property: System.Text.Json.Serialization.JsonPropertyName("messages")] IReadOnlyList<ChatMessagePayload> Messages,
+        [property: System.Text.Json.Serialization.JsonPropertyName("temperature")] double Temperature,
+        [property: System.Text.Json.Serialization.JsonPropertyName("max_tokens")] int MaxTokens);
+
+    private sealed record ChatMessagePayload(
+        [property: System.Text.Json.Serialization.JsonPropertyName("role")] string Role,
+        [property: System.Text.Json.Serialization.JsonPropertyName("content")] string Content);
+
+    private sealed record ChatCompletionResponse(
+        [property: System.Text.Json.Serialization.JsonPropertyName("choices")] IReadOnlyList<ChatCompletionChoice>? Choices);
+
+    private sealed record ChatCompletionChoice(
+        [property: System.Text.Json.Serialization.JsonPropertyName("message")] ChatMessageContent? Message);
+
+    private sealed record ChatMessageContent(
+        [property: System.Text.Json.Serialization.JsonPropertyName("content")] string? Content);
 }
 
 public static class AssistantHelpResilience

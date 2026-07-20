@@ -21,6 +21,7 @@
     <ProjectReference Include="..\..\src\Services\Configuration\GenEngine.Configuration.Application\GenEngine.Configuration.Application.csproj" />
     <ProjectReference Include="..\..\src\Services\Configuration\GenEngine.Configuration.Infrastructure\GenEngine.Configuration.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Services\PlayerExperience\GenEngine.PlayerExperience.Application\GenEngine.PlayerExperience.Application.csproj" />
+    <ProjectReference Include="..\..\src\Services\PlayerExperience\GenEngine.PlayerExperience.Infrastructure\GenEngine.PlayerExperience.Infrastructure.csproj" />
     <ProjectReference Include="..\..\src\Services\Organization\GenEngine.Organization.Application\GenEngine.Organization.Application.csproj" />
   </ItemGroup>
 </Project>
